@@ -92,14 +92,20 @@ impl<'a> DescriptorWriter<'a> {
         Ok(())
     }
 
-    pub fn interface(&mut self, num_endpoints: u8, interface_class: u8, interface_sub_class: u8, interface_protocol: u8) -> Result<u8> {
+    pub fn alloc_interface(&mut self) -> InterfaceNumber {
         let number = self.next_interface_number;
         self.next_interface_number += 1;
 
+        InterfaceNumber(number)
+    }
+
+    pub fn interface(&mut self, number: InterfaceNumber, num_endpoints: u8,
+        interface_class: u8, interface_sub_class: u8, interface_protocol: u8) -> Result<()>
+    {
         self.write(
             descriptor_type::INTERFACE,
             &[
-                number, // bInterfaceNumber
+                number.into(), // bInterfaceNumber
                 0, // bAlternateSetting (how to even handle these...)
                 num_endpoints, // bNumEndpoints
                 interface_class, // bInterfaceClass
@@ -108,7 +114,7 @@ impl<'a> DescriptorWriter<'a> {
                 0, // iInterface
             ])?;
 
-        Ok(number)
+        Ok(())
     }
 
     pub fn endpoint<T: Endpoint>(&mut self, endpoint: &T) -> Result<()> {
@@ -127,59 +133,9 @@ impl<'a> DescriptorWriter<'a> {
     }
 }
 
-/*pub struct ClassDescriptorWriter<'a> {
-    writer: &'a mut DescriptorWriter<'a>,
+#[derive(Copy, Clone)]
+pub struct InterfaceNumber(u8);
+
+impl From<InterfaceNumber> for u8 {
+    fn from(n: InterfaceNumber) -> u8 { n.0 }
 }
-
-impl<'a> ClassDescriptorWriter<'a> {
-    pub fn new(writer: &'a mut DescriptorWriter<'a>) -> ClassDescriptorWriter {
-        ClassDescriptorWriter {
-            writer,
-            next_interface_number: 0,
-        }
-    }
-}*/
-
-/*pub struct ClassDescriptorWriter<'a> {
-    writer: &'a mut DescriptorWriter<'a>,
-}
-
-impl<'a> ClassDescriptorWriter<'a> {
-    pub fn interface<'b: 'a>(&'b mut self, interface_class: u8, interface_sub_class: u8, interface_protocol: u8)
-        -> InterfaceDescriptorWriter<'b>
-    {
-        let number = self.writer.next_interface_number;
-        self.writer.next_interface_number += 1;
-
-        self.writer.write(
-            descriptor_type::INTERFACE,
-            &[
-                number, // bInterfaceNumber
-                0, // bAlternateSettings (how to even handle these...)
-                0, // bNumEndpoints (placeholder)
-                interface_class, // bInterfaceClass
-                interface_sub_class, // bInterfaceSubClass
-                interface_protocol, // bInterfaceProtocol
-                0, // iInterface
-            ]
-        );
-
-        InterfaceDescriptorWriter {
-            writer: self.writer,
-            number
-        }
-    }
-}
-
-pub struct InterfaceDescriptorWriter<'a> {
-    writer: &'a mut DescriptorWriter<'a>,
-    number: u8,
-}
-
-impl<'a> InterfaceDescriptorWriter<'a> {
-    pub fn endpoint<T: Endpoint>(&mut self, endpoint: &T) {
-        self.writer.write(
-            descriptor_type::ENDPOINT,
-            &[]);
-    }
-}*/
