@@ -1,6 +1,7 @@
 use core::cmp::min;
 use core::mem;
 use core::cell::{Cell, RefCell};
+use ::UsbError;
 use bus::UsbBus;
 use endpoint::{EndpointType, EndpointIn, EndpointOut};
 use control;
@@ -256,7 +257,12 @@ impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
                 self.write_control_in_chunk(&mut control);
             },
             ControlState::DataInZlp => {
-                self.control_in.write(&[]).unwrap();
+                match self.control_in.write(&[]) {
+                    Err(UsbError::Busy) => return,
+                    Err(err) => panic!("{:?}", err),
+                    _ => {},
+                };
+
                 control.state = ControlState::DataInLast;
             },
             ControlState::DataInLast => {
@@ -283,7 +289,11 @@ impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
     fn write_control_in_chunk(&self, control: &mut Control) {
         let count = min(control.len - control.i, self.info.max_packet_size_0 as usize);
 
-        self.control_in.write(&control.buf[control.i..(control.i+count)]).unwrap();
+        let count = match self.control_in.write(&control.buf[control.i..(control.i+count)]) {
+            Err(UsbError::Busy) => return,
+            Err(err) => panic!("{:?}", err),
+            Ok(c) => c,
+        };
 
         control.i += count;
 
