@@ -1,6 +1,6 @@
 use bus::UsbBus;
 use control;
-use device::{UsbDevice, DeviceState, ControlOutResult, ControlInResult};
+use device::{UsbDevice, UsbDeviceState, ControlOutResult, ControlInResult};
 use descriptor::{DescriptorWriter, descriptor_type, lang_id};
 
 impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
@@ -27,7 +27,7 @@ impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
                 }
             },
             (Recipient::Device, sr::SET_CONFIGURATION) => {
-                self.device_state.set(DeviceState::Configured);
+                self.device_state.set(UsbDeviceState::Configured);
                 ControlOutResult::Ok
             },
             (Recipient::Interface, sr::SET_INTERFACE) => {

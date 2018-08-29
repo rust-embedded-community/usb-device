@@ -23,8 +23,17 @@ mod descriptor;
 mod device_info;
 mod device_standard_control;
 
-pub use bus::{UsbBus, EndpointAllocator};
-pub use endpoint::{EndpointType, EndpointIn, EndpointOut};
-pub use device::{UsbDevice, DeviceState};
-pub use device_info::UsbDeviceInfo;
-pub use descriptor::DescriptorWriter;
+pub mod prelude {
+    pub use ::UsbError;
+    pub use ::device::{UsbDevice, UsbDeviceState};
+    pub use ::device_info::UsbDeviceInfo;
+}
+
+pub mod class_prelude {
+    pub use ::UsbError;
+    pub use ::bus::{UsbBus, EndpointAllocator};
+    pub use ::descriptor::DescriptorWriter;
+    pub use ::endpoint::{EndpointType, EndpointIn, EndpointOut};
+    pub use ::class::{UsbClass, ControlOutResult, ControlInResult};
+    pub use ::control;
+}

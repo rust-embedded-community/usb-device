@@ -8,7 +8,7 @@ use class::UsbClass;
 use device_info::UsbDeviceInfo;
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
-pub enum DeviceState {
+pub enum UsbDeviceState {
     Default,
     Addressed,
     Configured,
@@ -48,7 +48,7 @@ pub struct UsbDevice<'a, T: UsbBus + 'a> {
     class_count: usize,
 
     control: RefCell<Control>,
-    pub(crate) device_state: Cell<DeviceState>,
+    pub(crate) device_state: Cell<UsbDeviceState>,
     pub(crate) pending_address: Cell<u8>,
 }
 
@@ -77,7 +77,7 @@ impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
                 i: 0,
                 len: 0,
             }),
-            device_state: Cell::new(DeviceState::Default),
+            device_state: Cell::new(UsbDeviceState::Default),
             pending_address: Cell::new(0),
         };
 
@@ -95,14 +95,14 @@ impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
         &self.class_arr[..self.class_count]
     }
 
-    pub fn state(&self) -> DeviceState {
+    pub fn state(&self) -> UsbDeviceState {
         self.device_state.get()
     }
 
     fn reset(&self) {
         self.bus.reset();
 
-        self.device_state.set(DeviceState::Default);
+        self.device_state.set(UsbDeviceState::Default);
 
         let mut control = self.control.borrow_mut();
         control.state = ControlState::Idle;
@@ -264,7 +264,7 @@ impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
                 if addr != 0 {
                     // SET_ADDRESS is really handled after the status packet has been sent
                     self.bus.set_device_address(addr);
-                    self.device_state.set(DeviceState::Addressed);
+                    self.device_state.set(UsbDeviceState::Addressed);
                 }
 
                 control.state = ControlState::Idle;
