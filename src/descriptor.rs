@@ -1,7 +1,8 @@
 use core::mem;
 use core::slice;
 use ::{Result, UsbError};
-use bus::Endpoint;
+use bus::UsbBus;
+use endpoint::{Endpoint, Direction};
 
 pub mod descriptor_type {
     pub const DEVICE: u8 = 1;
@@ -117,7 +118,7 @@ impl<'a> DescriptorWriter<'a> {
         Ok(())
     }
 
-    pub fn endpoint<T: Endpoint>(&mut self, endpoint: &T) -> Result<()> {
+    pub fn endpoint<'e, B: UsbBus, D: Direction>(&mut self, endpoint: &Endpoint<'e, B, D>) -> Result<()> {
         let mps = endpoint.max_packet_size();
 
         self.write(

@@ -1,7 +1,8 @@
 use core::cmp::min;
 use core::mem;
 use core::cell::{Cell, RefCell};
-use bus::{UsbBus, EndpointType, EndpointPair, EndpointIn, EndpointOut};
+use bus::UsbBus;
+use endpoint::{EndpointType, EndpointIn, EndpointOut};
 use control;
 use class::UsbClass;
 use device_info::UsbDeviceInfo;
@@ -38,8 +39,8 @@ const MAX_ENDPOINTS: usize = 16;
 
 pub struct UsbDevice<'a, T: UsbBus + 'a> {
     bus: &'a T,
-    control_in: EndpointIn<'a, T>,
     control_out: EndpointOut<'a, T>,
+    control_in: EndpointIn<'a, T>,
 
     pub(crate) info: UsbDeviceInfo<'a>,
 
@@ -52,14 +53,17 @@ pub struct UsbDevice<'a, T: UsbBus + 'a> {
 }
 
 impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
-    pub fn new(bus: &'a T, info: UsbDeviceInfo<'a>, classes: &[&'a dyn UsbClass]) -> UsbDevice<'a, T> {
-        let (control_out, control_in) = EndpointPair::new(bus, 0)
-            .split(EndpointType::Control, info.max_packet_size_0 as u16);
+    pub fn new(bus: &'a T, info: UsbDeviceInfo<'a>, classes: &[&'a dyn UsbClass])
+        -> UsbDevice<'a, T>
+    {
+        let eps = bus.endpoints();
 
-        let mut dev = UsbDevice {
+        let mut dev = UsbDevice::<'a, T> {
             bus,
-            control_in,
-            control_out,
+            control_out: eps.alloc(Some(0), EndpointType::Control,
+                info.max_packet_size_0 as u16, 0).unwrap(),
+            control_in: eps.alloc(Some(0), EndpointType::Control,
+                info.max_packet_size_0 as u16, 0).unwrap(),
 
             info,
 
@@ -104,9 +108,6 @@ impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
         control.state = ControlState::Idle;
 
         self.pending_address.set(0);
-
-        self.control_out.configure().unwrap();
-        self.control_in.configure().unwrap();
 
         for cls in self.classes() {
             cls.reset().unwrap();
