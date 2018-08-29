@@ -5,7 +5,7 @@ use bus::UsbBus;
 use endpoint::{EndpointType, EndpointIn, EndpointOut};
 use control;
 use class::UsbClass;
-use device_info::UsbDeviceInfo;
+pub use device_builder::{UsbDeviceBuilder, UsbVidPid};
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum UsbDeviceState {
@@ -53,7 +53,11 @@ pub struct UsbDevice<'a, T: UsbBus + 'a> {
 }
 
 impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
-    pub fn new(bus: &'a T, info: UsbDeviceInfo<'a>, classes: &[&'a dyn UsbClass])
+    pub fn new(bus: &'a T, vid_pid: UsbVidPid) -> UsbDeviceBuilder<'a, T> {
+        UsbDeviceBuilder::new(bus, vid_pid)
+    }
+
+    pub(crate) fn build(bus: &'a T, classes: &[&'a dyn UsbClass], info: UsbDeviceInfo<'a>)
         -> UsbDevice<'a, T>
     {
         let eps = bus.endpoints();
@@ -328,6 +332,23 @@ impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
         self.control_out.stall();
         self.control_in.stall();
     }
+}
+
+#[derive(Copy, Clone)]
+pub(crate) struct UsbDeviceInfo<'a> {
+    pub device_class: u8,
+    pub device_sub_class: u8,
+    pub device_protocol: u8,
+    pub max_packet_size_0: u8,
+    pub vendor_id: u16,
+    pub product_id: u16,
+    pub device_release: u16,
+    pub manufacturer: &'a str,
+    pub product: &'a str,
+    pub serial_number: &'a str,
+    pub self_powered: bool,
+    pub remote_wakeup: bool,
+    pub max_power: u8,
 }
 
 #[derive(Eq, PartialEq, Debug)]
