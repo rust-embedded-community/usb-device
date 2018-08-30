@@ -2,8 +2,10 @@ use bus::UsbBus;
 use device::{UsbDevice, UsbDeviceInfo};
 use class::UsbClass;
 
+/// A USB vendor ID and product ID pair.
 pub struct UsbVidPid(pub u16, pub u16);
 
+/// Used to build new [`UsbDevice`]s.
 pub struct UsbDeviceBuilder<'a, B: 'a> {
     bus: &'a B,
     info: UsbDeviceInfo<'a>,

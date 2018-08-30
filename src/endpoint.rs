@@ -2,30 +2,44 @@ use core::marker::PhantomData;
 use ::Result;
 use bus::UsbBus;
 
+/// Trait for endpoint type markers.
 pub trait Direction {
     const DIRECTION: EndpointDirection;
 }
 
+/// Marker type for OUT endpoints.
 pub struct Out;
+
 impl Direction for Out {
     const DIRECTION: EndpointDirection = EndpointDirection::Out;
 }
 
+/// Marker type for IN endpoints.
 pub struct In;
+
 impl Direction for In {
     const DIRECTION: EndpointDirection = EndpointDirection::In;
 }
 
+/// A host-to-device (OUT) endpoint.
 pub type EndpointOut<'a, B> = Endpoint<'a, B, Out>;
+
+/// A device-to-host (IN) endpoint.
 pub type EndpointIn<'a, B> = Endpoint<'a, B, In>;
 
+/// USB endpoint direction. The values of this enum can be directly cast into `u8` to get the
+/// endpoint address direction bit.
 #[repr(u8)]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum EndpointDirection {
+    /// Host-to-device (OUT).
     Out = 0x00,
+    /// device-to-host (IN).
     In = 0x80,
 }
 
+/// USB endpoint transfer type. The values of this enum can be directly cast into `u8` to get the
+/// transfer bmAttributes transfer type bits.
 #[repr(u8)]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum EndpointType {
@@ -35,6 +49,8 @@ pub enum EndpointType {
     Interrupt = 0b11,
 }
 
+/// Handle for a USB endpoint. The endpoint direction is constrained by the `D` type argument, which
+/// must be either `In` or `Out`.
 pub struct Endpoint<'a, B: 'a + UsbBus, D: Direction> {
     bus: &'a B,
     address: u8,
@@ -58,28 +74,68 @@ impl<'a, B: UsbBus, D: Direction> Endpoint<'a, B, D> {
         }
     }
 
+    /// Gets the endpoint address including direction bit.
     pub fn address(&self) -> u8 { self.address }
+
+    /// Gets the endpoint transfer type.
     pub fn ep_type(&self) -> EndpointType { self.ep_type }
+
+    /// Gets the maximum packet size for the endpoint.
     pub fn max_packet_size(&self) -> u16 { self.max_packet_size }
+
+    /// Gets the poll interval for interrupt endpoints.
     pub fn interval(&self) -> u8 { self.interval }
 
+    /// Sets the STALL condition for the endpoint.
     pub fn stall(&self) {
         self.bus.stall(self.address);
     }
 
+    /// Clears the STALL condition of the endpoint.
     pub fn unstall(&self) {
         self.bus.unstall(self.address);
     }
 }
 
-impl<'a, B: UsbBus> Endpoint<'a, B, Out> {
-    pub fn read(&self, data: &mut [u8]) -> Result<usize> {
-        self.bus.read(self.address, data)
+impl<'a, B: UsbBus> Endpoint<'a, B, In> {
+    /// Writes a single packet of data to the specified endpoint and returns number of bytes
+    /// actually written.
+    ///
+    /// The only reason for a short write is if the caller passes a slice larger than the amount of
+    /// memory allocated earlier, and this is generally an error in the class implementation.
+    ///
+    /// # Errors
+    ///
+    /// Note: USB bus implementation errors are directly passed through, so be prepared to handle
+    /// other errors as well.
+    ///
+    /// * [`InvalidEndpoint`](::UsbError::InvalidEndpoint) - The `ep_addr` does not point to a
+    ///   valid endpoint that was previously allocated with [`UsbBus::alloc_ep`].
+    /// * [`Busy`](::UsbError::Busy) - A previously written packet is still pending to be sent.
+    pub fn write(&self, data: &[u8]) -> Result<usize> {
+        self.bus.write(self.address, data)
     }
 }
 
-impl<'a, B: UsbBus> Endpoint<'a, B, In> {
-    pub fn write(&self, data: &[u8]) -> Result<usize> {
-        self.bus.write(self.address, data)
+impl<'a, B: UsbBus> Endpoint<'a, B, Out> {
+    /// Reads a single packet of data from the specified endpoint and returns the actual length of
+    /// the packet.
+    ///
+    /// This should also clear any NAK flags and prepare the endpoint to receive the next packet.
+    ///
+    /// # Errors
+    ///
+    /// Note: USB bus implementation errors are directly passed through, so be prepared to handle
+    /// other errors as well.
+    ///
+    /// * [`InvalidEndpoint`](::UsbError::InvalidEndpoint) - The `ep_addr` does not point to a
+    ///   valid endpoint that was previously allocated with [`UsbBus::alloc_ep`].
+    /// * [`NoData`](::UsbError::NoData) - There is no packet to be read. Note that this is
+    ///   different from a received zero-length packet, which is valid in USB. A zero-length packet
+    ///   will return `Ok(0)`.
+    /// * [`BufferOverflow`](::UsbError::BufferOverflow) - The received packet is too long to fix
+    ///   in `buf`. This is generally an error in the class implementation.
+    pub fn read(&self, data: &mut [u8]) -> Result<usize> {
+        self.bus.read(self.address, data)
     }
 }

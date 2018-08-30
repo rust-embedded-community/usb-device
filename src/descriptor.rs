@@ -16,6 +16,7 @@ pub mod lang_id {
     pub const ENGLISH_US: u16 = 0x0409;
 }
 
+/// A writer for USB descriptors.
 pub struct DescriptorWriter<'a> {
     buf: &'a mut [u8],
     i: usize,
@@ -51,6 +52,7 @@ impl<'a> DescriptorWriter<'a> {
         self.buf[index..index+data.len()].copy_from_slice(data);
     }
 
+    /// Writes an arbitrary (usually class-specific) descriptor.
     pub fn write(&mut self, descriptor_type: u8, descriptor: &[u8]) -> Result<()> {
         let length = descriptor.len();
 
@@ -93,6 +95,17 @@ impl<'a> DescriptorWriter<'a> {
         Ok(())
     }
 
+    /// Writes a string descriptor.
+    ///
+    /// # Arguments
+    ///
+    /// * `number` - Interface number previously allocated with
+    ///   [`UsbAllocator::interface`](::bus::UsbAllocator::interface).
+    /// * `num_endpoints` - Number of endpoint descriptors to follow.
+    /// * `interface_class` - Class code assigned by USB.org. Use `0xff` for vendor-specific
+    ///   devices that do not conform to any class.
+    /// * `interface_sub_class` - Sub-class code assigned by USB.org.
+    /// * `interface_protocol` - Protocol code assigned by USB.org.
     pub fn interface(&mut self, number: InterfaceNumber, num_endpoints: u8,
         interface_class: u8, interface_sub_class: u8, interface_protocol: u8) -> Result<()>
     {
@@ -113,6 +126,12 @@ impl<'a> DescriptorWriter<'a> {
         Ok(())
     }
 
+    /// Writes an endpoint descriptor.
+    ///
+    /// # Arguments
+    ///
+    /// * `endpoint` - Endpoint previously allocated with
+    ///   [`UsbAllocator`](::bus::UsbAllocator).
     pub fn endpoint<'e, B: UsbBus, D: Direction>(&mut self, endpoint: &Endpoint<'e, B, D>) -> Result<()> {
         let mps = endpoint.max_packet_size();
 

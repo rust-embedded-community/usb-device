@@ -1,13 +1,17 @@
 use core::mem;
 use ::{Result, UsbError};
 
+/// Control request direction.
 #[repr(u8)]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Direction {
+    /// Host-to-device direction (control OUT transfer)
     HostToDevice = 0,
+    /// Device-to-host direction (control IN transfer)
     DeviceToHost = 1,
 }
 
+/// Control request type.
 #[repr(u8)]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum RequestType {
@@ -17,6 +21,7 @@ pub enum RequestType {
     Reserved = 3,
 }
 
+/// Control request recipient.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Recipient {
     Device = 0,
@@ -26,14 +31,24 @@ pub enum Recipient {
     Reserved = 4,
 }
 
+/// A control request read from a SETUP packet.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct Request {
+    /// Direction of the request.
     pub direction: Direction,
+    /// Type of the request.
     pub request_type: RequestType,
+    /// Recipient of the request.
     pub recipient: Recipient,
+    /// Request code. The meaning of the value depends on the previous fields.
     pub request: u8,
+    /// Request value. The meaning of the value depends on the previous fields.
     pub value: u16,
+    /// Request index. The meaning of the value depends on the previous fields.
     pub index: u16,
+    /// Length of the DATA stage. For control OUT transfers this is the exact length of the data the
+    /// host sent. For control IN transfers this is the maximum length of data the device should
+    /// return.
     pub length: u16,
 }
 

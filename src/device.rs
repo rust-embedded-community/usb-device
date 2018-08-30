@@ -38,6 +38,7 @@ struct Control {
 
 const MAX_ENDPOINTS: usize = 16;
 
+/// A USB device consisting of one or more device classes.
 pub struct UsbDevice<'a, T: UsbBus + 'a> {
     pub(crate) bus: &'a T,
     control_out: EndpointOut<'a, T>,
@@ -57,6 +58,7 @@ pub struct UsbDevice<'a, T: UsbBus + 'a> {
 }
 
 impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
+    /// Creates a [`UsbDeviceBuilder`] for constructing a new instance.
     pub fn new(bus: &'a T, vid_pid: UsbVidPid) -> UsbDeviceBuilder<'a, T> {
         UsbDeviceBuilder::new(bus, vid_pid)
     }
@@ -106,18 +108,22 @@ impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
         &self.class_arr[..self.class_count]
     }
 
+    /// Gets the current state of the device.
     pub fn state(&self) -> UsbDeviceState {
         self.device_state.get()
     }
 
+    /// Gets whether host remote wakeup has been enabled by the host.
     pub fn remote_wakeup_enabled(self) -> bool {
         self.remote_wakeup_enabled.get()
     }
 
+    /// Gets whether the device is currently self powered.
     pub fn self_powered(self) -> bool {
         self.self_powered.get()
     }
 
+    /// Sets whether the device is currently self powered.
     pub fn set_self_powered(self, is_self_powered: bool) {
         self.self_powered.set(is_self_powered);
     }
@@ -139,6 +145,9 @@ impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
         }
     }
 
+    /// Polls the [`UsbBus`] for new events and dispatches them accordingly. This should be called
+    /// periodically  more often than once every 10 milliseconds to stay USB-compliant, or
+    /// from an interrupt handler.
     pub fn poll(&self) {
         let pr = self.bus.poll();
 
