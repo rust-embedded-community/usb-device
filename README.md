@@ -26,7 +26,6 @@ TODO
 
 Features planned but not implemented yet:
 
-- Documentation
 - Detecting bus state (connected/not connected)
 - Suspend and resume
 - Interface alternate settings
@@ -38,5 +37,5 @@ Features planned but not implemented yet:
 
 Features not planning to support at the moment:
 
-- More than one configuration descriptor
-- Control transfers on other than endpoint 0
+- More than one configuration descriptor (uncommon in practice)
+- Control transfers on other than endpoint 0 (can be implemented manually if absolutely necessary)
