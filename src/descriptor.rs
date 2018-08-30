@@ -4,6 +4,8 @@ use ::{Result, UsbError};
 use bus::{UsbBus, InterfaceNumber};
 use endpoint::{Endpoint, Direction};
 
+/// Standard descriptor types
+#[allow(missing_docs)]
 pub mod descriptor_type {
     pub const DEVICE: u8 = 1;
     pub const CONFIGURATION: u8 = 2;
@@ -12,7 +14,11 @@ pub mod descriptor_type {
     pub const ENDPOINT: u8 = 5;
 }
 
+/// String descriptor language IDs.
 pub mod lang_id {
+    /// English (US)
+    ///
+    /// Recommended for use as the first language ID for compatibility.
     pub const ENGLISH_US: u16 = 0x0409;
 }
 

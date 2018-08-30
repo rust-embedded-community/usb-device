@@ -67,14 +67,22 @@ pub type Result<T> = core::result::Result<T, UsbError>;
 
 /// USB control transfers and the SETUP packet.
 pub mod control;
+
 /// For implementing peripheral drivers.
 pub mod bus;
+
 /// For implementing USB classes.
 pub mod class;
+
 /// USB endpoints.
 pub mod endpoint;
-mod device;
-mod descriptor;
+
+/// USB composite device.
+pub mod device;
+
+/// Creating USB descriptors
+pub mod descriptor;
+
 mod device_builder;
 mod device_standard_control;
 
