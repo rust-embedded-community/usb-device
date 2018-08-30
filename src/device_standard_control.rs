@@ -23,7 +23,7 @@ fn get_descriptor_type_index(value: u16) -> (u8, u8) {
     ((value >> 8) as u8, value as u8)
 }
 
-impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
+impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
     pub(crate) fn standard_control_out(&self, req: &control::Request, buf: &[u8]) -> ControlOutResult {
         let _ = buf;
 

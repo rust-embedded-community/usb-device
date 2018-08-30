@@ -47,10 +47,10 @@ struct Control {
 const MAX_ENDPOINTS: usize = 16;
 
 /// A USB device consisting of one or more device classes.
-pub struct UsbDevice<'a, T: UsbBus + 'a> {
-    pub(crate) bus: &'a T,
-    control_out: EndpointOut<'a, T>,
-    control_in: EndpointIn<'a, T>,
+pub struct UsbDevice<'a, B: UsbBus + 'a> {
+    pub(crate) bus: &'a B,
+    control_out: EndpointOut<'a, B>,
+    control_in: EndpointIn<'a, B>,
 
     pub(crate) info: UsbDeviceInfo<'a>,
 
@@ -65,18 +65,18 @@ pub struct UsbDevice<'a, T: UsbBus + 'a> {
     pub(crate) halted_eps: Cell<u32>,
 }
 
-impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
+impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
     /// Creates a [`UsbDeviceBuilder`] for constructing a new instance.
-    pub fn new(bus: &'a T, vid_pid: UsbVidPid) -> UsbDeviceBuilder<'a, T> {
+    pub fn new(bus: &'a B, vid_pid: UsbVidPid) -> UsbDeviceBuilder<'a, B> {
         UsbDeviceBuilder::new(bus, vid_pid)
     }
 
-    pub(crate) fn build(bus: &'a T, classes: &[&'a dyn UsbClass], info: UsbDeviceInfo<'a>)
-        -> UsbDevice<'a, T>
+    pub(crate) fn build(bus: &'a B, classes: &[&'a dyn UsbClass], info: UsbDeviceInfo<'a>)
+        -> UsbDevice<'a, B>
     {
         let alloc = bus.allocator();
 
-        let mut dev = UsbDevice::<'a, T> {
+        let mut dev = UsbDevice {
             bus,
             control_out: alloc.alloc(Some(0), EndpointType::Control,
                 info.max_packet_size_0 as u16, 0).unwrap(),
