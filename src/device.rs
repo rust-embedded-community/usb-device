@@ -39,7 +39,7 @@ struct Control {
 const MAX_ENDPOINTS: usize = 16;
 
 pub struct UsbDevice<'a, T: UsbBus + 'a> {
-    bus: &'a T,
+    pub(crate) bus: &'a T,
     control_out: EndpointOut<'a, T>,
     control_in: EndpointIn<'a, T>,
 
@@ -51,6 +51,9 @@ pub struct UsbDevice<'a, T: UsbBus + 'a> {
     control: RefCell<Control>,
     pub(crate) device_state: Cell<UsbDeviceState>,
     pub(crate) pending_address: Cell<u8>,
+    pub(crate) remote_wakeup_enabled: Cell<bool>,
+    pub(crate) self_powered: Cell<bool>,
+    pub(crate) halted_eps: Cell<u32>,
 }
 
 impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
@@ -84,6 +87,9 @@ impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
             }),
             device_state: Cell::new(UsbDeviceState::Default),
             pending_address: Cell::new(0),
+            remote_wakeup_enabled: Cell::new(false),
+            self_powered: Cell::new(false),
+            halted_eps: Cell::new(0),
         };
 
         assert!(classes.len() <= dev.class_arr.len());
@@ -104,10 +110,24 @@ impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
         self.device_state.get()
     }
 
+    pub fn remote_wakeup_enabled(self) -> bool {
+        self.remote_wakeup_enabled.get()
+    }
+
+    pub fn self_powered(self) -> bool {
+        self.self_powered.get()
+    }
+
+    pub fn set_self_powered(self, is_self_powered: bool) {
+        self.self_powered.set(is_self_powered);
+    }
+
     fn reset(&self) {
         self.bus.reset();
 
         self.device_state.set(UsbDeviceState::Default);
+        self.remote_wakeup_enabled.set(false);
+        self.halted_eps.set(0);
 
         let mut control = self.control.borrow_mut();
         control.state = ControlState::Idle;
@@ -357,7 +377,7 @@ pub(crate) struct UsbDeviceInfo<'a> {
     pub product: &'a str,
     pub serial_number: &'a str,
     pub self_powered: bool,
-    pub remote_wakeup: bool,
+    pub supports_remote_wakeup: bool,
     pub max_power: u8,
 }
 

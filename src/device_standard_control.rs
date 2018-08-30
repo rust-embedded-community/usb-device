@@ -3,41 +3,72 @@ use control;
 use device::{UsbDevice, UsbDeviceState, ControlOutResult, ControlInResult};
 use descriptor::{DescriptorWriter, descriptor_type, lang_id};
 
+const FEATURE_ENDPOINT_HALT: u16 = 0;
+const FEATURE_DEVICE_REMOTE_WAKEUP: u16 = 1;
+
+const CONFIGURATION_VALUE: u16 = 1;
+
+const DEFAULT_ALTERNATE_SETTING: u16 = 0;
+
+/// Gets the endpoint index and corresponding bit from an endpoint control request value field
+fn get_ep_index_bit(index: u16) -> (u8, u32) {
+    let ep: u8 = (index & 0x8f) as u8;
+    let bit: u32 = 1u32 << (((ep & 0x80) >> 3) | (ep & 0x0f));
+
+    (ep, bit)
+}
+
+/// Gets the descriptor type and value from the value field of a GET_DESCRIPTOR request
+fn get_descriptor_type_index(value: u16) -> (u8, u8) {
+    ((value >> 8) as u8, value as u8)
+}
+
 impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
     pub(crate) fn standard_control_out(&self, req: &control::Request, buf: &[u8]) -> ControlOutResult {
         let _ = buf;
 
         use control::{Recipient, standard_request as sr};
 
-        match (req.recipient, req.request) {
-            (_, sr::CLEAR_FEATURE) => {
-                // TODO: Actually implement
+        match (req.recipient, req.request, req.value) {
+            (Recipient::Device, sr::CLEAR_FEATURE, FEATURE_DEVICE_REMOTE_WAKEUP) => {
+                self.remote_wakeup_enabled.set(false);
                 ControlOutResult::Ok
             },
-            (_, sr::SET_FEATURE) => {
-                // TODO: Actually implement
+
+            (Recipient::Endpoint, sr::CLEAR_FEATURE, FEATURE_ENDPOINT_HALT) => {
+                let (ep, bit) = get_ep_index_bit(req.index);
+                self.bus.unstall(ep);
+                self.halted_eps.set(self.halted_eps.get() | bit);
                 ControlOutResult::Ok
             },
-            (Recipient::Device, sr::SET_ADDRESS) => {
-                if req.value > 0 && req.value <= 127 {
-                    self.pending_address.set(req.value as u8);
-                    ControlOutResult::Ok
-                } else {
-                    ControlOutResult::Err
-                }
+
+            (Recipient::Device, sr::SET_FEATURE, FEATURE_DEVICE_REMOTE_WAKEUP) => {
+                self.remote_wakeup_enabled.set(true);
+                ControlOutResult::Ok
             },
-            (Recipient::Device, sr::SET_CONFIGURATION) => {
+
+            (Recipient::Endpoint, sr::SET_FEATURE, FEATURE_ENDPOINT_HALT) => {
+                let (ep, bit) = get_ep_index_bit(req.index);
+                self.bus.stall(ep);
+                self.halted_eps.set(self.halted_eps.get() & !bit);
+                ControlOutResult::Ok
+            },
+
+            (Recipient::Device, sr::SET_ADDRESS, 1..=127) => {
+                self.pending_address.set(req.value as u8);
+                ControlOutResult::Ok
+            },
+
+            (Recipient::Device, sr::SET_CONFIGURATION, CONFIGURATION_VALUE) => {
                 self.device_state.set(UsbDeviceState::Configured);
                 ControlOutResult::Ok
             },
-            (Recipient::Interface, sr::SET_INTERFACE) => {
-                // TODO: Actually support alternate settings
-                if req.value == 0 {
-                    ControlOutResult::Ok
-                } else {
-                    ControlOutResult::Err
-                }
+
+            (Recipient::Interface, sr::SET_INTERFACE, DEFAULT_ALTERNATE_SETTING) => {
+                // TODO: change when alternate settings are implemented
+                ControlOutResult::Ok
             },
+
             _ => ControlOutResult::Err,
         }
     }
@@ -45,27 +76,54 @@ impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
     pub(crate) fn standard_control_in(&self, req: &control::Request, buf: &mut [u8]) -> ControlInResult {
         use control::{Recipient, standard_request as sr};
         match (req.recipient, req.request) {
-            (_, sr::GET_STATUS) => {
-                // TODO: Actual implement
-                buf[..2].copy_from_slice(&[0, 0]);
+            (Recipient::Device, sr::GET_STATUS) => {
+                let status: u16 = 0x0000
+                    | if self.self_powered.get() { 0x0001 } else { 0x0000 }
+                    | if self.remote_wakeup_enabled.get() { 0x0002 } else { 0x0000 };
+
+                buf[0] = status as u8;
+                buf[1] = (status >> 8) as u8;
                 ControlInResult::Ok(2)
             },
-            (Recipient::Device, sr::GET_DESCRIPTOR) => self.handle_get_descriptor(&req, buf),
+
+            (Recipient::Interface, sr::GET_STATUS) => {
+                let status: u16 = 0x0000;
+
+                buf[0] = status as u8;
+                buf[1] = (status >> 8) as u8;
+                ControlInResult::Ok(2)
+            },
+
+            (Recipient::Endpoint, sr::GET_STATUS) => {
+                let (_, bit) = get_ep_index_bit(req.index);
+
+                let status: u16 = 0x0000
+                    | if self.halted_eps.get() & bit != 0 { 0x0001 } else { 0x0000 };
+
+                buf[0] = status as u8;
+                buf[1] = (status >> 8) as u8;
+                ControlInResult::Ok(2)
+            },
+
+            (Recipient::Device, sr::GET_DESCRIPTOR) => self.handle_get_descriptor(req, buf),
+
             (Recipient::Device, sr::GET_CONFIGURATION) => {
-                buf[0] = 0x00;
+                buf[0] = CONFIGURATION_VALUE as u8;
                 ControlInResult::Ok(1)
             },
+
             (Recipient::Interface, sr::GET_INTERFACE) => {
-                // TODO: Actually support alternate settings
-                buf[0] = 0x00;
+                // TODO: change when alternate settings are implemented
+                buf[0] = DEFAULT_ALTERNATE_SETTING as u8;
                 ControlInResult::Ok(1)
             },
-            _ => ControlInResult::Ignore,
+
+            _ => ControlInResult::Err,
         }
     }
 
     fn handle_get_descriptor(&self, req: &control::Request, buf: &mut [u8]) -> ControlInResult {
-        let (dtype, index) = req.descriptor_type_index();
+        let (dtype, index) = get_descriptor_type_index(req.value);
 
         let mut writer = DescriptorWriter::new(buf);
 
@@ -88,17 +146,19 @@ impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
                         1, // bNumConfigurations
                     ]).unwrap();
             },
+
             descriptor_type::CONFIGURATION => {
                 writer.write(
                     descriptor_type::CONFIGURATION,
                     &[
                         0, 0, // wTotalLength (placeholder)
                         0, // bNumInterfaces (placeholder)
-                        1, // bConfigurationValue
+                        CONFIGURATION_VALUE as u8, // bConfigurationValue
                         0, // iConfiguration
+                        // bmAttributes:
                         0x80
                             | if self.info.self_powered { 0x40 } else { 0x00 }
-                            | if self.info.remote_wakeup { 0x20 } else { 0x00 }, // bmAttributes
+                            | if self.info.supports_remote_wakeup { 0x20 } else { 0x00 },
                         self.info.max_power // bMaxPower
                     ]).unwrap();
 
@@ -113,6 +173,7 @@ impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
 
                 writer.insert(4, &[num_interfaces]);
             },
+
             descriptor_type::STRING => {
                 if index == 0 {
                     writer.write(
@@ -129,6 +190,7 @@ impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
                     }
                 }
             },
+
             _ => { return ControlInResult::Err; },
         }
 

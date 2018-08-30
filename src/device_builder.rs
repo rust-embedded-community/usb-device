@@ -36,7 +36,7 @@ impl<'a, B: 'a + UsbBus> UsbDeviceBuilder<'a, B> {
                 product: "",
                 serial_number: "",
                 self_powered: false,
-                remote_wakeup: false,
+                supports_remote_wakeup: false,
                 max_power: 50,
             }
         }
@@ -51,7 +51,7 @@ impl<'a, B: 'a + UsbBus> UsbDeviceBuilder<'a, B> {
         product: &'a str,
         serial_number: &'a str,
         self_powered: bool,
-        remote_wakeup: bool,
+        supports_remote_wakeup: bool,
     }
 
     pub fn max_packet_size_0(&mut self, max_packet_size_0: u8) -> &mut Self {

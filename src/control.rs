@@ -58,10 +58,6 @@ impl Request {
             length: (buf[6] as u16) | ((buf[7] as u16) << 8),
         })
     }
-
-    pub fn descriptor_type_index(&self) -> (u8, u8) {
-        ((self.value >> 8) as u8, self.value as u8)
-    }
 }
 
 // TODO: Maybe move parsing standard requests here altogether

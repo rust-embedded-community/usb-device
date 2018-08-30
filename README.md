@@ -34,12 +34,6 @@ Features planned but not implemented yet:
 - Extra string descriptors
 - Multilingual string descriptors
 - Isochronous endpoints
-- Standard requests
-  - GET_STATUS
-  - CLEAR_FEATURE
-  - SET_FEATURE
-  - GET_CONFIGURATION
-  - SYNCH_FRAME
 - Optimize interrupt driven operation (maybe UsbDevice::poll should return which device has data
   available)
 
