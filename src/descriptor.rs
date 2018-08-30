@@ -104,8 +104,8 @@ impl<'a> DescriptorWriter<'a> {
     /// * `num_endpoints` - Number of endpoint descriptors to follow.
     /// * `interface_class` - Class code assigned by USB.org. Use `0xff` for vendor-specific
     ///   devices that do not conform to any class.
-    /// * `interface_sub_class` - Sub-class code assigned by USB.org.
-    /// * `interface_protocol` - Protocol code assigned by USB.org.
+    /// * `interface_sub_class` - Sub-class code. Depends on class.
+    /// * `interface_protocol` - Protocol code. Depends on class and sub-class.
     pub fn interface(&mut self, number: InterfaceNumber, num_endpoints: u8,
         interface_class: u8, interface_sub_class: u8, interface_protocol: u8) -> Result<()>
     {

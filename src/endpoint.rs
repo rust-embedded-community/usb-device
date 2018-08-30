@@ -4,6 +4,7 @@ use bus::UsbBus;
 
 /// Trait for endpoint type markers.
 pub trait Direction {
+    /// Direction value of the marker type.
     const DIRECTION: EndpointDirection;
 }
 
@@ -43,9 +44,14 @@ pub enum EndpointDirection {
 #[repr(u8)]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum EndpointType {
+    /// Control endpoint. Used for device management. Only the host can initiate requests. Usually
+    /// used only endpoint 0.
     Control = 0b00,
+    /// Isochronous endpoint. Used for time-critical unreliable data. Not implemented yet.
     Isochronous = 0b01,
+    /// Bulk endpoint. Used for large amounts of best-effort reliable data.
     Bulk = 0b10,
+    /// Interrupt endpoint. Used for small amounts of time-critical reliable data.
     Interrupt = 0b11,
 }
 

@@ -32,18 +32,34 @@
 //! and people doing that should be familiar with the USB standard.
 
 #![no_std]
+#![warn(missing_docs)]
 
 /// A USB stack error.
 #[derive(Debug)]
 pub enum UsbError {
-    EndpointOverflow,
-    SizeOverflow,
-    InvalidEndpoint,
-    InvalidSetupPacket,
-    EndpointTaken,
+    /// There was no packet available when reading
     NoData,
+
+    /// A previous transfer has not been completed yet
     Busy,
+
+    /// An invalid setup packet was received from the host
+    InvalidSetupPacket,
+
+    /// A buffer too short for the received data was passed (fatal)
     BufferOverflow,
+
+    /// Classes attempted to allocate too many endpoints (fatal)
+    EndpointOverflow,
+
+    /// Classes attempted to allocate too much packet memory (fatal)
+    SizeOverflow,
+
+    /// An invalid endpoint address was used (fatal)
+    InvalidEndpoint,
+
+    /// A specific endpoint address has already been allocated (fatal)
+    EndpointTaken,
 }
 
 /// Result for USB operations.

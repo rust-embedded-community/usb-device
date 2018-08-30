@@ -12,8 +12,9 @@ pub struct UsbDeviceBuilder<'a, B: 'a> {
 }
 
 macro_rules! builder_fields {
-    ($($name:ident: $type:ty,)*) => {
+    ( $( $(#[$meta:meta])* $name:ident: $type:ty, )* ) => {
         $(
+            $(#[$meta])*
             pub fn $name(&mut self, $name: $type) -> &mut Self {
                 self.info.$name = $name;
                 self
@@ -45,17 +46,65 @@ impl<'a, B: 'a + UsbBus> UsbDeviceBuilder<'a, B> {
     }
 
     builder_fields! {
+        /// Sets the device class code assigned by USB.org. Set to `0xff` for vendor-specific
+        /// devices that do not conform to any class.
+        ///
+        /// Default: `0x00` (class code specified by interfaces)
         device_class: u8,
+
+        /// Sets the device sub-class code. Depends on class.
+        ///
+        /// Default: `0x00`
         device_sub_class: u8,
+
+        /// Sets the device protocol code. Depends on class and sub-class.
+        ///
+        /// Default: `0x00`
         device_protocol: u8,
+
+        /// Sets the device release version in BCD.
+        ///
+        /// Default: `0x0010` ("0.1")
         device_release: u16,
+
+        /// Sets the manufacturer name string descriptor.
+        ///
+        /// Default: `""`
         manufacturer: &'a str,
+
+        /// Sets the product name string descriptor.
+        ///
+        /// Default: `""`
         product: &'a str,
+
+        /// Sets the serial number string descriptor.
+        ///
+        /// Default: `""`
         serial_number: &'a str,
+
+        /// Sets whether the device may have an external power source.
+        ///
+        /// This should be set to `true` even if the device is sometimes self-powered and may not
+        /// always draw power from the USB bus.
+        ///
+        /// Default: `false`
+        ///
+        /// See also: `max_power`
         self_powered: bool,
+
+        /// Sets whether the device supports remotely waking up the host is requested.
+        ///
+        /// Default: `false`
         supports_remote_wakeup: bool,
     }
 
+    /// Sets the maximum packet size in bytes for the control endpoint 0.
+    ///
+    /// Valid values are 8, 16, 32 and 64. There's generally no need to change this from the default
+    /// value of 8 bytes unless a class uses control transfers for sending large amounts of data, in
+    /// which case using a larger packet size may be more efficient.
+    ///
+    /// Default: 8 bytes
     pub fn max_packet_size_0(&mut self, max_packet_size_0: u8) -> &mut Self {
         match max_packet_size_0 {
             8 | 16 | 32 | 64 => { }
@@ -66,6 +115,14 @@ impl<'a, B: 'a + UsbBus> UsbDeviceBuilder<'a, B> {
         self
     }
 
+    /// Sets the maximum current drawn from the USB bus by the define in milliamps.
+    ///
+    /// The default is 100 mA. If your device always uses an external power source and never draws
+    /// power from the USB bus, this can be set to 0.
+    ///
+    /// See also: `self_powered`
+    ///
+    /// Default: 100mA
     pub fn max_power(&mut self, max_power_ma: usize) -> &mut Self {
         if max_power_ma > 500 {
             panic!("max_power is too much")
@@ -75,6 +132,8 @@ impl<'a, B: 'a + UsbBus> UsbDeviceBuilder<'a, B> {
         self
     }
 
+    /// Creates a [`UsbDevice`] USB device with the settings in this builder and the specified USB
+    /// classes.
     pub fn build(&self, classes: &[&'a dyn UsbClass]) -> UsbDevice<'a, B> {
         UsbDevice::build(self.bus, classes, self.info)
     }

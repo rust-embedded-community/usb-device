@@ -8,10 +8,18 @@ use control;
 use class::UsbClass;
 pub use device_builder::{UsbDeviceBuilder, UsbVidPid};
 
+/// The global state of the USB device.
+///
+/// In general class traffic is only possible in the `Configured` state.
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum UsbDeviceState {
+    /// The USB device has just been created or reset.
     Default,
+
+    /// The USB device has received an address from the host.
     Addressed,
+
+    /// The USB device has been configured and is fully functional.
     Configured,
 }
 
@@ -109,6 +117,8 @@ impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
     }
 
     /// Gets the current state of the device.
+    ///
+    /// In general class traffic is only possible in the `Configured` state.
     pub fn state(&self) -> UsbDeviceState {
         self.device_state.get()
     }
@@ -390,16 +400,32 @@ pub(crate) struct UsbDeviceInfo<'a> {
     pub max_power: u8,
 }
 
+/// Result returned by classes for a control OUT transfer.
+///
+/// Also used internally for non-class requests.
 #[derive(Eq, PartialEq, Debug)]
 pub enum ControlOutResult {
+    /// Ignored the request and pass it to the next class.
     Ignore,
+
+    /// Accept the request.
     Ok,
+
+    /// Report an error to the host.
     Err,
 }
 
+/// Result returned by classes for a control IN transfer.
+///
+/// Also used internally for non-class requests.
 #[derive(Eq, PartialEq, Debug)]
 pub enum ControlInResult {
+    /// Ignore the request and pass it to the next class.
     Ignore,
+
+    /// Accept the request and return the number of bytes of data in the parameter.
     Ok(usize),
+
+    /// Report an error to the host.
     Err,
 }

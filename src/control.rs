@@ -15,19 +15,30 @@ pub enum Direction {
 #[repr(u8)]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum RequestType {
+    /// Request is a USB standard request. Usually handled by [`UsbDevice`](::device::UsbDevice).
     Standard = 0,
+    /// Request is intended for a USB class.
     Class = 1,
+    /// Request is vendor-specific.
     Vendor = 2,
+    /// Reserved.
     Reserved = 3,
 }
 
 /// Control request recipient.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Recipient {
+    /// Request is intended for the entire device.
     Device = 0,
+    /// Request is intended for an interface. Generally, the `index` field of the reques specifies
+    /// the interface number.
     Interface = 1,
+    /// Request is intended for an endpoint. Generally, the `index` field of the request specifies
+    /// the endpoint address.
     Endpoint = 2,
+    /// None of the above.
     Other = 3,
+    /// Reserved.
     Reserved = 4,
 }
 
@@ -77,7 +88,7 @@ impl Request {
 
 // TODO: Maybe move parsing standard requests here altogether
 
-pub mod standard_request {
+pub(crate) mod standard_request {
     pub const GET_STATUS: u8 = 0;
     pub const CLEAR_FEATURE: u8 = 1;
     pub const SET_FEATURE: u8 = 3;
