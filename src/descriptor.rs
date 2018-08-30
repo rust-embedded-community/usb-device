@@ -1,7 +1,7 @@
 use core::mem;
 use core::slice;
 use ::{Result, UsbError};
-use bus::UsbBus;
+use bus::{UsbBus, InterfaceNumber};
 use endpoint::{Endpoint, Direction};
 
 pub mod descriptor_type {
@@ -20,6 +20,7 @@ pub struct DescriptorWriter<'a> {
     buf: &'a mut [u8],
     i: usize,
     next_interface_number: u8,
+    next_string_index: u8,
 }
 
 impl<'a> DescriptorWriter<'a> {
@@ -28,6 +29,7 @@ impl<'a> DescriptorWriter<'a> {
             buf,
             i: 0,
             next_interface_number: 0,
+            next_string_index: 4,
         }
     }
 
@@ -93,13 +95,6 @@ impl<'a> DescriptorWriter<'a> {
         Ok(())
     }
 
-    pub fn alloc_interface(&mut self) -> InterfaceNumber {
-        let number = self.next_interface_number;
-        self.next_interface_number += 1;
-
-        InterfaceNumber(number)
-    }
-
     pub fn interface(&mut self, number: InterfaceNumber, num_endpoints: u8,
         interface_class: u8, interface_sub_class: u8, interface_protocol: u8) -> Result<()>
     {
@@ -132,11 +127,4 @@ impl<'a> DescriptorWriter<'a> {
 
         Ok(())
     }
-}
-
-#[derive(Copy, Clone)]
-pub struct InterfaceNumber(u8);
-
-impl From<InterfaceNumber> for u8 {
-    fn from(n: InterfaceNumber) -> u8 { n.0 }
 }

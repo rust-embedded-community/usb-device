@@ -30,7 +30,7 @@ pub mod prelude {
 
 pub mod class_prelude {
     pub use ::UsbError;
-    pub use ::bus::{UsbBus, EndpointAllocator};
+    pub use ::bus::{UsbBus, InterfaceNumber, StringIndex, UsbAllocator};
     pub use ::descriptor::DescriptorWriter;
     pub use ::endpoint::{EndpointType, EndpointIn, EndpointOut};
     pub use ::class::{UsbClass, ControlOutResult, ControlInResult};

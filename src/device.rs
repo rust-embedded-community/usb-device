@@ -64,13 +64,13 @@ impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
     pub(crate) fn build(bus: &'a T, classes: &[&'a dyn UsbClass], info: UsbDeviceInfo<'a>)
         -> UsbDevice<'a, T>
     {
-        let eps = bus.endpoints();
+        let alloc = bus.allocator();
 
         let mut dev = UsbDevice::<'a, T> {
             bus,
-            control_out: eps.alloc(Some(0), EndpointType::Control,
+            control_out: alloc.alloc(Some(0), EndpointType::Control,
                 info.max_packet_size_0 as u16, 0).unwrap(),
-            control_in: eps.alloc(Some(0), EndpointType::Control,
+            control_in: alloc.alloc(Some(0), EndpointType::Control,
                 info.max_packet_size_0 as u16, 0).unwrap(),
 
             info,

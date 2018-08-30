@@ -1,7 +1,9 @@
+use core::cell::Cell;
 use endpoint::{Endpoint, EndpointDirection, Direction, EndpointType};
 use ::Result;
 
 pub trait UsbBus: Sized {
+    fn allocator_state<'a>(&'a self) -> &UsbAllocatorState;
     fn alloc_ep(&self, ep_dir: EndpointDirection, ep_addr: Option<u8>, ep_type: EndpointType,
         max_packet_size: u16, interval: u8) -> Result<u8>;
     fn enable(&self);
@@ -13,14 +15,45 @@ pub trait UsbBus: Sized {
     fn unstall(&self, ep_addr: u8);
     fn poll(&self) -> PollResult;
 
-    fn endpoints<'a>(&'a self) -> EndpointAllocator<'a, Self> {
-        EndpointAllocator(self)
+    fn allocator<'a>(&'a self) -> UsbAllocator<'a, Self> {
+        UsbAllocator(self)
     }
 }
 
-pub struct EndpointAllocator<'a, B: 'a + UsbBus>(&'a B);
+pub struct UsbAllocatorState {
+    next_interface_number: Cell<u8>,
+    next_string_index: Cell<u8>,
+}
 
-impl<'a, B: UsbBus> EndpointAllocator<'a, B> {
+impl Default for UsbAllocatorState {
+    fn default() -> UsbAllocatorState {
+        UsbAllocatorState {
+            next_interface_number: Cell::new(0),
+            // Indices 0-3 are reserved for UsbDevice
+            next_string_index: Cell::new(4),
+        }
+    }
+}
+
+pub struct UsbAllocator<'a, B: 'a + UsbBus>(&'a B);
+
+impl<'a, B: UsbBus> UsbAllocator<'a, B> {
+    pub fn interface(&self) -> InterfaceNumber {
+        let state = self.0.allocator_state();
+        let number = state.next_interface_number.get();
+        state.next_interface_number.set(number + 1);
+
+        InterfaceNumber(number)
+    }
+
+    pub fn string(&self) -> StringIndex {
+        let state = self.0.allocator_state();
+        let index = state.next_string_index.get();
+        state.next_string_index.set(index + 1);
+
+        StringIndex(index)
+    }
+
     pub fn alloc<D: Direction>(&self,
         ep_addr: Option<u8>, ep_type: EndpointType,
         max_packet_size: u16, interval: u8) -> Result<Endpoint<'a, B, D>>
@@ -45,6 +78,20 @@ impl<'a, B: UsbBus> EndpointAllocator<'a, B> {
     {
         self.alloc(None, EndpointType::Interrupt, max_packet_size, interval).unwrap()
     }
+}
+
+#[derive(Copy, Clone)]
+pub struct InterfaceNumber(u8);
+
+impl From<InterfaceNumber> for u8 {
+    fn from(n: InterfaceNumber) -> u8 { n.0 }
+}
+
+#[derive(Copy, Clone)]
+pub struct StringIndex(u8);
+
+impl From<StringIndex> for u8 {
+    fn from(i: StringIndex) -> u8 { i.0 }
 }
 
 #[derive(Default)]
