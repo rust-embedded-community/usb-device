@@ -80,15 +80,21 @@ impl<'a, B: UsbBus> UsbAllocator<'a, B> {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub struct InterfaceNumber(u8);
 
 impl From<InterfaceNumber> for u8 {
     fn from(n: InterfaceNumber) -> u8 { n.0 }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub struct StringIndex(u8);
+
+impl StringIndex {
+    pub(crate) fn new(index: u8) -> StringIndex {
+        StringIndex(index)
+    }
+}
 
 impl From<StringIndex> for u8 {
     fn from(i: StringIndex) -> u8 { i.0 }

@@ -31,7 +31,6 @@ Features planned but not implemented yet:
 - Suspend and resume
 - Interface alternate settings
 - A safer DescriptorWriter
-- Extra string descriptors
 - Multilingual string descriptors
 - Isochronous endpoints
 - Optimize interrupt driven operation (maybe UsbDevice::poll should return which device has data

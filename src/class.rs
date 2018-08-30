@@ -1,6 +1,7 @@
 use ::Result;
-pub use device::{ControlOutResult, ControlInResult};
-pub use descriptor::DescriptorWriter;
+use bus::StringIndex;
+use device::{ControlOutResult, ControlInResult};
+use descriptor::DescriptorWriter;
 use control;
 
 pub trait UsbClass {
@@ -29,5 +30,10 @@ pub trait UsbClass {
 
     fn endpoint_in_complete(&self, addr: u8) {
         let _ = addr;
+    }
+
+    fn get_string<'a>(&'a self, index: StringIndex, lang_id: u16) -> Option<&'a str> {
+        let _ = (index, lang_id);
+        None
     }
 }

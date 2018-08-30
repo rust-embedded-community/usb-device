@@ -1,4 +1,4 @@
-use bus::UsbBus;
+use bus::{UsbBus, StringIndex};
 use control;
 use device::{UsbDevice, UsbDeviceState, ControlOutResult, ControlInResult};
 use descriptor::{DescriptorWriter, descriptor_type, lang_id};
@@ -183,7 +183,7 @@ impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
                             (lang_id::ENGLISH_US >> 8) as u8,
                         ]).unwrap();
                 } else {
-                    if let Some(s) = self.get_string(index as usize, req.index) {
+                    if let Some(s) = self.get_string(index, req.index) {
                         writer.write_string(s).unwrap();
                     } else {
                         return ControlInResult::Err;
@@ -197,12 +197,24 @@ impl<'a, T: UsbBus + 'a> UsbDevice<'a, T> {
         ControlInResult::Ok(writer.count())
     }
 
-    fn get_string(&self, index: usize, _lang_id: u16) -> Option<&'a str> {
+    fn get_string(&self, index: u8, lang_id: u16) -> Option<&'a str> {
         match index {
             1 => Some(self.info.manufacturer),
             2 => Some(self.info.product),
             3 => Some(self.info.serial_number),
-            _ => None
+            _ => {
+                let index = StringIndex::new(index);
+
+                for cls in self.classes() {
+                    let s = cls.get_string(index, lang_id);
+
+                    if s.is_some() {
+                        return s;
+                    }
+                }
+
+                None
+            },
         }
     }
 }
