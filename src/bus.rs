@@ -2,7 +2,7 @@ use core::cell::Cell;
 use endpoint::{Endpoint, EndpointDirection, Direction, EndpointType};
 use ::Result;
 
-pub trait UsbBus: Sized {
+pub trait UsbBus  {
     fn allocator_state<'a>(&'a self) -> &UsbAllocatorState;
     fn alloc_ep(&self, ep_dir: EndpointDirection, ep_addr: Option<u8>, ep_type: EndpointType,
         max_packet_size: u16, interval: u8) -> Result<u8>;
@@ -35,7 +35,7 @@ impl Default for UsbAllocatorState {
     }
 }
 
-pub struct UsbAllocator<'a, B: 'a + UsbBus>(&'a B);
+pub struct UsbAllocator<'a, B: 'a + UsbBus + ?Sized>(&'a B);
 
 impl<'a, B: UsbBus> UsbAllocator<'a, B> {
     pub fn interface(&self) -> InterfaceNumber {
