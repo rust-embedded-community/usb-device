@@ -19,8 +19,7 @@ pub mod lang_id {
 pub struct DescriptorWriter<'a> {
     buf: &'a mut [u8],
     i: usize,
-    next_interface_number: u8,
-    next_string_index: u8,
+    num_interfaces: u8,
 }
 
 impl<'a> DescriptorWriter<'a> {
@@ -28,12 +27,11 @@ impl<'a> DescriptorWriter<'a> {
         DescriptorWriter {
             buf,
             i: 0,
-            next_interface_number: 0,
-            next_string_index: 4,
+            num_interfaces: 0,
         }
     }
 
-    pub(crate) fn num_interfaces(&self) -> u8 { self.next_interface_number }
+    pub(crate) fn num_interfaces(&self) -> u8 { self.num_interfaces }
 
     pub(crate) fn count(&self) -> usize { self.i }
 
@@ -98,6 +96,8 @@ impl<'a> DescriptorWriter<'a> {
     pub fn interface(&mut self, number: InterfaceNumber, num_endpoints: u8,
         interface_class: u8, interface_sub_class: u8, interface_protocol: u8) -> Result<()>
     {
+        self.num_interfaces += 1;
+
         self.write(
             descriptor_type::INTERFACE,
             &[
