@@ -26,8 +26,6 @@ TODO
 
 Features planned but not implemented yet:
 
-- Detecting bus state (connected/not connected)
-- Suspend and resume
 - Interface alternate settings
 - A safer DescriptorWriter
 - Multilingual string descriptors
