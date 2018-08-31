@@ -72,7 +72,16 @@ pub trait UsbClass {
         ControlInResult::Ignore
     }
 
-    /// Called when endpoint with address `addr` has received data.
+    /// Called when endpoint with address `addr` has received a SETUP packet. Implementing this
+    /// shouldn't be necessary in most cases, but is provided for completeness' sake.
+    ///
+    /// Note: This method may be called for an endpoint address you didn't allocate, and in that
+    /// case you should ignore the event.
+    fn endpoint_setup(&self, addr: u8) {
+        let _ = addr;
+    }
+
+    /// Called when endpoint with address `addr` has received data (OUT packet).
     ///
     /// Note: This method may be called for an endpoint address you didn't allocate, and in that
     /// case you should ignore the event.
@@ -80,7 +89,7 @@ pub trait UsbClass {
         let _ = addr;
     }
 
-    /// Called when endpoint with address `addr` has completed transmitting data.
+    /// Called when endpoint with address `addr` has completed transmitting data (IN packet).
     ///
     /// Note: This method may be called for an endpoint address you didn't allocate, and in that
     /// case you should ignore the event.

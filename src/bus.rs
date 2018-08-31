@@ -215,23 +215,28 @@ impl From<StringIndex> for u8 {
     fn from(i: StringIndex) -> u8 { i.0 }
 }
 
-/// Event and incoming data information returned by [`UsbBus::poll`].
-#[derive(Default)]
-pub struct PollResult {
-    /// `true` if the USB reset condition has been detected.
-    pub reset: bool,
+/// Event and incoming packet information returned by [`UsbBus::poll`].
+pub enum PollResult {
+    /// No conditions or data to report.
+    None,
 
-    /// `true` if the control endpoint 0 has received a SETUP packet and it can be read. This event
-    /// will continue to be reported until the packet is read.
-    pub setup: bool,
+    /// The USB reset condition has been detected.
+    Reset,
 
-    /// Bitmask of endpoints with an incoming packet. The least significant bit is set if endpoint 0
-    /// has an incoming packet, et cetera. This event will continue to be reported until the packet
-    /// is read.
-    pub ep_out: u16,
+    /// USB packets have been received or sent. Each data field is a bit-field where the least
+    /// significant bit represents endpoint 0 etc., and a set bit signifies the event has occurred
+    /// for the corresponding endpoint.
+    Data {
+        /// An OUT packet has been received. This event should continue to be reported until the
+        /// packet is read.
+        ep_out: u16,
 
-    /// Bitmask of endpoints whose outgoing packet has been transmitted. The least significant bit
-    /// is set if endpoint 0 has finished transmitting, et cetera. This event will only be reported
-    /// once for each completed transfer.
-    pub ep_in_complete: u16,
+        /// An IN packet has finished transmitting. This event should only be reported once for each
+        /// completed transfer.
+        ep_in_complete: u16,
+
+        /// A SETUP packet has been received. The corresponding bit in `ep_out` may also be set but
+        /// is ignored.
+        ep_setup: u16
+    },
 }

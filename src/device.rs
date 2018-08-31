@@ -2,7 +2,7 @@ use core::cmp::min;
 use core::mem;
 use core::cell::{Cell, RefCell};
 use ::UsbError;
-use bus::UsbBus;
+use bus::{UsbBus, PollResult};
 use endpoint::{EndpointType, EndpointIn, EndpointOut};
 use control;
 use class::UsbClass;
@@ -159,33 +159,48 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
     /// periodically  more often than once every 10 milliseconds to stay USB-compliant, or
     /// from an interrupt handler.
     pub fn poll(&self) {
-        let pr = self.bus.poll();
+        match self.bus.poll() {
+            PollResult::None => { }
+            PollResult::Reset => self.reset(),
+            PollResult::Data { ep_out, ep_in_complete, ep_setup } => {
+                // Combine bit fields for quick tests
+                let all = ep_out | ep_in_complete | ep_setup;
 
-        if pr.reset {
-            self.reset();
-            return;
-        }
+                // Pending events for endpoint 0?
+                if (all & 1) != 0 {
+                    if (ep_setup & 1) != 0 {
+                        self.handle_control_setup();
+                    } else if (ep_out & 1) != 0 {
+                        self.handle_control_out();
+                    }
 
-        if pr.setup {
-            self.handle_control_setup();
-        } else if pr.ep_out & 1 != 0 {
-            self.handle_control_out();
-        }
-
-        if pr.ep_in_complete & 1 != 0 {
-            self.handle_control_in_complete();
-        }
-
-        for i in 1..(MAX_ENDPOINTS as u8) {
-            if pr.ep_out & (1 << i) != 0 {
-                for cls in self.classes() {
-                    cls.endpoint_out(i);
+                    if (ep_in_complete & 1) != 0 {
+                        self.handle_control_in_complete();
+                    }
                 }
-            }
 
-            if pr.ep_in_complete & (1 << i) != 0 {
-                for cls in self.classes() {
-                    cls.endpoint_out(i | 0x80);
+                // Pending events for other endpoints?
+                if (all & !1) != 0 {
+                    let mut bit = 2u16;
+                    for i in 1..(MAX_ENDPOINTS as u8) {
+                        if (ep_setup & bit) != 0 {
+                            for cls in self.classes() {
+                                cls.endpoint_setup(i);
+                            }
+                        } else if (ep_out & bit) != 0 {
+                            for cls in self.classes() {
+                                cls.endpoint_out(i);
+                            }
+                        }
+
+                        if (ep_in_complete & bit) != 0 {
+                            for cls in self.classes() {
+                                cls.endpoint_in_complete(i | 0x80);
+                            }
+                        }
+
+                        bit <<= 1;
+                    }
                 }
             }
         }
