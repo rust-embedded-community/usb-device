@@ -93,6 +93,16 @@ pub trait UsbBus {
     /// prepared to receive data again.
     fn unstall(&self, ep_addr: u8);
 
+    /// Causes the USB peripheral to enter USB suspend mode, lowering power consumption and
+    /// preparing to detect a USB wakeup event. This should only be called after
+    /// [`poll`](UsbDevice::poll) returns [`PollResult::Suspend]. The device shall stay suspended
+    /// using `poll` returns a value other than `Suspend`.
+    fn suspend(&self);
+
+    /// Resumes from suspend mode. This may only be called after the peripheral has been previously
+    /// suspended.
+    fn resume(&self);
+
     /// Gets information about events and incoming data. See the [`PollResult`] struct for more
     /// information.
     fn poll(&self) -> PollResult;
@@ -216,8 +226,9 @@ impl From<StringIndex> for u8 {
 }
 
 /// Event and incoming packet information returned by [`UsbBus::poll`].
+#[derive(Eq, PartialEq)]
 pub enum PollResult {
-    /// No conditions or data to report.
+    /// No events or packets to report.
     None,
 
     /// The USB reset condition has been detected.
@@ -239,4 +250,12 @@ pub enum PollResult {
         /// is ignored.
         ep_setup: u16
     },
+
+    /// A USB suspend request has been detected or, in the case of self-powered devices, the device
+    /// has been disconnected from the USB usb.
+    Suspend,
+
+    /// A USB resume request has been detected after being suspended or, in the case of self-powered
+    /// devices, the device has been connected to the USB usb.
+    Resume,
 }

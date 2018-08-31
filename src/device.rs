@@ -21,6 +21,9 @@ pub enum UsbDeviceState {
 
     /// The USB device has been configured and is fully functional.
     Configured,
+
+    /// The USB device has been suspended by the host or it has been unplugged from the USB bus.
+    Suspend,
 }
 
 #[derive(PartialEq, Eq, Debug)]
@@ -159,7 +162,18 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
     /// periodically  more often than once every 10 milliseconds to stay USB-compliant, or
     /// from an interrupt handler.
     pub fn poll(&self) {
-        match self.bus.poll() {
+        let pr = self.bus.poll();
+
+        if self.device_state.get() == UsbDeviceState::Suspend {
+            if !(pr == PollResult::Suspend || pr == PollResult::None) {
+                self.bus.resume();
+                self.device_state.set(UsbDeviceState::Default)
+            } else {
+                return;
+            }
+        }
+
+        match pr {
             PollResult::None => { }
             PollResult::Reset => self.reset(),
             PollResult::Data { ep_out, ep_in_complete, ep_setup } => {
@@ -202,6 +216,11 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                         bit <<= 1;
                     }
                 }
+            },
+            PollResult::Resume => { }
+            PollResult::Suspend => {
+                self.bus.suspend();
+                self.device_state.set(UsbDeviceState::Suspend);
             }
         }
     }
