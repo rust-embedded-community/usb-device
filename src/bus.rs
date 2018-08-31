@@ -5,9 +5,12 @@ use ::Result;
 /// A trait for device-specific USB peripherals. Implement this to add support for a new hardware
 /// platform.
 ///
-/// The UsbBus will be shared by reference between the global [`UsbDevice`](::device::UsbDevice) as
-/// well as [`UsbClass`](::class::UsbClass)es, and thesefore any required mutability must be
-/// implemented using interior mutability. Care must be taken to avoid race conditions.
+/// The UsbBus is shared by reference between the global [`UsbDevice`](::device::UsbDevice) as well
+/// as [`UsbClass`](::class::UsbClass)es, and therefore any required mutability must be implemented
+/// using interior mutability. Most operations that may mutate the bus object itself take place
+/// before [`enable`](UsbBus::enable) is called. After the bus is enabled, in practice most access
+/// won't mutate the object itself but only endpoint-specific registers and buffers, the access to
+/// which is mostly arbitrated by endpoint handles.
 pub trait UsbBus {
     /// Gets an UsbAllocatorState that is used for allocating endpoints and other handles. Each
     /// UsbBus implementation should have an UsbAllocatorState field initialized with

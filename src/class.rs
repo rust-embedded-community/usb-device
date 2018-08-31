@@ -11,9 +11,10 @@ pub trait UsbClass {
         Ok(())
     }
 
-    /// Called when a GET_DESCRIPTOR request is received for a CONFIGURATION descriptor. When
+    /// Called when a GET_DESCRIPTOR request is received for a configuration descriptor. When
     /// called, the implementation should write its interface, endpoint and any extra class
-    /// descriptors into `writer`.
+    /// descriptors into `writer`. The configuration descriptor itself will be written by
+    /// [UsbDevice](::device::UsbDevice) and shouldn't be written by classes.
     ///
     /// # Errors
     ///
@@ -30,7 +31,7 @@ pub trait UsbClass {
     /// error. Classes can even choose to override standard requests, but doing that is rarely
     /// necessary.
     ///
-    /// To ignore the request (default), return [`ControlOutResult::Ignore`]. To accept the result,
+    /// To ignore the request (default), return [`ControlOutResult::Ignore`]. To accept the request,
     /// return [`ControlOutResult::Ok`]. To report an error and return a STALL handshake to the
     /// host, return [`ControlOutResult::Err`].
     ///
@@ -53,11 +54,11 @@ pub trait UsbClass {
     /// error. Classes can even choose to override standard requests, but doing that is rarely
     /// necessary.
     ///
-    /// To ignore the request (default), return [`ControlOutResult::Ignore`]. To accept the result,
-    /// write your response to the buffer passed in `data` and return [`ControlOutResult::Ok`] with
+    /// To ignore the request (default), return [`ControlInResult::Ignore`]. To accept the request,
+    /// write your response to the buffer passed in `data` and return [`ControlInResult::Ok`] with
     /// the number of bytes written. Note that the number of bytes should not exceed `req.length`
     /// bytes. To report an error and return a STALL handshake to the host, return
-    /// [`ControlOutResult::Err`].
+    /// [`ControlInResult::Err`].
     ///
     /// When implementing your own class, you should ignore any requests that are not meant for your
     /// class so that potential other classes in the composite device can process them.
@@ -65,26 +66,32 @@ pub trait UsbClass {
     /// # Arguments
     ///
     /// * `req` - The request from the SETUP packet.
-    /// * `data` - Data to sent in the DATA stage of the control transfer.
+    /// * `data` - Data to send in the DATA stage of the control transfer.
     fn control_in(&self, req: &control::Request, data: &mut [u8]) -> ControlInResult {
         let _ = (req, data);
         ControlInResult::Ignore
     }
 
     /// Called when endpoint with address `addr` has received data.
+    ///
+    /// Note: This method may be called for an endpoint address you didn't allocate, and in that
+    /// case you should ignore the event.
     fn endpoint_out(&self, addr: u8) {
         let _ = addr;
     }
 
     /// Called when endpoint with address `addr` has completed transmitting data.
+    ///
+    /// Note: This method may be called for an endpoint address you didn't allocate, and in that
+    /// case you should ignore the event.
     fn endpoint_in_complete(&self, addr: u8) {
         let _ = addr;
     }
 
     /// Gets a class-specific string descriptor.
     ///
-    /// All string descriptor requests are passed to classes in turn, so implementations should
-    /// return [`None`] if an unknown index is requested.
+    /// Note: All string descriptor requests are passed to all classes in turn, so implementations
+    /// should return [`None`] if an unknown index is requested.
     ///
     /// # Arguments
     ///
