@@ -34,6 +34,7 @@
 
 #![no_std]
 //#![warn(missing_docs)]
+#![feature(asm)]
 
 /// A USB stack error.
 #[derive(Debug)]
@@ -61,6 +62,9 @@ pub enum UsbError {
 
     /// A specific endpoint address has already been allocated (fatal)
     EndpointTaken,
+
+    /// Operation is not supported by device or configuration
+    Unsupported,
 }
 
 /// Result for USB operations.

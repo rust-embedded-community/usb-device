@@ -1,7 +1,7 @@
 use core::cmp::min;
 use core::mem;
 use core::cell::{Cell, RefCell};
-use ::UsbError;
+use ::{Result, UsbError};
 use bus::{UsbBusWrapper, UsbBus, PollResult};
 use endpoint::{EndpointType, EndpointIn, EndpointOut};
 use control;
@@ -77,12 +77,18 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
     pub(crate) fn build(bus: &'a UsbBusWrapper<B>, classes: &[&'a dyn UsbClass], info: UsbDeviceInfo<'a>)
         -> UsbDevice<'a, B>
     {
+        let control_out = bus.alloc(Some(0), EndpointType::Control,
+            info.max_packet_size_0 as u16, 0).unwrap();
+        
+        let control_in = bus.alloc(Some(0), EndpointType::Control,
+            info.max_packet_size_0 as u16, 0).unwrap();
+
+        let bus = bus.freeze();
+
         let mut dev = UsbDevice {
-            bus: bus.bus(),
-            control_out: bus.alloc(Some(0), EndpointType::Control,
-                info.max_packet_size_0 as u16, 0).unwrap(),
-            control_in: bus.alloc(Some(0), EndpointType::Control,
-                info.max_packet_size_0 as u16, 0).unwrap(),
+            bus,
+            control_out,
+            control_in,
 
             info,
 
@@ -107,7 +113,6 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
 
         dev.class_arr[..dev.class_count].copy_from_slice(classes);
 
-        dev.bus.enable();
         dev.reset();
 
         dev
@@ -125,35 +130,22 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
     }
 
     /// Gets whether host remote wakeup has been enabled by the host.
-    pub fn remote_wakeup_enabled(self) -> bool {
+    pub fn remote_wakeup_enabled(&self) -> bool {
         self.remote_wakeup_enabled.get()
     }
 
     /// Gets whether the device is currently self powered.
-    pub fn self_powered(self) -> bool {
+    pub fn self_powered(&self) -> bool {
         self.self_powered.get()
     }
 
     /// Sets whether the device is currently self powered.
-    pub fn set_self_powered(self, is_self_powered: bool) {
+    pub fn set_self_powered(&self, is_self_powered: bool) {
         self.self_powered.set(is_self_powered);
     }
 
-    fn reset(&self) {
-        self.bus.reset();
-
-        self.device_state.set(UsbDeviceState::Default);
-        self.remote_wakeup_enabled.set(false);
-        self.halted_eps.set(0);
-
-        let mut control = self.control.borrow_mut();
-        control.state = ControlState::Idle;
-
-        self.pending_address.set(0);
-
-        for cls in self.classes() {
-            cls.reset().unwrap();
-        }
+    pub fn force_reset(&self) -> Result<()> {
+        self.bus.force_reset()
     }
 
     /// Polls the [`UsbBus`] for new events and dispatches them accordingly. This should be called
@@ -220,6 +212,23 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                 self.bus.suspend();
                 self.device_state.set(UsbDeviceState::Suspend);
             }
+        }
+    }
+
+    fn reset(&self) {
+        self.bus.reset();
+
+        self.device_state.set(UsbDeviceState::Default);
+        self.remote_wakeup_enabled.set(false);
+        self.halted_eps.set(0);
+
+        let mut control = self.control.borrow_mut();
+        control.state = ControlState::Idle;
+
+        self.pending_address.set(0);
+
+        for cls in self.classes() {
+            cls.reset().unwrap();
         }
     }
 

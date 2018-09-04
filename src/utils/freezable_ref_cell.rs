@@ -3,8 +3,8 @@ use core::cell::UnsafeCell;
 use core::ops::{Deref, DerefMut};
 
 const FREE: usize = 0;
-const BORROW_MUT: usize = 0;
-const FROZEN: usize = 0;
+const BORROW_MUT: usize = 1;
+const FROZEN: usize = 2;
 
 pub struct FreezableRefCell<T> {
     value: UnsafeCell<T>,
@@ -12,7 +12,7 @@ pub struct FreezableRefCell<T> {
 }
 
 unsafe impl<T: Send> Send for FreezableRefCell<T> { }
-unsafe impl<T: Sync> Sync for FreezableRefCell<T> { }
+unsafe impl<T: Send> Sync for FreezableRefCell<T> { }
 
 impl<T> FreezableRefCell<T> {
     pub fn new(value: T) -> FreezableRefCell<T> {
@@ -26,21 +26,25 @@ impl<T> FreezableRefCell<T> {
         FreezableRefCell::new(Default::default())
     }
 
-    pub fn borrow_mut(&self) -> FrozenRefMut<T> {
+    // Disable inlining to work around LLVM bug
+    #[inline(never)]
+    pub fn borrow_mut(&self) -> RefMut<T> {
         if self.state.compare_and_swap(
             FREE,
             BORROW_MUT,
             Ordering::SeqCst) != FREE
         {
-            panic!("cell not borrowable");
+            panic!("cell not mutably borrowable");
         }
 
-        FrozenRefMut {
+        RefMut {
             value: unsafe { &mut *self.value.get() },
             state: &self.state,
         }
     }
 
+    // Disable inlining to work around LLVM bug
+    #[inline(never)]
     pub fn freeze(&self) {
         if self.state.compare_and_swap(
             FREE,
@@ -52,7 +56,7 @@ impl<T> FreezableRefCell<T> {
     }
 
     pub fn borrow(&self) -> &T {
-        if !self.state.load(Ordering::SeqCst) != FROZEN {
+        if self.state.load(Ordering::SeqCst) != FROZEN {
             panic!("cell not frozen")
         }
 
@@ -60,12 +64,12 @@ impl<T> FreezableRefCell<T> {
     }
 }
 
-pub struct FrozenRefMut<'a, T: 'a> {
+pub struct RefMut<'a, T: 'a> {
     value: &'a mut T,
     state: &'a AtomicUsize,
 }
 
-impl<'a, T: 'a> Deref for FrozenRefMut<'a, T> {
+impl<'a, T: 'a> Deref for RefMut<'a, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -73,14 +77,14 @@ impl<'a, T: 'a> Deref for FrozenRefMut<'a, T> {
     }
 }
 
-impl<'a, T: 'a> DerefMut for FrozenRefMut<'a, T> {
+impl<'a, T: 'a> DerefMut for RefMut<'a, T> {
     fn deref_mut(&mut self) -> &mut T {
         self.value
     }
 }
 
-impl<'a, T: 'a> Drop for FrozenRefMut<'a, T> {
+impl<'a, T: 'a> Drop for RefMut<'a, T> {
     fn drop(&mut self) {
-        self.state.store(FREE, Ordering::SeqCst)
+        self.state.store(FREE, Ordering::SeqCst);
     }
 }

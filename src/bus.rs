@@ -1,6 +1,6 @@
 use endpoint::{Endpoint, EndpointDirection, Direction, EndpointType};
 use utils::FreezableRefCell;
-use ::Result;
+use ::{Result, UsbError};
 
 /// A trait for device-specific USB peripherals. Implement this to add support for a new hardware
 /// platform.
@@ -34,12 +34,12 @@ pub trait UsbBus: Sized {
     ///   generally caused when a user tries to add too many classes to a composite device.
     /// * [`EndpointTaken`](::UsbError::EndpointTaken) - A specific `ep_addr` was specified but the
     ///   endpoint in question has already been allocated.
-    fn alloc_ep(&self, ep_dir: EndpointDirection, ep_addr: Option<u8>, ep_type: EndpointType,
+    fn alloc_ep(&mut self, ep_dir: EndpointDirection, ep_addr: Option<u8>, ep_type: EndpointType,
         max_packet_size: u16, interval: u8) -> Result<u8>;
 
     /// Enables and initializes the USB peripheral. Soon after enabling the device will be reset, so
     /// there is no need to perform a USB reset in this method.
-    fn enable(&self);
+    fn enable(&mut self);
 
     /// Performs a USB reset. This method should reset the platform-specific peripheral as well as
     /// ensure that all endpoints previously allocate with alloc_ep are initialized as specified.
@@ -101,6 +101,20 @@ pub trait UsbBus: Sized {
     /// Gets information about events and incoming data. See the [`PollResult`] struct for more
     /// information.
     fn poll(&self) -> PollResult;
+
+    /// Simulates a disconnect from the USB bus, causing the host to reset and re-enumerate the
+    /// device.
+    /// 
+    /// Mostly used for development. By calling this at the start of your program ensures that
+    /// the host re-enumerates your device after a new program has been flashed.
+    /// 
+    /// # Errors
+    ///
+    /// * [`Unsupported`](::UsbError::Unsupported) - This UsbBus implementation doesn't support
+    ///   simulating a disconnect or it has not been enabled at creation time.
+    fn force_reset(&self) -> Result<()> {
+        Err(UsbError::Unsupported)
+    }
 }
 
 struct WrapperState {
@@ -112,14 +126,14 @@ struct WrapperState {
 ///
 /// See [`UsbBus::allocator_state`].
 pub struct UsbBusWrapper<B: UsbBus> {
-    bus: B,
+    bus: FreezableRefCell<B>,
     state: FreezableRefCell<WrapperState>,
 }
 
 impl<B: UsbBus> UsbBusWrapper<B> {
     pub fn new(bus: B) -> UsbBusWrapper<B> {
         UsbBusWrapper {
-            bus,
+            bus: FreezableRefCell::new(bus),
             state: FreezableRefCell::new(WrapperState {
                 next_interface_number: 0,
                 next_string_index: 4,
@@ -129,9 +143,11 @@ impl<B: UsbBus> UsbBusWrapper<B> {
 }
 
 impl<B: UsbBus> UsbBusWrapper<B> {
-    pub fn bus<'a>(&'a self) -> &B {
+    pub fn freeze<'a>(&'a self) -> &B {
+        self.bus.borrow_mut().enable();
+        self.bus.freeze();
         self.state.freeze();
-        &self.bus
+        self.bus.borrow()
     }
 
     /// Allocates a new interface number.
@@ -160,7 +176,7 @@ impl<B: UsbBus> UsbBusWrapper<B> {
         ep_addr: Option<u8>, ep_type: EndpointType,
         max_packet_size: u16, interval: u8) -> Result<Endpoint<'a, B, D>>
     {
-        self.bus.alloc_ep(D::DIRECTION, ep_addr, ep_type, max_packet_size, interval)
+        self.bus.borrow_mut().alloc_ep(D::DIRECTION, ep_addr, ep_type, max_packet_size, interval)
             .map(|a| Endpoint::new(&self.bus, a, ep_type, max_packet_size, interval))
     }
 
