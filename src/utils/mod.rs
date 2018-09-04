@@ -1,2 +1,2 @@
 mod freezable_ref_cell;
-pub use self::freezable_ref_cell::FreezableRefCell;
+pub use self::freezable_ref_cell::{FreezableRefCell, RefMut};

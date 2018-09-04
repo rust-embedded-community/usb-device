@@ -55,6 +55,8 @@ impl<T> FreezableRefCell<T> {
         }
     }
 
+    // Disable inlining to work around LLVM bug
+    #[inline(never)]
     pub fn borrow(&self) -> &T {
         if self.state.load(Ordering::SeqCst) != FROZEN {
             panic!("cell not frozen")
@@ -65,8 +67,8 @@ impl<T> FreezableRefCell<T> {
 }
 
 pub struct RefMut<'a, T: 'a> {
-    value: &'a mut T,
     state: &'a AtomicUsize,
+    value: &'a mut T,
 }
 
 impl<'a, T: 'a> Deref for RefMut<'a, T> {

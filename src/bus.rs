@@ -1,5 +1,5 @@
 use endpoint::{Endpoint, EndpointDirection, Direction, EndpointType};
-use utils::FreezableRefCell;
+use utils::{FreezableRefCell, RefMut};
 use ::{Result, UsbError};
 
 /// A trait for device-specific USB peripherals. Implement this to add support for a new hardware
@@ -104,10 +104,10 @@ pub trait UsbBus: Sized {
 
     /// Simulates a disconnect from the USB bus, causing the host to reset and re-enumerate the
     /// device.
-    /// 
+    ///
     /// Mostly used for development. By calling this at the start of your program ensures that
     /// the host re-enumerates your device after a new program has been flashed.
-    /// 
+    ///
     /// # Errors
     ///
     /// * [`Unsupported`](::UsbError::Unsupported) - This UsbBus implementation doesn't support
@@ -143,6 +143,10 @@ impl<B: UsbBus> UsbBusWrapper<B> {
 }
 
 impl<B: UsbBus> UsbBusWrapper<B> {
+    pub fn borrow_mut<'a>(&'a self) -> RefMut<B> {
+        self.bus.borrow_mut()
+    }
+
     pub fn freeze<'a>(&'a self) -> &B {
         self.bus.borrow_mut().enable();
         self.bus.freeze();
