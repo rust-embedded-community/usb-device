@@ -33,7 +33,7 @@
 //! and people doing that should be familiar with the USB standard.
 
 #![no_std]
-#![warn(missing_docs)]
+//#![warn(missing_docs)]
 
 /// A USB stack error.
 #[derive(Debug)]
@@ -144,6 +144,8 @@ pub mod device;
 /// Creating USB descriptors
 pub mod descriptor;
 
+pub mod utils;
+
 mod device_builder;
 mod device_standard_control;
 
@@ -156,7 +158,7 @@ pub mod prelude {
 /// Prelude for class implementors.
 pub mod class_prelude {
     pub use ::UsbError;
-    pub use ::bus::{UsbBus, UsbAllocator, InterfaceNumber, StringIndex};
+    pub use ::bus::{UsbBus, UsbBusWrapper, InterfaceNumber, StringIndex};
     pub use ::device::{ControlOutResult, ControlInResult};
     pub use ::descriptor::DescriptorWriter;
     pub use ::endpoint::{EndpointType, EndpointIn, EndpointOut};

@@ -2,7 +2,7 @@ use core::cmp::min;
 use core::mem;
 use core::cell::{Cell, RefCell};
 use ::UsbError;
-use bus::{UsbBus, PollResult};
+use bus::{UsbBusWrapper, UsbBus, PollResult};
 use endpoint::{EndpointType, EndpointIn, EndpointOut};
 use control;
 use class::UsbClass;
@@ -70,20 +70,18 @@ pub struct UsbDevice<'a, B: UsbBus + 'a> {
 
 impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
     /// Creates a [`UsbDeviceBuilder`] for constructing a new instance.
-    pub fn new(bus: &'a B, vid_pid: UsbVidPid) -> UsbDeviceBuilder<'a, B> {
+    pub fn new(bus: &'a UsbBusWrapper<B>, vid_pid: UsbVidPid) -> UsbDeviceBuilder<'a, B> {
         UsbDeviceBuilder::new(bus, vid_pid)
     }
 
-    pub(crate) fn build(bus: &'a B, classes: &[&'a dyn UsbClass], info: UsbDeviceInfo<'a>)
+    pub(crate) fn build(bus: &'a UsbBusWrapper<B>, classes: &[&'a dyn UsbClass], info: UsbDeviceInfo<'a>)
         -> UsbDevice<'a, B>
     {
-        let alloc = bus.allocator();
-
         let mut dev = UsbDevice {
-            bus,
-            control_out: alloc.alloc(Some(0), EndpointType::Control,
+            bus: bus.bus(),
+            control_out: bus.alloc(Some(0), EndpointType::Control,
                 info.max_packet_size_0 as u16, 0).unwrap(),
-            control_in: alloc.alloc(Some(0), EndpointType::Control,
+            control_in: bus.alloc(Some(0), EndpointType::Control,
                 info.max_packet_size_0 as u16, 0).unwrap(),
 
             info,

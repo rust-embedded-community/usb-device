@@ -1,4 +1,4 @@
-use bus::UsbBus;
+use bus::{UsbBusWrapper, UsbBus};
 use device::{UsbDevice, UsbDeviceInfo};
 use class::UsbClass;
 
@@ -6,8 +6,8 @@ use class::UsbClass;
 pub struct UsbVidPid(pub u16, pub u16);
 
 /// Used to build new [`UsbDevice`]s.
-pub struct UsbDeviceBuilder<'a, B: 'a> {
-    bus: &'a B,
+pub struct UsbDeviceBuilder<'a, B: 'a + UsbBus> {
+    bus: &'a UsbBusWrapper<B>,
     info: UsbDeviceInfo<'a>,
 }
 
@@ -24,7 +24,7 @@ macro_rules! builder_fields {
 }
 
 impl<'a, B: 'a + UsbBus> UsbDeviceBuilder<'a, B> {
-    pub(crate) fn new(bus: &'a B, vid_pid: UsbVidPid) -> UsbDeviceBuilder<'a, B> {
+    pub(crate) fn new(bus: &'a UsbBusWrapper<B>, vid_pid: UsbVidPid) -> UsbDeviceBuilder<'a, B> {
         UsbDeviceBuilder {
             bus,
             info: UsbDeviceInfo {
