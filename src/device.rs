@@ -60,7 +60,7 @@ pub struct UsbDevice<'a, B: UsbBus + 'a> {
 
     pub(crate) info: UsbDeviceInfo<'a>,
 
-    class_arr: [&'a dyn UsbClass; 8],
+    class_arr: [&'a (dyn UsbClass + Sync); 8],
     class_count: usize,
 
     control: AtomicMutex<Control>,
@@ -76,7 +76,7 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
         UsbDeviceBuilder::new(bus, vid_pid)
     }
 
-    pub(crate) fn build(bus: &'a UsbBusWrapper<B>, classes: &[&'a dyn UsbClass], info: UsbDeviceInfo<'a>)
+    pub(crate) fn build(bus: &'a UsbBusWrapper<B>, classes: &[&'a (dyn UsbClass + Sync)], info: UsbDeviceInfo<'a>)
         -> UsbDevice<'a, B>
     {
         let control_out = bus.alloc(Some(0), EndpointType::Control,
@@ -94,7 +94,7 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
 
             info,
 
-            class_arr: [unsafe { mem::uninitialized() }; 8],
+            class_arr: unsafe { mem::uninitialized() },
             class_count: classes.len(),
 
             control: AtomicMutex::new(Control {
@@ -122,7 +122,7 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
         dev
     }
 
-    pub(crate) fn classes(&self) -> &[&'a dyn UsbClass] {
+    pub(crate) fn classes(&self) -> &[&'a (dyn UsbClass + Sync)] {
         &self.class_arr[..self.class_count]
     }
 

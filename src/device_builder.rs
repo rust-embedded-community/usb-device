@@ -134,7 +134,7 @@ impl<'a, B: 'a + UsbBus> UsbDeviceBuilder<'a, B> {
 
     /// Creates a [`UsbDevice`] USB device with the settings in this builder and the specified USB
     /// classes.
-    pub fn build(&self, classes: &[&'a dyn UsbClass]) -> UsbDevice<'a, B> {
+    pub fn build(&self, classes: &[&'a (dyn UsbClass + Sync)]) -> UsbDevice<'a, B> {
         UsbDevice::build(self.bus, classes, self.info)
     }
 }
