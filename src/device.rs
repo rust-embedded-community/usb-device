@@ -453,7 +453,7 @@ pub(crate) struct UsbDeviceInfo<'a> {
 /// Also used internally for non-class requests.
 #[derive(Eq, PartialEq, Debug)]
 pub enum ControlOutResult {
-    /// Ignored the request and pass it to the next class.
+    /// Ignore the request and pass it to the next class.
     Ignore,
 
     /// Accept the request.
