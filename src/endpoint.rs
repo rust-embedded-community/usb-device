@@ -1,6 +1,7 @@
 use core::marker::PhantomData;
 use ::Result;
 use bus::UsbBus;
+use utils::FreezableRefCell;
 
 /// Trait for endpoint type markers.
 pub trait Direction {
@@ -58,7 +59,7 @@ pub enum EndpointType {
 /// Handle for a USB endpoint. The endpoint direction is constrained by the `D` type argument, which
 /// must be either `In` or `Out`.
 pub struct Endpoint<'a, B: 'a + UsbBus, D: Direction> {
-    bus: &'a B,
+    bus: &'a FreezableRefCell<B>,
     address: u8,
     ep_type: EndpointType,
     max_packet_size: u16,
@@ -67,7 +68,7 @@ pub struct Endpoint<'a, B: 'a + UsbBus, D: Direction> {
 }
 
 impl<'a, B: UsbBus, D: Direction> Endpoint<'a, B, D> {
-    pub(crate) fn new(bus: &'a B, address: u8, ep_type: EndpointType,
+    pub(crate) fn new(bus: &'a FreezableRefCell<B>, address: u8, ep_type: EndpointType,
         max_packet_size: u16, interval: u8) -> Endpoint<'a, B, D>
     {
         Endpoint {
@@ -94,12 +95,12 @@ impl<'a, B: UsbBus, D: Direction> Endpoint<'a, B, D> {
 
     /// Sets the STALL condition for the endpoint.
     pub fn stall(&self) {
-        self.bus.stall(self.address);
+        self.bus.borrow().set_stalled(self.address, true);
     }
 
     /// Clears the STALL condition of the endpoint.
     pub fn unstall(&self) {
-        self.bus.unstall(self.address);
+        self.bus.borrow().set_stalled(self.address, false);
     }
 }
 
@@ -119,7 +120,7 @@ impl<'a, B: UsbBus> Endpoint<'a, B, In> {
     ///   valid endpoint that was previously allocated with [`UsbBus::alloc_ep`].
     /// * [`Busy`](::UsbError::Busy) - A previously written packet is still pending to be sent.
     pub fn write(&self, data: &[u8]) -> Result<usize> {
-        self.bus.write(self.address, data)
+        self.bus.borrow().write(self.address, data)
     }
 }
 
@@ -142,6 +143,6 @@ impl<'a, B: UsbBus> Endpoint<'a, B, Out> {
     /// * [`BufferOverflow`](::UsbError::BufferOverflow) - The received packet is too long to fix
     ///   in `buf`. This is generally an error in the class implementation.
     pub fn read(&self, data: &mut [u8]) -> Result<usize> {
-        self.bus.read(self.address, data)
+        self.bus.borrow().read(self.address, data)
     }
 }

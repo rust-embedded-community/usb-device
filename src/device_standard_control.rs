@@ -1,3 +1,4 @@
+use core::sync::atomic::Ordering;
 use bus::{UsbBus, StringIndex};
 use control;
 use device::{UsbDevice, UsbDeviceState, ControlOutResult, ControlInResult};
@@ -31,36 +32,34 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
 
         match (req.recipient, req.request, req.value) {
             (Recipient::Device, sr::CLEAR_FEATURE, FEATURE_DEVICE_REMOTE_WAKEUP) => {
-                self.remote_wakeup_enabled.set(false);
+                self.remote_wakeup_enabled.store(false, Ordering::SeqCst);
                 ControlOutResult::Ok
             },
 
             (Recipient::Endpoint, sr::CLEAR_FEATURE, FEATURE_ENDPOINT_HALT) => {
                 let (ep, bit) = get_ep_index_bit(req.index);
-                self.bus.unstall(ep);
-                self.halted_eps.set(self.halted_eps.get() | bit);
+                self.bus.set_stalled(ep, false);
                 ControlOutResult::Ok
             },
 
             (Recipient::Device, sr::SET_FEATURE, FEATURE_DEVICE_REMOTE_WAKEUP) => {
-                self.remote_wakeup_enabled.set(true);
+                self.remote_wakeup_enabled.store(true, Ordering::SeqCst);
                 ControlOutResult::Ok
             },
 
             (Recipient::Endpoint, sr::SET_FEATURE, FEATURE_ENDPOINT_HALT) => {
                 let (ep, bit) = get_ep_index_bit(req.index);
-                self.bus.stall(ep);
-                self.halted_eps.set(self.halted_eps.get() & !bit);
+                self.bus.set_stalled(ep, true);
                 ControlOutResult::Ok
             },
 
             (Recipient::Device, sr::SET_ADDRESS, 1..=127) => {
-                self.pending_address.set(req.value as u8);
+                self.pending_address.store(req.value as usize, Ordering::SeqCst);
                 ControlOutResult::Ok
             },
 
             (Recipient::Device, sr::SET_CONFIGURATION, CONFIGURATION_VALUE) => {
-                self.device_state.set(UsbDeviceState::Configured);
+                self.set_state(UsbDeviceState::Configured);
                 ControlOutResult::Ok
             },
 
@@ -78,8 +77,8 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
         match (req.recipient, req.request) {
             (Recipient::Device, sr::GET_STATUS) => {
                 let status: u16 = 0x0000
-                    | if self.self_powered.get() { 0x0001 } else { 0x0000 }
-                    | if self.remote_wakeup_enabled.get() { 0x0002 } else { 0x0000 };
+                    | if self.self_powered.load(Ordering::SeqCst) { 0x0001 } else { 0x0000 }
+                    | if self.remote_wakeup_enabled.load(Ordering::SeqCst) { 0x0002 } else { 0x0000 };
 
                 buf[0] = status as u8;
                 buf[1] = (status >> 8) as u8;
@@ -95,10 +94,8 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
             },
 
             (Recipient::Endpoint, sr::GET_STATUS) => {
-                let (_, bit) = get_ep_index_bit(req.index);
-
                 let status: u16 = 0x0000
-                    | if self.halted_eps.get() & bit != 0 { 0x0001 } else { 0x0000 };
+                    | if self.bus.is_stalled(req.index as u8) { 0x0001 } else { 0x0000 };
 
                 buf[0] = status as u8;
                 buf[1] = (status >> 8) as u8;

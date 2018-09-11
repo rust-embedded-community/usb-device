@@ -1,6 +1,6 @@
-use core::cell::Cell;
 use endpoint::{Endpoint, EndpointDirection, Direction, EndpointType};
-use ::Result;
+use utils::{FreezableRefCell, RefMut};
+use ::{Result, UsbError};
 
 /// A trait for device-specific USB peripherals. Implement this to add support for a new hardware
 /// platform.
@@ -11,12 +11,7 @@ use ::Result;
 /// before [`enable`](UsbBus::enable) is called. After the bus is enabled, in practice most access
 /// won't mutate the object itself but only endpoint-specific registers and buffers, the access to
 /// which is mostly arbitrated by endpoint handles.
-pub trait UsbBus {
-    /// Gets an UsbAllocatorState that is used for allocating endpoints and other handles. Each
-    /// UsbBus implementation should have an UsbAllocatorState field initialized with
-    /// [`Default::default()`] that this method returns a reference to.
-    fn allocator_state<'a>(&'a self) -> &UsbAllocatorState;
-
+pub trait UsbBus: Sync + Sized {
     /// Allocates an endpoint and specified endpoint parameters. This method is called by the device
     /// and class implementations to allocate endpoints, and can only be called before
     /// [`UsbBus::enable`] is called.
@@ -39,12 +34,12 @@ pub trait UsbBus {
     ///   generally caused when a user tries to add too many classes to a composite device.
     /// * [`EndpointTaken`](::UsbError::EndpointTaken) - A specific `ep_addr` was specified but the
     ///   endpoint in question has already been allocated.
-    fn alloc_ep(&self, ep_dir: EndpointDirection, ep_addr: Option<u8>, ep_type: EndpointType,
+    fn alloc_ep(&mut self, ep_dir: EndpointDirection, ep_addr: Option<u8>, ep_type: EndpointType,
         max_packet_size: u16, interval: u8) -> Result<u8>;
 
     /// Enables and initializes the USB peripheral. Soon after enabling the device will be reset, so
     /// there is no need to perform a USB reset in this method.
-    fn enable(&self);
+    fn enable(&mut self);
 
     /// Performs a USB reset. This method should reset the platform-specific peripheral as well as
     /// ensure that all endpoints previously allocate with alloc_ep are initialized as specified.
@@ -86,12 +81,12 @@ pub trait UsbBus {
     /// Implementations may also return other errors if applicable.
     fn read(&self, ep_addr: u8, buf: &mut [u8]) -> Result<usize>;
 
-    /// Sets the STALL condition for an endpoint.
-    fn stall(&self, ep_addr: u8);
+    /// Sets or clears the STALL condition for an endpoint. If the endpoint is an OUT endpoint, it
+    /// should be prepared to receive data again.
+    fn set_stalled(&self, ep_addr: u8, stalled: bool);
 
-    /// Clears the STALL condition of an endpoint. If the endpoint is an OUT endpoint, it should be
-    /// prepared to receive data again.
-    fn unstall(&self, ep_addr: u8);
+    /// Gets whether the STALL condition is set for an endpoint.
+    fn is_stalled(&self, ep_addr: u8) -> bool;
 
     /// Causes the USB peripheral to enter USB suspend mode, lowering power consumption and
     /// preparing to detect a USB wakeup event. This should only be called after
@@ -107,52 +102,72 @@ pub trait UsbBus {
     /// information.
     fn poll(&self) -> PollResult;
 
-    /// Returns a [`UsbAllocator`] object that [`::device::UsbDevice`] and class implementations can
-    /// use to allocate endpoints and other handles.
-    fn allocator<'a>(&'a self) -> UsbAllocator<'a, Self> {
-        UsbAllocator(self)
+    /// Simulates a disconnect from the USB bus, causing the host to reset and re-enumerate the
+    /// device.
+    ///
+    /// Mostly used for development. By calling this at the start of your program ensures that
+    /// the host re-enumerates your device after a new program has been flashed.
+    ///
+    /// # Errors
+    ///
+    /// * [`Unsupported`](::UsbError::Unsupported) - This UsbBus implementation doesn't support
+    ///   simulating a disconnect or it has not been enabled at creation time.
+    fn force_reset(&self) -> Result<()> {
+        Err(UsbError::Unsupported)
     }
+}
+
+struct WrapperState {
+    next_interface_number: u8,
+    next_string_index: u8,
 }
 
 /// Internal state for [`UsbAllocator`].
 ///
 /// See [`UsbBus::allocator_state`].
-pub struct UsbAllocatorState {
-    next_interface_number: Cell<u8>,
-    next_string_index: Cell<u8>,
+pub struct UsbBusWrapper<B: UsbBus> {
+    bus: FreezableRefCell<B>,
+    state: FreezableRefCell<WrapperState>,
 }
 
-impl Default for UsbAllocatorState {
-    fn default() -> UsbAllocatorState {
-        UsbAllocatorState {
-            next_interface_number: Cell::new(0),
-            // Indices 0-3 are reserved for UsbDevice
-            next_string_index: Cell::new(4),
+impl<B: UsbBus> UsbBusWrapper<B> {
+    pub fn new(bus: B) -> UsbBusWrapper<B> {
+        UsbBusWrapper {
+            bus: FreezableRefCell::new(bus),
+            state: FreezableRefCell::new(WrapperState {
+                next_interface_number: 0,
+                next_string_index: 4,
+            }),
         }
     }
 }
 
-/// Used by USB class implementations to allocate endpoints as well as interface and string handles.
-///
-/// Allocation is performed at USB class implementation construction time and ensures there are no
-/// conflicts between the endpoints and descriptors used by multiple classes in a composite device.
-pub struct UsbAllocator<'a, B: 'a + UsbBus + ?Sized>(&'a B);
+impl<B: UsbBus> UsbBusWrapper<B> {
+    pub fn borrow_mut<'a>(&'a self) -> RefMut<B> {
+        self.bus.borrow_mut()
+    }
 
-impl<'a, B: UsbBus> UsbAllocator<'a, B> {
+    pub fn freeze<'a>(&'a self) -> &B {
+        self.bus.borrow_mut().enable();
+        self.bus.freeze();
+        self.state.freeze();
+        self.bus.borrow()
+    }
+
     /// Allocates a new interface number.
     pub fn interface(&self) -> InterfaceNumber {
-        let state = self.0.allocator_state();
-        let number = state.next_interface_number.get();
-        state.next_interface_number.set(number + 1);
+        let mut state = self.state.borrow_mut();
+        let number = state.next_interface_number;
+        state.next_interface_number += 1;
 
         InterfaceNumber(number)
     }
 
     /// Allocates a new string index.
     pub fn string(&self) -> StringIndex {
-        let state = self.0.allocator_state();
-        let index = state.next_string_index.get();
-        state.next_string_index.set(index + 1);
+        let mut state = self.state.borrow_mut();
+        let index = state.next_string_index;
+        state.next_string_index += 1;
 
         StringIndex(index)
     }
@@ -161,12 +176,12 @@ impl<'a, B: UsbBus> UsbAllocator<'a, B> {
     ///
     /// This directly delegates to [`UsbBus::alloc_ep`], so see that method for details. This should
     /// rarely be needed by classes.
-    pub fn alloc<D: Direction>(&self,
+    pub fn alloc<'a, D: Direction>(&'a self,
         ep_addr: Option<u8>, ep_type: EndpointType,
         max_packet_size: u16, interval: u8) -> Result<Endpoint<'a, B, D>>
     {
-        self.0.alloc_ep(D::DIRECTION, ep_addr, ep_type, max_packet_size, interval)
-            .map(|a| Endpoint::new(self.0, a, ep_type, max_packet_size, interval))
+        self.bus.borrow_mut().alloc_ep(D::DIRECTION, ep_addr, ep_type, max_packet_size, interval)
+            .map(|a| Endpoint::new(&self.bus, a, ep_type, max_packet_size, interval))
     }
 
     /// Allocates a control endpoint.
@@ -178,7 +193,7 @@ impl<'a, B: UsbBus> UsbAllocator<'a, B> {
     ///
     /// * `max_packet_size` - Maximum packet size in bytes. Must be one of 8, 16, 32 or 64.
     #[inline]
-    pub fn control<D: Direction>(&self, max_packet_size: u16) -> Endpoint<'a, B, D> {
+    pub fn control<'a, D: Direction>(&'a self, max_packet_size: u16) -> Endpoint<'a, B, D> {
         self.alloc(None, EndpointType::Control, max_packet_size, 0).unwrap()
     }
 
@@ -188,7 +203,7 @@ impl<'a, B: UsbBus> UsbAllocator<'a, B> {
     ///
     /// * `max_packet_size` - Maximum packet size in bytes. Must be one of 8, 16, 32 or 64.
     #[inline]
-    pub fn bulk<D: Direction>(&self, max_packet_size: u16) -> Endpoint<'a, B, D> {
+    pub fn bulk<'a, D: Direction>(&'a self, max_packet_size: u16) -> Endpoint<'a, B, D> {
         self.alloc(None, EndpointType::Bulk, max_packet_size, 0).unwrap()
     }
 
@@ -196,7 +211,7 @@ impl<'a, B: UsbBus> UsbAllocator<'a, B> {
     ///
     /// * `max_packet_size` - Maximum packet size in bytes. Cannot exceed 64 bytes.
     #[inline]
-    pub fn interrupt<D: Direction>(&self, max_packet_size: u16, interval: u8)
+    pub fn interrupt<'a, D: Direction>(&'a self, max_packet_size: u16, interval: u8)
         -> Endpoint<'a, B, D>
     {
         self.alloc(None, EndpointType::Interrupt, max_packet_size, interval).unwrap()
