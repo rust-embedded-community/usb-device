@@ -7,8 +7,8 @@ const BORROW_MUT: usize = 1;
 const FROZEN: usize = 2;
 
 pub struct FreezableRefCell<T> {
-    value: UnsafeCell<T>,
     state: AtomicUsize,
+    value: UnsafeCell<T>,
 }
 
 unsafe impl<T: Send> Send for FreezableRefCell<T> { }
@@ -17,8 +17,8 @@ unsafe impl<T: Send> Sync for FreezableRefCell<T> { }
 impl<T> FreezableRefCell<T> {
     pub fn new(value: T) -> FreezableRefCell<T> {
         FreezableRefCell {
-            value: UnsafeCell::new(value),
             state: AtomicUsize::new(FREE),
+            value: UnsafeCell::new(value),
         }
     }
 
@@ -38,8 +38,8 @@ impl<T> FreezableRefCell<T> {
         }
 
         RefMut {
-            value: unsafe { &mut *self.value.get() },
             state: &self.state,
+            value: unsafe { &mut *self.value.get() },
         }
     }
 

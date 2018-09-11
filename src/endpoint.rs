@@ -95,12 +95,12 @@ impl<'a, B: UsbBus, D: Direction> Endpoint<'a, B, D> {
 
     /// Sets the STALL condition for the endpoint.
     pub fn stall(&self) {
-        self.bus.borrow().stall(self.address);
+        self.bus.borrow().set_stalled(self.address, true);
     }
 
     /// Clears the STALL condition of the endpoint.
     pub fn unstall(&self) {
-        self.bus.borrow().unstall(self.address);
+        self.bus.borrow().set_stalled(self.address, false);
     }
 }
 

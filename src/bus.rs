@@ -11,7 +11,7 @@ use ::{Result, UsbError};
 /// before [`enable`](UsbBus::enable) is called. After the bus is enabled, in practice most access
 /// won't mutate the object itself but only endpoint-specific registers and buffers, the access to
 /// which is mostly arbitrated by endpoint handles.
-pub trait UsbBus: Sized {
+pub trait UsbBus: Sync + Sized {
     /// Allocates an endpoint and specified endpoint parameters. This method is called by the device
     /// and class implementations to allocate endpoints, and can only be called before
     /// [`UsbBus::enable`] is called.
@@ -81,12 +81,12 @@ pub trait UsbBus: Sized {
     /// Implementations may also return other errors if applicable.
     fn read(&self, ep_addr: u8, buf: &mut [u8]) -> Result<usize>;
 
-    /// Sets the STALL condition for an endpoint.
-    fn stall(&self, ep_addr: u8);
+    /// Sets or clears the STALL condition for an endpoint. If the endpoint is an OUT endpoint, it
+    /// should be prepared to receive data again.
+    fn set_stalled(&self, ep_addr: u8, stalled: bool);
 
-    /// Clears the STALL condition of an endpoint. If the endpoint is an OUT endpoint, it should be
-    /// prepared to receive data again.
-    fn unstall(&self, ep_addr: u8);
+    /// Gets whether the STALL condition is set for an endpoint.
+    fn is_stalled(&self, ep_addr: u8) -> bool;
 
     /// Causes the USB peripheral to enter USB suspend mode, lowering power consumption and
     /// preparing to detect a USB wakeup event. This should only be called after
