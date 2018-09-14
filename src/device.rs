@@ -48,6 +48,7 @@ struct Control {
     buf: [u8; 128],
     i: usize,
     len: usize,
+    pending_address: u8,
 }
 
 const MAX_ENDPOINTS: usize = 16;
@@ -65,7 +66,6 @@ pub struct UsbDevice<'a, B: UsbBus + 'a> {
 
     control: AtomicMutex<Control>,
     pub(crate) device_state: AtomicUsize,
-    pub(crate) pending_address: AtomicUsize,
     pub(crate) remote_wakeup_enabled: AtomicBool,
     pub(crate) self_powered: AtomicBool,
 }
@@ -103,9 +103,9 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                 buf: [0; 128],
                 i: 0,
                 len: 0,
+                pending_address: 0,
             }),
             device_state: AtomicUsize::new(UsbDeviceState::Default as usize),
-            pending_address: AtomicUsize::new(0),
             remote_wakeup_enabled: AtomicBool::new(false),
             self_powered: AtomicBool::new(false),
         };
@@ -237,8 +237,7 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
         self.remote_wakeup_enabled.store(false, Ordering::SeqCst);
 
         control.state = ControlState::Idle;
-
-        self.pending_address.store(0, Ordering::SeqCst);
+        control.pending_address = 0;
 
         for cls in self.classes() {
             cls.reset().unwrap();
@@ -357,11 +356,11 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                 control.state = ControlState::StatusOut;
             }
             ControlState::StatusIn => {
-                let addr = self.pending_address.swap(0, Ordering::SeqCst);
-                if addr != 0 {
+                if control.pending_address != 0 {
                     // SET_ADDRESS is really handled after the status packet has been sent
-                    self.bus.set_device_address(addr as u8);
+                    self.bus.set_device_address(control.pending_address);
                     self.set_state(UsbDeviceState::Addressed);
+                    control.pending_address = 0;
                 }
 
                 control.state = ControlState::Idle;
@@ -410,7 +409,7 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
             }
 
             if res == ControlOutResult::Ignore && req.request_type == control::RequestType::Standard {
-                res = self.standard_control_out(&req, buf);
+                res = self.standard_control_out(&req, buf, &mut control.pending_address);
             }
         }
 

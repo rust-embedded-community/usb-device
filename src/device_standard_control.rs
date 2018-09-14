@@ -25,7 +25,11 @@ fn get_descriptor_type_index(value: u16) -> (u8, u8) {
 }
 
 impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
-    pub(crate) fn standard_control_out(&self, req: &control::Request, buf: &[u8]) -> ControlOutResult {
+    pub(crate) fn standard_control_out(&self,
+        req: &control::Request,
+        buf: &[u8],
+        pending_address: &mut u8) -> ControlOutResult
+    {
         let _ = buf;
 
         use control::{Recipient, standard_request as sr};
@@ -54,7 +58,7 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
             },
 
             (Recipient::Device, sr::SET_ADDRESS, 1..=127) => {
-                self.pending_address.store(req.value as usize, Ordering::SeqCst);
+                *pending_address = req.value as u8;
                 ControlOutResult::Ok
             },
 
