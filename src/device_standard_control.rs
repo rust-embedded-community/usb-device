@@ -11,14 +11,6 @@ const CONFIGURATION_VALUE: u16 = 1;
 
 const DEFAULT_ALTERNATE_SETTING: u16 = 0;
 
-/// Gets the endpoint index and corresponding bit from an endpoint control request value field
-fn get_ep_index_bit(index: u16) -> (u8, u32) {
-    let ep: u8 = (index & 0x8f) as u8;
-    let bit: u32 = 1u32 << (((ep & 0x80) >> 3) | (ep & 0x0f));
-
-    (ep, bit)
-}
-
 /// Gets the descriptor type and value from the value field of a GET_DESCRIPTOR request
 fn get_descriptor_type_index(value: u16) -> (u8, u8) {
     ((value >> 8) as u8, value as u8)
@@ -41,8 +33,7 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
             },
 
             (Recipient::Endpoint, sr::CLEAR_FEATURE, FEATURE_ENDPOINT_HALT) => {
-                let (ep, bit) = get_ep_index_bit(req.index);
-                self.bus.set_stalled(ep, false);
+                self.bus.set_stalled((req.index as u8) & 0x8f, false);
                 ControlOutResult::Ok
             },
 
@@ -52,8 +43,7 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
             },
 
             (Recipient::Endpoint, sr::SET_FEATURE, FEATURE_ENDPOINT_HALT) => {
-                let (ep, bit) = get_ep_index_bit(req.index);
-                self.bus.set_stalled(ep, true);
+                self.bus.set_stalled((req.index as u8) & 0x8f, true);
                 ControlOutResult::Ok
             },
 
