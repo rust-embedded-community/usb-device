@@ -127,9 +127,7 @@ struct WrapperState {
     next_string_index: u8,
 }
 
-/// Internal state for [`UsbAllocator`].
-///
-/// See [`UsbBus::allocator_state`].
+/// Helper type used for UsbBus initialization and synchronization.
 pub struct UsbBusWrapper<B: UsbBus> {
     bus: FreezableRefCell<B>,
     state: FreezableRefCell<WrapperState>,
@@ -148,11 +146,13 @@ impl<B: UsbBus> UsbBusWrapper<B> {
 }
 
 impl<B: UsbBus> UsbBusWrapper<B> {
+    /// Gets a temporary mutable reference to the UsbBus to perform platform-specific
+    /// initialization.
     pub fn borrow_mut<'a>(&'a self) -> RefMut<B> {
         self.bus.borrow_mut()
     }
 
-    pub fn freeze<'a>(&'a self) -> &B {
+    pub(crate) fn freeze<'a>(&'a self) -> &B {
         self.bus.borrow_mut().enable();
         self.bus.freeze();
         self.state.freeze();
@@ -202,7 +202,8 @@ impl<B: UsbBus> UsbBusWrapper<B> {
     /// This crate implements the control state machine only for endpoint 0. If classes want to
     /// support control requests in other endpoints, the state machine must be implemented manually.
     /// This should rarely be needed by classes.
-    /// /// # Arguments
+    ///
+    /// # Arguments
     ///
     /// * `max_packet_size` - Maximum packet size in bytes. Must be one of 8, 16, 32 or 64.
     #[inline]

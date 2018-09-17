@@ -151,6 +151,7 @@ impl<'a, B: UsbBus> Endpoint<'a, B, Out> {
     }
 }
 
+/// Type-safe endpoint address.
 #[derive(Debug, Clone, Copy)]
 pub struct EndpointAddress(u8);
 
@@ -171,11 +172,13 @@ impl From<EndpointAddress> for u8 {
 impl EndpointAddress {
     const INBITS: u8 = EndpointDirection::In as u8;
 
+    /// Constructs a new EndpointAddress with the given index and direction.
     #[inline]
-    pub fn from_parts(idx: usize, dir: EndpointDirection) -> Self {
-        EndpointAddress(idx as u8 | dir as u8)
+    pub fn from_parts(index: usize, dir: EndpointDirection) -> Self {
+        EndpointAddress(index as u8 | dir as u8)
     }
 
+    /// Gets the direction part of the address.
     #[inline]
     pub fn direction(&self) -> EndpointDirection {
         if (self.0 & Self::INBITS) != 0 {
@@ -185,16 +188,19 @@ impl EndpointAddress {
         }
     }
 
+    /// Returns true if the direction is IN, otherwise false.
     #[inline]
     pub fn is_in(&self) -> bool {
         (self.0 & Self::INBITS) != 0
     }
 
+    /// Returns true if the direction is OUT, otherwise false.
     #[inline]
     pub fn is_out(&self) -> bool {
         (self.0 & Self::INBITS) == 0
     }
 
+    /// Gets the index part of the endpoint address.
     #[inline]
     pub fn index(&self) -> usize {
         (self.0 & !Self::INBITS) as usize
