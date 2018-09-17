@@ -4,7 +4,7 @@ use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use ::{Result, UsbError};
 use utils::AtomicMutex;
 use bus::{UsbBusWrapper, UsbBus, PollResult};
-use endpoint::{EndpointType, EndpointIn, EndpointOut};
+use endpoint::{EndpointType, EndpointIn, EndpointOut, EndpointAddress, EndpointDirection};
 use control;
 use class::UsbClass;
 pub use device_builder::{UsbDeviceBuilder, UsbVidPid};
@@ -201,20 +201,23 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                 // Pending events for other endpoints?
                 if (all & !1) != 0 {
                     let mut bit = 2u16;
-                    for i in 1..(MAX_ENDPOINTS as u8) {
+                    for i in 1..MAX_ENDPOINTS {
                         if (ep_setup & bit) != 0 {
                             for cls in self.classes() {
-                                cls.endpoint_setup(i);
+                                cls.endpoint_setup(
+                                    EndpointAddress::from_parts(i, EndpointDirection::Out));
                             }
                         } else if (ep_out & bit) != 0 {
                             for cls in self.classes() {
-                                cls.endpoint_out(i);
+                                cls.endpoint_out(
+                                    EndpointAddress::from_parts(i, EndpointDirection::Out));
                             }
                         }
 
                         if (ep_in_complete & bit) != 0 {
                             for cls in self.classes() {
-                                cls.endpoint_in_complete(i | 0x80);
+                                cls.endpoint_in_complete(
+                                    EndpointAddress::from_parts(i, EndpointDirection::In));
                             }
                         }
 

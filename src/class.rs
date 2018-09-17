@@ -3,6 +3,7 @@ use bus::StringIndex;
 use device::{ControlOutResult, ControlInResult};
 use descriptor::DescriptorWriter;
 use control;
+use endpoint::EndpointAddress;
 
 /// A trait implemented by USB class implementations.
 pub trait UsbClass {
@@ -77,7 +78,7 @@ pub trait UsbClass {
     ///
     /// Note: This method may be called for an endpoint address you didn't allocate, and in that
     /// case you should ignore the event.
-    fn endpoint_setup(&self, addr: u8) {
+    fn endpoint_setup(&self, addr: EndpointAddress) {
         let _ = addr;
     }
 
@@ -85,7 +86,7 @@ pub trait UsbClass {
     ///
     /// Note: This method may be called for an endpoint address you didn't allocate, and in that
     /// case you should ignore the event.
-    fn endpoint_out(&self, addr: u8) {
+    fn endpoint_out(&self, addr: EndpointAddress) {
         let _ = addr;
     }
 
@@ -93,7 +94,7 @@ pub trait UsbClass {
     ///
     /// Note: This method may be called for an endpoint address you didn't allocate, and in that
     /// case you should ignore the event.
-    fn endpoint_in_complete(&self, addr: u8) {
+    fn endpoint_in_complete(&self, addr: EndpointAddress) {
         let _ = addr;
     }
 

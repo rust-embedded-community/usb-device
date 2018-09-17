@@ -152,7 +152,7 @@ impl<'a, B: UsbBus> Endpoint<'a, B, Out> {
 }
 
 /// Type-safe endpoint address.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct EndpointAddress(u8);
 
 impl From<u8> for EndpointAddress {
