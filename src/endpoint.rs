@@ -60,7 +60,7 @@ pub enum EndpointType {
 /// must be either `In` or `Out`.
 pub struct Endpoint<'a, B: 'a + UsbBus, D: Direction> {
     bus: &'a FreezableRefCell<B>,
-    address: u8,
+    address: EndpointAddress,
     ep_type: EndpointType,
     max_packet_size: u16,
     interval: u8,
@@ -68,8 +68,12 @@ pub struct Endpoint<'a, B: 'a + UsbBus, D: Direction> {
 }
 
 impl<'a, B: UsbBus, D: Direction> Endpoint<'a, B, D> {
-    pub(crate) fn new(bus: &'a FreezableRefCell<B>, address: u8, ep_type: EndpointType,
-        max_packet_size: u16, interval: u8) -> Endpoint<'a, B, D>
+    pub(crate) fn new(
+        bus: &'a FreezableRefCell<B>,
+        address: EndpointAddress,
+        ep_type: EndpointType,
+        max_packet_size: u16,
+        interval: u8) -> Endpoint<'a, B, D>
     {
         Endpoint {
             bus,
@@ -82,7 +86,7 @@ impl<'a, B: UsbBus, D: Direction> Endpoint<'a, B, D> {
     }
 
     /// Gets the endpoint address including direction bit.
-    pub fn address(&self) -> u8 { self.address }
+    pub fn address(&self) -> EndpointAddress { self.address }
 
     /// Gets the endpoint transfer type.
     pub fn ep_type(&self) -> EndpointType { self.ep_type }
@@ -144,5 +148,55 @@ impl<'a, B: UsbBus> Endpoint<'a, B, Out> {
     ///   in `buf`. This is generally an error in the class implementation.
     pub fn read(&self, data: &mut [u8]) -> Result<usize> {
         self.bus.borrow().read(self.address, data)
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct EndpointAddress(u8);
+
+impl From<u8> for EndpointAddress {
+    #[inline]
+    fn from(addr: u8) -> EndpointAddress {
+        EndpointAddress(addr)
+    }
+}
+
+impl From<EndpointAddress> for u8 {
+    #[inline]
+    fn from(addr: EndpointAddress) -> u8 {
+        addr.0
+    }
+}
+
+impl EndpointAddress {
+    const INBITS: u8 = EndpointDirection::In as u8;
+
+    #[inline]
+    pub fn from_parts(idx: usize, dir: EndpointDirection) -> Self {
+        EndpointAddress(idx as u8 | dir as u8)
+    }
+
+    #[inline]
+    pub fn direction(&self) -> EndpointDirection {
+        if (self.0 & Self::INBITS) != 0 {
+            EndpointDirection::In
+        } else {
+            EndpointDirection::Out
+        }
+    }
+
+    #[inline]
+    pub fn is_in(&self) -> bool {
+        (self.0 & Self::INBITS) != 0
+    }
+
+    #[inline]
+    pub fn is_out(&self) -> bool {
+        (self.0 & Self::INBITS) == 0
+    }
+
+    #[inline]
+    pub fn index(&self) -> usize {
+        (self.0 & !Self::INBITS) as usize
     }
 }

@@ -1,4 +1,4 @@
-use endpoint::{Endpoint, EndpointDirection, Direction, EndpointType};
+use endpoint::{Endpoint, EndpointDirection, Direction, EndpointType, EndpointAddress};
 use utils::{FreezableRefCell, RefMut};
 use ::{Result, UsbError};
 
@@ -34,8 +34,13 @@ pub trait UsbBus: Sync + Sized {
     ///   generally caused when a user tries to add too many classes to a composite device.
     /// * [`EndpointTaken`](::UsbError::EndpointTaken) - A specific `ep_addr` was specified but the
     ///   endpoint in question has already been allocated.
-    fn alloc_ep(&mut self, ep_dir: EndpointDirection, ep_addr: Option<u8>, ep_type: EndpointType,
-        max_packet_size: u16, interval: u8) -> Result<u8>;
+    fn alloc_ep(
+        &mut self,
+        ep_dir: EndpointDirection,
+        ep_addr: Option<EndpointAddress>,
+        ep_type: EndpointType,
+        max_packet_size: u16,
+        interval: u8) -> Result<EndpointAddress>;
 
     /// Enables and initializes the USB peripheral. Soon after enabling the device will be reset, so
     /// there is no need to perform a USB reset in this method.
@@ -61,7 +66,7 @@ pub trait UsbBus: Sync + Sized {
     /// * [`Busy`](::UsbError::Busy) - A previously written packet is still pending to be sent.
     ///
     /// Implementations may also return other errors if applicable.
-    fn write(&self, ep_addr: u8, buf: &[u8]) -> Result<usize>;
+    fn write(&self, ep_addr: EndpointAddress, buf: &[u8]) -> Result<usize>;
 
     /// Reads a single packet of data from the specified endpoint and returns the actual length of
     /// the packet.
@@ -79,14 +84,14 @@ pub trait UsbBus: Sync + Sized {
     ///   in `buf`. This is generally an error in the class implementation.
     ///
     /// Implementations may also return other errors if applicable.
-    fn read(&self, ep_addr: u8, buf: &mut [u8]) -> Result<usize>;
+    fn read(&self, ep_addr: EndpointAddress, buf: &mut [u8]) -> Result<usize>;
 
     /// Sets or clears the STALL condition for an endpoint. If the endpoint is an OUT endpoint, it
     /// should be prepared to receive data again.
-    fn set_stalled(&self, ep_addr: u8, stalled: bool);
+    fn set_stalled(&self, ep_addr: EndpointAddress, stalled: bool);
 
     /// Gets whether the STALL condition is set for an endpoint.
-    fn is_stalled(&self, ep_addr: u8) -> bool;
+    fn is_stalled(&self, ep_addr: EndpointAddress) -> bool;
 
     /// Causes the USB peripheral to enter USB suspend mode, lowering power consumption and
     /// preparing to detect a USB wakeup event. This should only be called after
@@ -176,11 +181,19 @@ impl<B: UsbBus> UsbBusWrapper<B> {
     ///
     /// This directly delegates to [`UsbBus::alloc_ep`], so see that method for details. This should
     /// rarely be needed by classes.
-    pub fn alloc<'a, D: Direction>(&'a self,
-        ep_addr: Option<u8>, ep_type: EndpointType,
-        max_packet_size: u16, interval: u8) -> Result<Endpoint<'a, B, D>>
+    pub fn alloc<'a, D: Direction>(
+        &'a self,
+        ep_addr: Option<EndpointAddress>,
+        ep_type: EndpointType,
+        max_packet_size: u16,
+        interval: u8) -> Result<Endpoint<'a, B, D>>
     {
-        self.bus.borrow_mut().alloc_ep(D::DIRECTION, ep_addr, ep_type, max_packet_size, interval)
+        self.bus.borrow_mut()
+            .alloc_ep(
+                D::DIRECTION,
+                ep_addr, ep_type,
+                max_packet_size,
+                interval)
             .map(|a| Endpoint::new(&self.bus, a, ep_type, max_packet_size, interval))
     }
 

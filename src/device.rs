@@ -79,11 +79,11 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
     pub(crate) fn build(bus: &'a UsbBusWrapper<B>, classes: &[&'a (dyn UsbClass + Sync)], info: UsbDeviceInfo<'a>)
         -> UsbDevice<'a, B>
     {
-        let control_out = bus.alloc(Some(0), EndpointType::Control,
-            info.max_packet_size_0 as u16, 0).unwrap();
+        let control_out = bus.alloc(Some(0.into()), EndpointType::Control,
+            info.max_packet_size_0 as u16, 0).expect("failed to alloc control endpoint");
 
-        let control_in = bus.alloc(Some(0), EndpointType::Control,
-            info.max_packet_size_0 as u16, 0).unwrap();
+        let control_in = bus.alloc(Some(0.into()), EndpointType::Control,
+            info.max_packet_size_0 as u16, 0).expect("failed to alloc control endpoint");
 
         let bus = bus.freeze();
 

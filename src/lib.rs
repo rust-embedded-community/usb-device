@@ -165,7 +165,7 @@ pub mod class_prelude {
     pub use ::bus::{UsbBus, UsbBusWrapper, InterfaceNumber, StringIndex};
     pub use ::device::{ControlOutResult, ControlInResult};
     pub use ::descriptor::DescriptorWriter;
-    pub use ::endpoint::{EndpointType, EndpointIn, EndpointOut};
+    pub use ::endpoint::{EndpointType, EndpointIn, EndpointOut, EndpointAddress};
     pub use ::class::UsbClass;
     pub use ::control;
 }

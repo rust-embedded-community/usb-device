@@ -33,7 +33,7 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
             },
 
             (Recipient::Endpoint, sr::CLEAR_FEATURE, FEATURE_ENDPOINT_HALT) => {
-                self.bus.set_stalled((req.index as u8) & 0x8f, false);
+                self.bus.set_stalled(((req.index as u8) & 0x8f).into(), false);
                 ControlOutResult::Ok
             },
 
@@ -43,7 +43,7 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
             },
 
             (Recipient::Endpoint, sr::SET_FEATURE, FEATURE_ENDPOINT_HALT) => {
-                self.bus.set_stalled((req.index as u8) & 0x8f, true);
+                self.bus.set_stalled(((req.index as u8) & 0x8f).into(), true);
                 ControlOutResult::Ok
             },
 
@@ -88,8 +88,10 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
             },
 
             (Recipient::Endpoint, sr::GET_STATUS) => {
+                let ep_addr = ((req.index as u8) & 0x8f).into();
+
                 let status: u16 = 0x0000
-                    | if self.bus.is_stalled(req.index as u8) { 0x0001 } else { 0x0000 };
+                    | if self.bus.is_stalled(ep_addr) { 0x0001 } else { 0x0000 };
 
                 buf[0] = status as u8;
                 buf[1] = (status >> 8) as u8;

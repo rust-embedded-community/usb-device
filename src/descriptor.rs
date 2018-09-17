@@ -144,7 +144,7 @@ impl<'a> DescriptorWriter<'a> {
         self.write(
             descriptor_type::ENDPOINT,
             &[
-                endpoint.address(), // bEndpointAddress
+                endpoint.address().into(), // bEndpointAddress
                 endpoint.ep_type() as u8, // bmAttributes
                 mps as u8, (mps >> 8) as u8, // wMaxPacketSize
                 endpoint.interval(), // bInterval
