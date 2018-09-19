@@ -1,8 +1,8 @@
 use core::cmp::min;
 use core::mem;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use heapless;
 use ::{Result, UsbError};
-use utils::AtomicMutex;
 use bus::{UsbBusWrapper, UsbBus, PollResult};
 use endpoint::{EndpointType, EndpointIn, EndpointOut, EndpointAddress, EndpointDirection};
 use control;
@@ -41,17 +41,27 @@ enum ControlState {
     Error,
 }
 
+// Maximum length of control transfer data stage in bytes. It might be necessary to make this
+// non-const in the future.
+const CONTROL_BUF_LEN: usize = 128;
+
+// Completely arbitrary value. Nobody needs more than 4, right?
+const MAX_CLASSES: usize = 4;
+
+// Maximum number of endpoints in one direction. Specified by the USB specification.
+const MAX_ENDPOINTS: usize = 16;
+
+type UsbClassRef<'a> = &'a (dyn UsbClass + Sync);
+
 /// Holds the current state and data buffer for control requests.
-struct Control {
+pub(crate) struct Control {
     state: ControlState,
     request: Option<control::Request>,
-    buf: [u8; 128],
+    pub(crate) buf: [u8; CONTROL_BUF_LEN],
     i: usize,
     len: usize,
-    pending_address: u8,
+    pub(crate) pending_address: u8,
 }
-
-const MAX_ENDPOINTS: usize = 16;
 
 /// A USB device consisting of one or more device classes.
 pub struct UsbDevice<'a, B: UsbBus + 'a> {
@@ -61,10 +71,9 @@ pub struct UsbDevice<'a, B: UsbBus + 'a> {
 
     pub(crate) info: UsbDeviceInfo<'a>,
 
-    class_arr: [&'a (dyn UsbClass + Sync); 8],
-    class_count: usize,
+    pub(crate) classes: heapless::Vec<UsbClassRef<'a>, [UsbClassRef<'a>; MAX_CLASSES]>,
 
-    control: AtomicMutex<Control>,
+    pub(crate) control: Control,
     pub(crate) device_state: AtomicUsize,
     pub(crate) remote_wakeup_enabled: AtomicBool,
     pub(crate) self_powered: AtomicBool,
@@ -76,8 +85,11 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
         UsbDeviceBuilder::new(bus, vid_pid)
     }
 
-    pub(crate) fn build(bus: &'a UsbBusWrapper<B>, classes: &[&'a (dyn UsbClass + Sync)], info: UsbDeviceInfo<'a>)
-        -> UsbDevice<'a, B>
+    pub(crate) fn build(
+        bus: &'a UsbBusWrapper<B>,
+        classes: &[UsbClassRef<'a>],
+        info: UsbDeviceInfo<'a>)
+            -> UsbDevice<'a, B>
     {
         let control_out = bus.alloc(Some(0.into()), EndpointType::Control,
             info.max_packet_size_0 as u16, 0).expect("failed to alloc control endpoint");
@@ -94,36 +106,27 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
 
             info,
 
-            class_arr: unsafe { mem::uninitialized() },
-            class_count: classes.len(),
+            classes: heapless::Vec::new(),
 
-            control: AtomicMutex::new(Control {
+            control: Control {
                 state: ControlState::Idle,
                 request: None,
                 buf: [0; 128],
                 i: 0,
                 len: 0,
                 pending_address: 0,
-            }),
+            },
+
             device_state: AtomicUsize::new(UsbDeviceState::Default as usize),
             remote_wakeup_enabled: AtomicBool::new(false),
             self_powered: AtomicBool::new(false),
         };
 
-        assert!(classes.len() <= dev.class_arr.len());
+        dev.classes.extend_from_slice(classes).unwrap();
 
-        dev.class_arr[..dev.class_count].copy_from_slice(classes);
-
-        {
-            let mut control = dev.control.try_lock().unwrap();
-            dev.reset(&mut control);
-        }
+        dev.reset();
 
         dev
-    }
-
-    pub(crate) fn classes(&self) -> &[&'a (dyn UsbClass + Sync)] {
-        &self.class_arr[..self.class_count]
     }
 
     /// Gets the current state of the device.
@@ -152,21 +155,15 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
         self.self_powered.store(is_self_powered, Ordering::SeqCst);
     }
 
-    pub fn force_reset(&self) -> Result<()> {
+    /// Forces a reset on the UsbBus.
+    pub fn force_reset(&mut self) -> Result<()> {
         self.bus.force_reset()
     }
 
     /// Polls the [`UsbBus`] for new events and dispatches them accordingly. This should be called
     /// periodically  more often than once every 10 milliseconds to stay USB-compliant, or
     /// from an interrupt handler.
-    pub fn poll(&self) {
-        let mut guard = self.control.try_lock();
-
-        let control = match guard {
-            Some(ref mut c) => c,
-            None => { return; } // re-entrant call!
-        };
-
+    pub fn poll(&mut self) {
         let pr = self.bus.poll();
 
         if self.state() == UsbDeviceState::Suspend {
@@ -180,7 +177,7 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
 
         match pr {
             PollResult::None => { }
-            PollResult::Reset => self.reset(control),
+            PollResult::Reset => self.reset(),
             PollResult::Data { ep_out, ep_in_complete, ep_setup } => {
                 // Combine bit fields for quick tests
                 let all = ep_out | ep_in_complete | ep_setup;
@@ -188,13 +185,13 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                 // Pending events for endpoint 0?
                 if (all & 1) != 0 {
                     if (ep_setup & 1) != 0 {
-                        self.handle_control_setup(control);
+                        self.handle_control_setup();
                     } else if (ep_out & 1) != 0 {
-                        self.handle_control_out(control);
+                        self.handle_control_out();
                     }
 
                     if (ep_in_complete & 1) != 0 {
-                        self.handle_control_in_complete(control);
+                        self.handle_control_in_complete();
                     }
                 }
 
@@ -203,19 +200,19 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                     let mut bit = 2u16;
                     for i in 1..MAX_ENDPOINTS {
                         if (ep_setup & bit) != 0 {
-                            for cls in self.classes() {
+                            for cls in &self.classes {
                                 cls.endpoint_setup(
                                     EndpointAddress::from_parts(i, EndpointDirection::Out));
                             }
                         } else if (ep_out & bit) != 0 {
-                            for cls in self.classes() {
+                            for cls in &self.classes {
                                 cls.endpoint_out(
                                     EndpointAddress::from_parts(i, EndpointDirection::Out));
                             }
                         }
 
                         if (ep_in_complete & bit) != 0 {
-                            for cls in self.classes() {
+                            for cls in &self.classes {
                                 cls.endpoint_in_complete(
                                     EndpointAddress::from_parts(i, EndpointDirection::In));
                             }
@@ -233,28 +230,28 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
         }
     }
 
-    fn reset(&self, control: &mut Control) {
+    fn reset(&mut self) {
         self.bus.reset();
 
         self.set_state(UsbDeviceState::Default);
         self.remote_wakeup_enabled.store(false, Ordering::SeqCst);
 
-        control.state = ControlState::Idle;
-        control.pending_address = 0;
+        self.control.state = ControlState::Idle;
+        self.control.pending_address = 0;
 
-        for cls in self.classes() {
+        for cls in &self.classes {
             cls.reset().unwrap();
         }
     }
 
-    fn handle_control_setup(&self, control: &mut Control) {
-        let count = self.control_out.read(&mut control.buf[..]).unwrap();
+    fn handle_control_setup(&mut self) {
+        let count = self.control_out.read(&mut self.control.buf[..]).unwrap();
 
-        let req = match control::Request::parse(&control.buf[0..count]) {
+        let req = match control::Request::parse(&self.control.buf[0..count]) {
             Ok(req) => req,
             Err(_) => {
                 // Failed to parse SETUP packet
-                return self.set_control_error(control)
+                return self.set_control_error()
             },
         };
 
@@ -263,27 +260,27 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
             req.request, req.value, req.index, req.length,
             control.state);*/
 
-        control.request = Some(req);
+        self.control.request = Some(req);
 
         if req.direction == control::Direction::HostToDevice {
             if req.length > 0 {
-                if req.length as usize > control.buf.len() {
+                if req.length as usize > self.control.buf.len() {
                     // Transfer length won't fit in buffer
-                    return self.set_control_error(control);
+                    return self.set_control_error();
                 }
 
-                control.i = 0;
-                control.len = req.length as usize;
-                control.state = ControlState::DataOut;
+                self.control.i = 0;
+                self.control.len = req.length as usize;
+                self.control.state = ControlState::DataOut;
             } else {
-                control.len = 0;
-                self.complete_control_out(control);
+                self.control.len = 0;
+                self.complete_control_out();
             }
         } else {
             let mut res = ControlInResult::Ignore;
 
-            for cls in self.classes() {
-                res = cls.control_in(&req, &mut control.buf);
+            for cls in &self.classes {
+                res = cls.control_in(&req, &mut self.control.buf);
 
                 if res != ControlInResult::Ignore {
                     break;
@@ -291,59 +288,59 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
             }
 
             if res == ControlInResult::Ignore && req.request_type == control::RequestType::Standard {
-                res = self.standard_control_in(&req, &mut control.buf);
+                res = self.standard_control_in(&req);
             }
 
             if let ControlInResult::Ok(count) = res {
-                control.i = 0;
-                control.len = min(count, req.length as usize);
-                control.state = ControlState::DataIn;
+                self.control.i = 0;
+                self.control.len = min(count, req.length as usize);
+                self.control.state = ControlState::DataIn;
 
-                self.write_control_in_chunk(control);
+                self.write_control_in_chunk();
             } else {
                 // Nothing accepted the request or there was an error
-                self.set_control_error(control);
+                self.set_control_error();
             }
         }
     }
 
-    fn handle_control_out(&self, control: &mut Control) {
-        match control.state {
+    fn handle_control_out(&mut self) {
+        match self.control.state {
             ControlState::DataOut => {
-                let i = control.i;
-                let count = match self.control_out.read(&mut control.buf[i..]) {
+                let i = self.control.i;
+                let count = match self.control_out.read(&mut self.control.buf[i..]) {
                     Ok(count) => count,
                     Err(_) => {
                         // Failed to read or buffer overflow (overflow is only possible if the host
                         // sends more data than indicated in the SETUP request)
-                        return self.set_control_error(control)
+                        return self.set_control_error()
                     },
                 };
 
-                control.i += count;
+                self.control.i += count;
 
-                if control.i >= control.len {
-                    self.complete_control_out(control);
+                if self.control.i >= self.control.len {
+                    self.complete_control_out();
                 }
             },
             ControlState::StatusOut => {
                 self.control_out.read(&mut []).unwrap();
-                control.state = ControlState::Idle;
+                self.control.state = ControlState::Idle;
             },
             _ => {
                 // Discard the packet
-                self.control_out.read(&mut control.buf[..]).ok();
+                self.control_out.read(&mut self.control.buf[..]).ok();
 
                 // Unexpected OUT packet
-                self.set_control_error(control)
+                self.set_control_error()
             },
         }
     }
 
-    fn handle_control_in_complete(&self, control: &mut Control) {
-        match control.state {
+    fn handle_control_in_complete(&mut self) {
+        match self.control.state {
             ControlState::DataIn => {
-                self.write_control_in_chunk(control);
+                self.write_control_in_chunk();
             },
             ControlState::DataInZlp => {
                 match self.control_in.write(&[]) {
@@ -352,42 +349,42 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                     _ => {},
                 };
 
-                control.state = ControlState::DataInLast;
+                self.control.state = ControlState::DataInLast;
             },
             ControlState::DataInLast => {
                 self.control_out.unstall();
-                control.state = ControlState::StatusOut;
+                self.control.state = ControlState::StatusOut;
             }
             ControlState::StatusIn => {
-                if control.pending_address != 0 {
+                if self.control.pending_address != 0 {
                     // SET_ADDRESS is really handled after the status packet has been sent
-                    self.bus.set_device_address(control.pending_address);
+                    self.bus.set_device_address(self.control.pending_address);
                     self.set_state(UsbDeviceState::Addressed);
-                    control.pending_address = 0;
+                    self.control.pending_address = 0;
                 }
 
-                control.state = ControlState::Idle;
+                self.control.state = ControlState::Idle;
             },
             _ => {
                 // Unexpected IN packet
-                self.set_control_error(control);
+                self.set_control_error();
             }
         };
     }
 
-    fn write_control_in_chunk(&self, control: &mut Control) {
-        let count = min(control.len - control.i, self.info.max_packet_size_0 as usize);
+    fn write_control_in_chunk(&mut self) {
+        let count = min(self.control.len - self.control.i, self.info.max_packet_size_0 as usize);
 
-        let count = match self.control_in.write(&control.buf[control.i..(control.i+count)]) {
+        let count = match self.control_in.write(&self.control.buf[self.control.i..(self.control.i+count)]) {
             Err(UsbError::Busy) => return,
             Err(err) => panic!("{:?}", err),
             Ok(c) => c,
         };
 
-        control.i += count;
+        self.control.i += count;
 
-        if control.i >= control.len {
-            control.state = if count == self.info.max_packet_size_0 as usize {
+        if self.control.i >= self.control.len {
+            self.control.state = if count == self.info.max_packet_size_0 as usize {
                 ControlState::DataInZlp
             } else {
                 ControlState::DataInLast
@@ -395,39 +392,39 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
         }
     }
 
-    fn complete_control_out(&self, control: &mut Control) {
-        let req = control.request.take().unwrap();
+    fn complete_control_out(&mut self) {
+        let req = self.control.request.take().unwrap();
 
         let mut res = ControlOutResult::Ignore;
 
         {
-            let buf = &control.buf[..control.len];
+            let buf = &self.control.buf[..self.control.len];
 
-            for cls in self.classes().iter() {
+            for cls in &self.classes {
                 res = cls.control_out(&req, buf);
 
                 if res != ControlOutResult::Ignore {
                     break;
                 }
             }
+        }
 
-            if res == ControlOutResult::Ignore && req.request_type == control::RequestType::Standard {
-                res = self.standard_control_out(&req, buf, &mut control.pending_address);
-            }
+        if res == ControlOutResult::Ignore && req.request_type == control::RequestType::Standard {
+            res = self.standard_control_out(&req);
         }
 
         if res == ControlOutResult::Ok {
             // Send empty packet to indicate success
             self.control_in.write(&[]).ok();
-            control.state = ControlState::StatusIn;
+            self.control.state = ControlState::StatusIn;
         } else {
             // Nothing accepted the request or there was an error
-            self.set_control_error(control);
+            self.set_control_error();
         }
     }
 
-    fn set_control_error(&self, control: &mut Control) {
-        control.state = ControlState::Error;
+    fn set_control_error(&mut self) {
+        self.control.state = ControlState::Error;
         self.control_out.stall();
         self.control_in.stall();
     }

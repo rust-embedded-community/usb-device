@@ -2,3 +2,6 @@
 name = "usb-device"
 version = "0.1.0"
 authors = ["Matti Virkkunen <mvirkkunen@gmail.com>"]
+
+[dependencies]
+heapless = "0.2.1"

@@ -17,13 +17,8 @@ fn get_descriptor_type_index(value: u16) -> (u8, u8) {
 }
 
 impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
-    pub(crate) fn standard_control_out(&self,
-        req: &control::Request,
-        buf: &[u8],
-        pending_address: &mut u8) -> ControlOutResult
+    pub(crate) fn standard_control_out(&mut self, req: &control::Request) -> ControlOutResult
     {
-        let _ = buf;
-
         use control::{Recipient, standard_request as sr};
 
         match (req.recipient, req.request, req.value) {
@@ -48,7 +43,7 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
             },
 
             (Recipient::Device, sr::SET_ADDRESS, 1..=127) => {
-                *pending_address = req.value as u8;
+                self.control.pending_address = req.value as u8;
                 ControlOutResult::Ok
             },
 
@@ -66,7 +61,7 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
         }
     }
 
-    pub(crate) fn standard_control_in(&self, req: &control::Request, buf: &mut [u8]) -> ControlInResult {
+    pub(crate) fn standard_control_in(&mut self, req: &control::Request) -> ControlInResult {
         use control::{Recipient, standard_request as sr};
         match (req.recipient, req.request) {
             (Recipient::Device, sr::GET_STATUS) => {
@@ -74,16 +69,16 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                     | if self.self_powered.load(Ordering::SeqCst) { 0x0001 } else { 0x0000 }
                     | if self.remote_wakeup_enabled.load(Ordering::SeqCst) { 0x0002 } else { 0x0000 };
 
-                buf[0] = status as u8;
-                buf[1] = (status >> 8) as u8;
+                self.control.buf[0] = status as u8;
+                self.control.buf[1] = (status >> 8) as u8;
                 ControlInResult::Ok(2)
             },
 
             (Recipient::Interface, sr::GET_STATUS) => {
                 let status: u16 = 0x0000;
 
-                buf[0] = status as u8;
-                buf[1] = (status >> 8) as u8;
+                self.control.buf[0] = status as u8;
+                self.control.buf[1] = (status >> 8) as u8;
                 ControlInResult::Ok(2)
             },
 
@@ -93,21 +88,21 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                 let status: u16 = 0x0000
                     | if self.bus.is_stalled(ep_addr) { 0x0001 } else { 0x0000 };
 
-                buf[0] = status as u8;
-                buf[1] = (status >> 8) as u8;
+                self.control.buf[0] = status as u8;
+                self.control.buf[1] = (status >> 8) as u8;
                 ControlInResult::Ok(2)
             },
 
-            (Recipient::Device, sr::GET_DESCRIPTOR) => self.handle_get_descriptor(req, buf),
+            (Recipient::Device, sr::GET_DESCRIPTOR) => self.handle_get_descriptor(req),
 
             (Recipient::Device, sr::GET_CONFIGURATION) => {
-                buf[0] = CONFIGURATION_VALUE as u8;
+                self.control.buf[0] = CONFIGURATION_VALUE as u8;
                 ControlInResult::Ok(1)
             },
 
             (Recipient::Interface, sr::GET_INTERFACE) => {
                 // TODO: change when alternate settings are implemented
-                buf[0] = DEFAULT_ALTERNATE_SETTING as u8;
+                self.control.buf[0] = DEFAULT_ALTERNATE_SETTING as u8;
                 ControlInResult::Ok(1)
             },
 
@@ -115,10 +110,10 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
         }
     }
 
-    fn handle_get_descriptor(&self, req: &control::Request, buf: &mut [u8]) -> ControlInResult {
+    fn handle_get_descriptor(&mut self, req: &control::Request) -> ControlInResult {
         let (dtype, index) = get_descriptor_type_index(req.value);
 
-        let mut writer = DescriptorWriter::new(buf);
+        let mut writer = DescriptorWriter::new(&mut self.control.buf);
 
         match dtype {
             descriptor_type::DEVICE => {
@@ -155,7 +150,7 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                         self.info.max_power // bMaxPower
                     ]).unwrap();
 
-                for cls in self.classes() {
+                for cls in &self.classes {
                     cls.get_configuration_descriptors(&mut writer).unwrap();
                 }
 
@@ -176,7 +171,22 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                             (lang_id::ENGLISH_US >> 8) as u8,
                         ]).unwrap();
                 } else {
-                    if let Some(s) = self.get_string(index, req.index) {
+                    let s = match index {
+                        1 => Some(self.info.manufacturer),
+                        2 => Some(self.info.product),
+                        3 => Some(self.info.serial_number),
+                        _ => {
+                            let index = StringIndex::new(index);
+                            let lang_id = req.index;
+
+                            self.classes
+                                .iter()
+                                .filter_map(|cls| cls.get_string(index, lang_id))
+                                .nth(0)
+                        },
+                    };
+
+                    if let Some(s) = s {
                         writer.write_string(s).unwrap();
                     } else {
                         return ControlInResult::Err;
@@ -188,26 +198,5 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
         }
 
         ControlInResult::Ok(writer.count())
-    }
-
-    fn get_string(&self, index: u8, lang_id: u16) -> Option<&'a str> {
-        match index {
-            1 => Some(self.info.manufacturer),
-            2 => Some(self.info.product),
-            3 => Some(self.info.serial_number),
-            _ => {
-                let index = StringIndex::new(index);
-
-                for cls in self.classes() {
-                    let s = cls.get_string(index, lang_id);
-
-                    if s.is_some() {
-                        return s;
-                    }
-                }
-
-                None
-            },
-        }
     }
 }

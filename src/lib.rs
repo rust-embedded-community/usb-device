@@ -36,6 +36,8 @@
 //#![warn(missing_docs)]
 #![feature(asm)]
 
+extern crate heapless;
+
 /// A USB stack error.
 #[derive(Debug)]
 pub enum UsbError {
