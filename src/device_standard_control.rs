@@ -1,4 +1,3 @@
-use core::sync::atomic::Ordering;
 use bus::{UsbBus, StringIndex};
 use control;
 use device::{UsbDevice, UsbDeviceState, ControlOutResult, ControlInResult};
@@ -23,7 +22,7 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
 
         match (req.recipient, req.request, req.value) {
             (Recipient::Device, sr::CLEAR_FEATURE, FEATURE_DEVICE_REMOTE_WAKEUP) => {
-                self.remote_wakeup_enabled.store(false, Ordering::SeqCst);
+                self.remote_wakeup_enabled = false;
                 ControlOutResult::Ok
             },
 
@@ -33,7 +32,7 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
             },
 
             (Recipient::Device, sr::SET_FEATURE, FEATURE_DEVICE_REMOTE_WAKEUP) => {
-                self.remote_wakeup_enabled.store(true, Ordering::SeqCst);
+                self.remote_wakeup_enabled = true;
                 ControlOutResult::Ok
             },
 
@@ -48,7 +47,7 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
             },
 
             (Recipient::Device, sr::SET_CONFIGURATION, CONFIGURATION_VALUE) => {
-                self.set_state(UsbDeviceState::Configured);
+                self.device_state = UsbDeviceState::Configured;
                 ControlOutResult::Ok
             },
 
@@ -66,8 +65,8 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
         match (req.recipient, req.request) {
             (Recipient::Device, sr::GET_STATUS) => {
                 let status: u16 = 0x0000
-                    | if self.self_powered.load(Ordering::SeqCst) { 0x0001 } else { 0x0000 }
-                    | if self.remote_wakeup_enabled.load(Ordering::SeqCst) { 0x0002 } else { 0x0000 };
+                    | if self.self_powered { 0x0001 } else { 0x0000 }
+                    | if self.remote_wakeup_enabled { 0x0002 } else { 0x0000 };
 
                 self.control.buf[0] = status as u8;
                 self.control.buf[1] = (status >> 8) as u8;

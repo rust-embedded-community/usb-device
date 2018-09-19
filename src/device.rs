@@ -1,6 +1,4 @@
 use core::cmp::min;
-use core::mem;
-use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use heapless;
 use ::{Result, UsbError};
 use bus::{UsbBusWrapper, UsbBus, PollResult};
@@ -74,9 +72,9 @@ pub struct UsbDevice<'a, B: UsbBus + 'a> {
     pub(crate) classes: heapless::Vec<UsbClassRef<'a>, [UsbClassRef<'a>; MAX_CLASSES]>,
 
     pub(crate) control: Control,
-    pub(crate) device_state: AtomicUsize,
-    pub(crate) remote_wakeup_enabled: AtomicBool,
-    pub(crate) self_powered: AtomicBool,
+    pub(crate) device_state: UsbDeviceState,
+    pub(crate) remote_wakeup_enabled: bool,
+    pub(crate) self_powered: bool,
 }
 
 impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
@@ -117,9 +115,9 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                 pending_address: 0,
             },
 
-            device_state: AtomicUsize::new(UsbDeviceState::Default as usize),
-            remote_wakeup_enabled: AtomicBool::new(false),
-            self_powered: AtomicBool::new(false),
+            device_state: UsbDeviceState::Default,
+            remote_wakeup_enabled: false,
+            self_powered: false,
         };
 
         dev.classes.extend_from_slice(classes).unwrap();
@@ -133,26 +131,22 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
     ///
     /// In general class traffic is only possible in the `Configured` state.
     pub fn state(&self) -> UsbDeviceState {
-        unsafe { mem::transmute(self.device_state.load(Ordering::SeqCst) as u8) }
-    }
-
-    pub(crate) fn set_state(&self, state: UsbDeviceState) {
-        self.device_state.store(state as usize, Ordering::SeqCst);
+        self.device_state
     }
 
     /// Gets whether host remote wakeup has been enabled by the host.
     pub fn remote_wakeup_enabled(&self) -> bool {
-        self.remote_wakeup_enabled.load(Ordering::SeqCst)
+        self.remote_wakeup_enabled
     }
 
     /// Gets whether the device is currently self powered.
     pub fn self_powered(&self) -> bool {
-        self.self_powered.load(Ordering::SeqCst)
+        self.self_powered
     }
 
     /// Sets whether the device is currently self powered.
-    pub fn set_self_powered(&self, is_self_powered: bool) {
-        self.self_powered.store(is_self_powered, Ordering::SeqCst);
+    pub fn set_self_powered(&mut self, is_self_powered: bool) {
+        self.self_powered = is_self_powered;
     }
 
     /// Forces a reset on the UsbBus.
@@ -166,10 +160,10 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
     pub fn poll(&mut self) {
         let pr = self.bus.poll();
 
-        if self.state() == UsbDeviceState::Suspend {
+        if self.device_state == UsbDeviceState::Suspend {
             if !(pr == PollResult::Suspend || pr == PollResult::None) {
                 self.bus.resume();
-                self.set_state(UsbDeviceState::Default)
+                self.device_state = UsbDeviceState::Default;
             } else {
                 return;
             }
@@ -225,7 +219,7 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
             PollResult::Resume => { }
             PollResult::Suspend => {
                 self.bus.suspend();
-                self.set_state(UsbDeviceState::Suspend);
+                self.device_state = UsbDeviceState::Suspend;
             }
         }
     }
@@ -233,8 +227,8 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
     fn reset(&mut self) {
         self.bus.reset();
 
-        self.set_state(UsbDeviceState::Default);
-        self.remote_wakeup_enabled.store(false, Ordering::SeqCst);
+        self.device_state = UsbDeviceState::Default;
+        self.remote_wakeup_enabled = false;
 
         self.control.state = ControlState::Idle;
         self.control.pending_address = 0;
@@ -359,7 +353,7 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                 if self.control.pending_address != 0 {
                     // SET_ADDRESS is really handled after the status packet has been sent
                     self.bus.set_device_address(self.control.pending_address);
-                    self.set_state(UsbDeviceState::Addressed);
+                    self.device_state = UsbDeviceState::Addressed;
                     self.control.pending_address = 0;
                 }
 
