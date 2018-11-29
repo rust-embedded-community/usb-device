@@ -49,8 +49,6 @@ const MAX_CLASSES: usize = 4;
 // Maximum number of endpoints in one direction. Specified by the USB specification.
 const MAX_ENDPOINTS: usize = 16;
 
-type UsbClassRef<'a> = &'a (dyn UsbClass + Sync);
-
 /// Holds the current state and data buffer for control requests.
 pub(crate) struct Control {
     state: ControlState,
@@ -69,7 +67,7 @@ pub struct UsbDevice<'a, B: UsbBus + 'a> {
 
     pub(crate) info: UsbDeviceInfo<'a>,
 
-    pub(crate) classes: heapless::Vec<UsbClassRef<'a>, [UsbClassRef<'a>; MAX_CLASSES]>,
+    pub(crate) classes: heapless::Vec<&'a dyn UsbClass, [&'a dyn UsbClass; MAX_CLASSES]>,
 
     pub(crate) control: Control,
     pub(crate) device_state: UsbDeviceState,
@@ -85,7 +83,7 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
 
     pub(crate) fn build(
         bus: &'a UsbBusWrapper<B>,
-        classes: &[UsbClassRef<'a>],
+        classes: &[&'a dyn UsbClass],
         info: UsbDeviceInfo<'a>)
             -> UsbDevice<'a, B>
     {

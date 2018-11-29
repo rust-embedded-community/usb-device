@@ -210,7 +210,6 @@ fn _ensure_sync() {
     }
 
     ensure_sync::<FakeBus>();
-    ensure_sync::<::device::UsbDevice<FakeBus>>();
     ensure_sync::<::endpoint::EndpointIn<FakeBus>>();
     ensure_sync::<::endpoint::EndpointOut<FakeBus>>();
 }
