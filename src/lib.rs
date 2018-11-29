@@ -150,8 +150,6 @@ pub mod device;
 /// Creating USB descriptors
 pub mod descriptor;
 
-pub mod utils;
-
 mod device_builder;
 mod device_standard_control;
 
@@ -170,4 +168,49 @@ pub mod class_prelude {
     pub use ::endpoint::{EndpointType, EndpointIn, EndpointOut, EndpointAddress};
     pub use ::class::UsbClass;
     pub use ::control;
+}
+
+fn _ensure_sync() {
+    fn ensure_sync<T: Sync + Send>() {}
+
+    struct FakeBus { }
+
+    use ::endpoint::{EndpointAddress, EndpointType, EndpointDirection};
+
+    impl ::bus::UsbBus for FakeBus {
+        fn alloc_ep(
+            &mut self,
+            _ep_dir: EndpointDirection,
+            _ep_addr: Option<EndpointAddress>,
+            _ep_type: EndpointType,
+            _max_packet_size: u16,
+            _interval: u8) -> Result<EndpointAddress>
+        {
+            Err(UsbError::EndpointOverflow)
+        }
+
+        fn enable(&mut self) { }
+
+        fn reset(&self) { }
+        fn set_device_address(&self, _addr: u8) { }
+
+        fn write(&self, _ep_addr: EndpointAddress, _buf: &[u8]) -> Result<usize> {
+            Err(UsbError::InvalidEndpoint)
+        }
+
+        fn read(&self, _ep_addr: EndpointAddress, _buf: &mut [u8]) -> Result<usize> {
+            Err(UsbError::InvalidEndpoint)
+        }
+
+        fn set_stalled(&self, _ep_addr: EndpointAddress, _stalled: bool) { }
+        fn is_stalled(&self, _ep_addr: EndpointAddress) -> bool { false }
+        fn suspend(&self) { }
+        fn resume(&self) { }
+        fn poll(&self) -> ::bus::PollResult { ::bus::PollResult::None }
+    }
+
+    ensure_sync::<FakeBus>();
+    ensure_sync::<::device::UsbDevice<FakeBus>>();
+    ensure_sync::<::endpoint::EndpointIn<FakeBus>>();
+    ensure_sync::<::endpoint::EndpointOut<FakeBus>>();
 }

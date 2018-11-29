@@ -1,5 +1,8 @@
 use endpoint::{Endpoint, EndpointDirection, Direction, EndpointType, EndpointAddress};
-use utils::{FreezableRefCell, RefMut};
+use core::cell::RefCell;
+use core::sync::atomic::{AtomicPtr, Ordering};
+use core::mem;
+use core::ptr;
 use ::{Result, UsbError};
 
 /// A trait for device-specific USB peripherals. Implement this to add support for a new hardware
@@ -129,34 +132,41 @@ struct WrapperState {
 
 /// Helper type used for UsbBus initialization and synchronization.
 pub struct UsbBusWrapper<B: UsbBus> {
-    bus: FreezableRefCell<B>,
-    state: FreezableRefCell<WrapperState>,
+    bus: RefCell<B>,
+    bus_ptr: AtomicPtr<B>,
+    state: RefCell<WrapperState>,
 }
 
 impl<B: UsbBus> UsbBusWrapper<B> {
     pub fn new(bus: B) -> UsbBusWrapper<B> {
         UsbBusWrapper {
-            bus: FreezableRefCell::new(bus),
-            state: FreezableRefCell::new(WrapperState {
+            bus: RefCell::new(bus),
+            bus_ptr: AtomicPtr::new(ptr::null_mut()),
+            state: RefCell::new(WrapperState {
                 next_interface_number: 0,
                 next_string_index: 4,
             }),
         }
     }
-}
 
-impl<B: UsbBus> UsbBusWrapper<B> {
     /// Gets a temporary mutable reference to the UsbBus to perform platform-specific
-    /// initialization.
-    pub fn borrow_mut<'a>(&'a self) -> RefMut<B> {
-        self.bus.borrow_mut()
+    /// initialization. May only be called before the related UsbDevice is constructed.
+    pub fn init<R, F: FnOnce(&mut B) -> R>(&self, func: F) -> R {
+        func(&mut *self.bus.borrow_mut())
     }
 
     pub(crate) fn freeze<'a>(&'a self) -> &B {
+        mem::forget(self.state.borrow_mut());
+
         self.bus.borrow_mut().enable();
-        self.bus.freeze();
-        self.state.freeze();
-        self.bus.borrow()
+
+        let mut bus_ref = self.bus.borrow_mut();
+        let bus_ptr_v = &mut *bus_ref as *mut B;
+
+        self.bus_ptr.store(bus_ptr_v, Ordering::SeqCst);
+        mem::forget(bus_ref);
+
+        unsafe { &*bus_ptr_v }
     }
 
     /// Allocates a new interface number.
@@ -194,7 +204,7 @@ impl<B: UsbBus> UsbBusWrapper<B> {
                 ep_addr, ep_type,
                 max_packet_size,
                 interval)
-            .map(|a| Endpoint::new(&self.bus, a, ep_type, max_packet_size, interval))
+            .map(|a| Endpoint::new(&self.bus_ptr, a, ep_type, max_packet_size, interval))
     }
 
     /// Allocates a control endpoint.

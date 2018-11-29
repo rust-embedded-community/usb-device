@@ -155,8 +155,8 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
     }
 
     /// Polls the [`UsbBus`] for new events and dispatches them accordingly. This should be called
-    /// periodically  more often than once every 10 milliseconds to stay USB-compliant, or
-    /// from an interrupt handler.
+    /// periodically more often than once every 10 milliseconds to stay USB compliant, or from an
+    /// interrupt handler.
     pub fn poll(&mut self) {
         let pr = self.bus.poll();
 
