@@ -159,25 +159,23 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
             PollResult::Reset => self.reset(),
             PollResult::Data { ep_out, ep_in_complete, ep_setup } => {
                 // Combine bit fields for quick tests
-                let all = ep_out | ep_in_complete | ep_setup;
+                let mut eps = ep_out | ep_in_complete | ep_setup;
 
                 // Pending events for endpoint 0?
-                if (all & 1) != 0 {
-                    {
-                        let xfer = if (ep_setup & 1) != 0 {
-                            self.control.handle_setup()
-                        } else if (ep_out & 1) != 0 {
-                            self.control.handle_out()
-                        } else {
-                            None
-                        };
+                if (eps & 1) != 0 {
+                    let xfer = if (ep_setup & 1) != 0 {
+                        self.control.handle_setup()
+                    } else if (ep_out & 1) != 0 {
+                        self.control.handle_out()
+                    } else {
+                        None
+                    };
 
-                        match xfer {
-                            Some(control::TransferDirection::In) => self.control_in(),
-                            Some(control::TransferDirection::Out) => self.control_out(),
-                            _ => (),
-                        };
-                    }
+                    match xfer {
+                        Some(control::TransferDirection::In) => self.control_in(),
+                        Some(control::TransferDirection::Out) => self.control_out(),
+                        _ => (),
+                    };
 
                     if (ep_in_complete & 1) != 0 {
                         let completed = self.control.handle_in_complete();
@@ -189,11 +187,14 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                             self.device_state = UsbDeviceState::Addressed;
                         }
                     }
+
+                    eps &= !1;
                 }
 
                 // Pending events for other endpoints?
-                if (all & !1) != 0 {
+                if eps != 0 {
                     let mut bit = 2u16;
+
                     for i in 1..MAX_ENDPOINTS {
                         if (ep_setup & bit) != 0 {
                             for cls in &self.config.classes {
@@ -214,10 +215,14 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                             }
                         }
 
-                        bit <<= 1;
+                        eps &= !bit;
 
-                        // TODO: Maybe reset bits in "all" and check for an early bail-out
-                        // (usually there are less than 16 endpoints)
+                        if eps == 0 {
+                            // No more pending events for higher endpoints
+                            break;
+                        }
+
+                        bit <<= 1;
                     }
                 }
             },
