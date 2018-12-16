@@ -139,10 +139,12 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
         self.bus.force_reset()
     }
 
-    /// Polls the [`UsbBus`] for new events and dispatches them accordingly. This should be called
-    /// periodically more often than once every 10 milliseconds to stay USB compliant, or from an
-    /// interrupt handler.
-    pub fn poll<'t>(&'t mut self) {
+    /// Polls the [`UsbBus`] for new events and dispatches them accordingly. Returns true if one of
+    /// the classes may have data available for reading or be ready for writing, false otherwise.
+    /// This should be called periodically as often as possible for the best data rate, or
+    /// preferably from an interrupt handler. Must be called at least one every 10 milliseconds to
+    /// be USB compliant.
+    pub fn poll<'t>(&'t mut self) -> bool {
         let pr = self.bus.poll();
 
         if self.device_state == UsbDeviceState::Suspend {
@@ -150,7 +152,7 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                 self.bus.resume();
                 self.device_state = UsbDeviceState::Default;
             } else {
-                return;
+                return false;
             }
         }
 
@@ -225,6 +227,8 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                         bit <<= 1;
                     }
                 }
+
+                return true;
             },
             PollResult::Resume => { }
             PollResult::Suspend => {
@@ -232,6 +236,8 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                 self.device_state = UsbDeviceState::Suspend;
             }
         }
+
+        return false;
     }
 
     fn control_in(&mut self) {
