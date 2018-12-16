@@ -1,6 +1,6 @@
 use heapless;
 use ::Result;
-use bus::{UsbBusWrapper, UsbBus, PollResult, StringIndex};
+use bus::{UsbBusAllocator, UsbBus, PollResult, StringIndex};
 use descriptor::{DescriptorWriter, descriptor_type, lang_id};
 use endpoint::{EndpointType, EndpointAddress, EndpointDirection};
 use control;
@@ -84,22 +84,21 @@ const DEFAULT_ALTERNATE_SETTING: u16 = 0;
 impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
     /// Creates a [`UsbDeviceBuilder`] for constructing a new instance.
     pub fn new(
-        bus: &'a UsbBusWrapper<B>,
+        bus: &'a UsbBusAllocator<B>,
         vid_pid: UsbVidPid,
         classes: &[&'a dyn UsbClass<B>]) -> UsbDeviceBuilder<'a, B>
     {
         UsbDeviceBuilder::new(bus, vid_pid, classes)
     }
 
-    pub(crate) fn build(bus: &'a UsbBusWrapper<B>, config: Config<'a, B>) -> UsbDevice<'a, B>
-    {
-        let control_out = bus.alloc(Some(0.into()), EndpointType::Control,
+    pub(crate) fn build(alloc: &'a UsbBusAllocator<B>, config: Config<'a, B>) -> UsbDevice<'a, B> {
+        let control_out = alloc.alloc(Some(0.into()), EndpointType::Control,
             config.max_packet_size_0 as u16, 0).expect("failed to alloc control endpoint");
 
-        let control_in = bus.alloc(Some(0.into()), EndpointType::Control,
+        let control_in = alloc.alloc(Some(0.into()), EndpointType::Control,
             config.max_packet_size_0 as u16, 0).expect("failed to alloc control endpoint");
 
-        let bus = bus.freeze();
+        let bus = alloc.freeze();
 
         let mut dev = UsbDevice {
             bus,

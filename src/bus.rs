@@ -125,24 +125,24 @@ pub trait UsbBus: Sync + Sized {
     }
 }
 
-struct WrapperState {
+struct AllocatorState {
     next_interface_number: u8,
     next_string_index: u8,
 }
 
-/// Helper type used for UsbBus initialization and synchronization.
-pub struct UsbBusWrapper<B: UsbBus> {
+/// Helper type used for UsbBus resource allocation and initialization.
+pub struct UsbBusAllocator<B: UsbBus> {
     bus: RefCell<B>,
     bus_ptr: AtomicPtr<B>,
-    state: RefCell<WrapperState>,
+    state: RefCell<AllocatorState>,
 }
 
-impl<B: UsbBus> UsbBusWrapper<B> {
-    pub fn new(bus: B) -> UsbBusWrapper<B> {
-        UsbBusWrapper {
+impl<B: UsbBus> UsbBusAllocator<B> {
+    pub fn new(bus: B) -> UsbBusAllocator<B> {
+        UsbBusAllocator {
             bus: RefCell::new(bus),
             bus_ptr: AtomicPtr::new(ptr::null_mut()),
-            state: RefCell::new(WrapperState {
+            state: RefCell::new(AllocatorState {
                 next_interface_number: 0,
                 next_string_index: 4,
             }),

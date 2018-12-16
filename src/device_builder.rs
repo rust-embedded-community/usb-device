@@ -1,4 +1,4 @@
-use bus::{UsbBusWrapper, UsbBus};
+use bus::{UsbBusAllocator, UsbBus};
 use device::{UsbDevice, Config};
 use class::UsbClass;
 
@@ -7,7 +7,7 @@ pub struct UsbVidPid(pub u16, pub u16);
 
 /// Used to build new [`UsbDevice`]s.
 pub struct UsbDeviceBuilder<'a, B: 'a + UsbBus> {
-    bus: &'a UsbBusWrapper<B>,
+    alloc: &'a UsbBusAllocator<B>,
     config: Config<'a, B>,
 }
 
@@ -25,12 +25,12 @@ macro_rules! builder_fields {
 
 impl<'a, B: 'a + UsbBus> UsbDeviceBuilder<'a, B> {
     pub(crate) fn new(
-        bus: &'a UsbBusWrapper<B>,
+        alloc: &'a UsbBusAllocator<B>,
         vid_pid: UsbVidPid,
         classes: &[&'a dyn UsbClass<B>]) -> UsbDeviceBuilder<'a, B>
     {
         UsbDeviceBuilder {
-            bus,
+            alloc,
             config: Config {
                 classes: {
                     let mut c = heapless::Vec::new();
@@ -144,6 +144,6 @@ impl<'a, B: 'a + UsbBus> UsbDeviceBuilder<'a, B> {
     /// Creates a [`UsbDevice`] USB device with the settings in this builder and the specified USB
     /// classes.
     pub fn build(&self) -> UsbDevice<'a, B> {
-        UsbDevice::build(self.bus, self.config.clone())
+        UsbDevice::build(self.alloc, self.config.clone())
     }
 }

@@ -168,7 +168,7 @@ pub mod prelude {
 /// Prelude for class implementors.
 pub mod class_prelude {
     pub use ::UsbError;
-    pub use ::bus::{UsbBus, UsbBusWrapper, InterfaceNumber, StringIndex};
+    pub use ::bus::{UsbBus, UsbBusAllocator, InterfaceNumber, StringIndex};
     pub use ::descriptor::DescriptorWriter;
     pub use ::endpoint::{EndpointType, EndpointIn, EndpointOut, EndpointAddress};
     pub use ::class::{UsbClass, ControlIn, ControlOut};
