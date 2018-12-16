@@ -67,6 +67,9 @@ pub enum UsbError {
 
     /// Operation is not supported by device or configuration
     Unsupported,
+
+    /// Operation is not valid in the current state of the object
+    InvalidState,
 }
 
 /// Result for USB operations.
@@ -150,8 +153,11 @@ pub mod device;
 /// Creating USB descriptors
 pub mod descriptor;
 
+mod control_request;
+
 mod device_builder;
-mod device_standard_control;
+
+//#[macro_use] extern crate stlinky;
 
 /// Prelude for end-users.
 pub mod prelude {
@@ -163,10 +169,9 @@ pub mod prelude {
 pub mod class_prelude {
     pub use ::UsbError;
     pub use ::bus::{UsbBus, UsbBusWrapper, InterfaceNumber, StringIndex};
-    pub use ::device::{ControlOutResult, ControlInResult};
     pub use ::descriptor::DescriptorWriter;
     pub use ::endpoint::{EndpointType, EndpointIn, EndpointOut, EndpointAddress};
-    pub use ::class::UsbClass;
+    pub use ::class::{UsbClass, ControlIn, ControlOut};
     pub use ::control;
 }
 

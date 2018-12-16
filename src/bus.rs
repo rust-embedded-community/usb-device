@@ -155,6 +155,7 @@ impl<B: UsbBus> UsbBusWrapper<B> {
         func(&mut *self.bus.borrow_mut())
     }
 
+    // TODO: There is no need for this whole pointer mess...
     pub(crate) fn freeze<'a>(&'a self) -> &B {
         mem::forget(self.state.borrow_mut());
 

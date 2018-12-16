@@ -1,103 +1,257 @@
+use core::cmp::min;
 use core::mem;
-use ::{Result, UsbError};
+use ::{UsbError, Result};
+use bus::UsbBus;
+use endpoint::{EndpointIn, EndpointOut};
+pub use control_request::*;
 
-/// Control request direction.
-#[repr(u8)]
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum Direction {
-    /// Host-to-device direction (control OUT transfer)
-    HostToDevice = 0,
-    /// Device-to-host direction (control IN transfer)
-    DeviceToHost = 1,
+#[derive(PartialEq, Eq, Debug)]
+#[allow(unused)]
+enum ControlState {
+    Idle,
+    DataIn,
+    DataInZlp,
+    DataInLast,
+    CompleteIn,
+    StatusOut,
+    CompleteOut,
+    DataOut,
+    StatusIn,
+    Error,
 }
 
-/// Control request type.
-#[repr(u8)]
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum RequestType {
-    /// Request is a USB standard request. Usually handled by [`UsbDevice`](::device::UsbDevice).
-    Standard = 0,
-    /// Request is intended for a USB class.
-    Class = 1,
-    /// Request is vendor-specific.
-    Vendor = 2,
-    /// Reserved.
-    Reserved = 3,
+// Maximum length of control transfer data stage in bytes. It might be necessary to make this
+// non-const in the future.
+const CONTROL_BUF_LEN: usize = 128;
+
+pub struct ControlPipe<'a, B: UsbBus + 'a> {
+    ep_out: EndpointOut<'a, B>,
+    ep_in: EndpointIn<'a, B>,
+    state: ControlState,
+    request: Option<Request>,
+    buf: [u8; CONTROL_BUF_LEN],
+    i: usize,
+    len: usize,
 }
 
-/// Control request recipient.
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum Recipient {
-    /// Request is intended for the entire device.
-    Device = 0,
-    /// Request is intended for an interface. Generally, the `index` field of the reques specifies
-    /// the interface number.
-    Interface = 1,
-    /// Request is intended for an endpoint. Generally, the `index` field of the request specifies
-    /// the endpoint address.
-    Endpoint = 2,
-    /// None of the above.
-    Other = 3,
-    /// Reserved.
-    Reserved = 4,
-}
+impl<'a, B: UsbBus + 'a> ControlPipe<'a, B> {
+    pub fn new(ep_out: EndpointOut<'a, B>, ep_in: EndpointIn<'a, B>) -> ControlPipe<'a, B> {
+        ControlPipe {
+            ep_out,
+            ep_in,
+            state: ControlState::Idle,
+            request: None,
+            buf: unsafe { mem::uninitialized() },
+            i: 0,
+            len: 0,
+        }
+    }
 
-/// A control request read from a SETUP packet.
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub struct Request {
-    /// Direction of the request.
-    pub direction: Direction,
-    /// Type of the request.
-    pub request_type: RequestType,
-    /// Recipient of the request.
-    pub recipient: Recipient,
-    /// Request code. The meaning of the value depends on the previous fields.
-    pub request: u8,
-    /// Request value. The meaning of the value depends on the previous fields.
-    pub value: u16,
-    /// Request index. The meaning of the value depends on the previous fields.
-    pub index: u16,
-    /// Length of the DATA stage. For control OUT transfers this is the exact length of the data the
-    /// host sent. For control IN transfers this is the maximum length of data the device should
-    /// return.
-    pub length: u16,
-}
+    pub fn request(&self) -> &Request {
+        self.request.as_ref().unwrap()
+    }
 
-impl Request {
-    pub(crate) fn parse(buf: &[u8]) -> Result<Request> {
-        if buf.len() != 8 {
-            return Err(UsbError::InvalidSetupPacket);
+    pub fn data(&self) -> &[u8] {
+        &self.buf[0..self.len]
+    }
+
+    pub fn reset(&mut self) {
+        self.state = ControlState::Idle;
+    }
+
+    pub fn handle_setup<'p>(&'p mut self) -> Option<TransferDirection> {
+        let count = match self.ep_out.read(&mut self.buf[..]) {
+            Ok(count) => count,
+            Err(UsbError::NoData) => return None,
+            Err(_) => {
+                self.set_error();
+                return None;
+            }
+        };
+
+        let req = match Request::parse(&self.buf[0..count]) {
+            Ok(req) => req,
+            Err(_) => {
+                // Failed to parse SETUP packet
+                self.set_error();
+                return None;
+            },
+        };
+
+        /*sprintln!("SETUP {:?} {:?} {:?} req:{} val:{} idx:{} len:{} {:?}",
+            req.direction, req.request_type, req.recipient,
+            req.request, req.value, req.index, req.length,
+            self.state);*/
+
+        self.request = Some(req);
+
+        if req.direction == Direction::HostToDevice {
+            // OUT transfer
+
+            self.len = 0;
+            self.i = 0;
+
+            if req.length > 0 {
+                // Has data stage
+
+                if req.length as usize > self.buf.len() {
+                    // Data stage won't fit in buffer
+                    self.set_error();
+                    return None;
+                }
+
+                self.state = ControlState::DataOut;
+            } else {
+                // No data stage
+
+                self.state = ControlState::CompleteOut;
+                return Some(TransferDirection::Out);
+            }
+        } else {
+            // IN transfer
+
+            self.state = ControlState::CompleteIn;
+            return Some(TransferDirection::In);
         }
 
-        let rt = buf[0];
-        let recipient = rt & 0b11111;
+        return None;
+    }
 
-        Ok(Request {
-            direction: unsafe { mem::transmute(rt >> 7) },
-            request_type: unsafe { mem::transmute((rt >> 5) & 0b11) },
-            recipient:
-                if recipient <= 3 { unsafe { mem::transmute(recipient) } }
-                else { Recipient::Reserved },
-            request: buf[1],
-            value: (buf[2] as u16) | ((buf[3] as u16) << 8),
-            index: (buf[4] as u16) | ((buf[5] as u16) << 8),
-            length: (buf[6] as u16) | ((buf[7] as u16) << 8),
-        })
+    pub fn handle_out<'p>(&'p mut self) -> Option<TransferDirection> {
+        match self.state {
+            ControlState::DataOut => {
+                let i = self.i;
+                let count = match self.ep_out.read(&mut self.buf[i..]) {
+                    Ok(count) => count,
+                    Err(UsbError::NoData) => return None,
+                    Err(_) => {
+                        // Failed to read or buffer overflow (overflow is only possible if the host
+                        // sends more data than it indicated in the SETUP request)
+                        self.set_error();
+                        return None;
+                    },
+                };
+
+                self.i += count;
+
+                if self.i >= self.len {
+                    self.state = ControlState::CompleteOut;
+                    return Some(TransferDirection::Out);
+                }
+            },
+            ControlState::StatusOut => {
+                self.ep_out.read(&mut []).unwrap();
+                self.state = ControlState::Idle;
+            },
+            _ => {
+                // Discard the packet
+                self.ep_out.read(&mut []).ok();
+
+                // Unexpected OUT packet
+                self.set_error()
+            },
+        }
+
+        return None;
+    }
+
+    pub fn handle_in_complete(&mut self) -> bool {
+        match self.state {
+            ControlState::DataIn => {
+                self.write_in_chunk();
+            },
+            ControlState::DataInZlp => {
+                match self.ep_in.write(&[]) {
+                    Err(UsbError::Busy) => return false,
+                    Err(err) => panic!("{:?}", err),
+                    _ => {},
+                };
+
+                self.state = ControlState::DataInLast;
+            },
+            ControlState::DataInLast => {
+                self.ep_out.unstall();
+                self.state = ControlState::StatusOut;
+            },
+            ControlState::StatusIn => {
+                self.state = ControlState::Idle;
+                return true;
+            },
+            _ => {
+                // Unexpected IN packet
+                self.set_error();
+            }
+        };
+
+        return false;
+    }
+
+    fn write_in_chunk(&mut self) {
+        let count = min(self.len - self.i, self.ep_in.max_packet_size() as usize);
+
+        let count = match self.ep_in.write(&self.buf[self.i..(self.i+count)]) {
+            Err(UsbError::Busy) => return,
+            Err(err) => panic!("{:?}", err),
+            Ok(c) => c,
+        };
+
+        self.i += count;
+
+        if self.i >= self.len {
+            self.state = if count == self.ep_in.max_packet_size() as usize {
+                ControlState::DataInZlp
+            } else {
+                ControlState::DataInLast
+            };
+        }
+    }
+
+    pub fn accept_out(&mut self) -> Result<()> {
+        if self.state != ControlState::CompleteOut {
+            return Err(UsbError::InvalidState);
+        }
+
+        self.ep_in.write(&[]).ok();
+        self.state = ControlState::StatusIn;
+        Ok(())
+    }
+
+    pub fn accept_in(&mut self, f: impl FnOnce(&mut [u8]) -> Result<usize>) -> Result<()> {
+        if self.state != ControlState::CompleteIn {
+            return Err(UsbError::InvalidState);
+        }
+
+        let len = f(&mut self.buf[..])?;
+
+        if len > self.buf.len() {
+            return Err(UsbError::BufferOverflow);
+        }
+
+        self.len = min(len, self.request.unwrap().length as usize);
+        self.i = 0;
+        self.state = ControlState::DataIn;
+        self.write_in_chunk();
+
+        Ok(())
+    }
+
+    pub fn reject(&mut self) -> Result<()> {
+        if !(self.state == ControlState::CompleteOut || self.state == ControlState::CompleteIn) {
+            return Err(UsbError::InvalidState);
+        }
+
+        self.set_error();
+        Ok(())
+    }
+
+    fn set_error(&mut self) {
+        self.state = ControlState::Error;
+        self.ep_out.stall();
+        self.ep_in.stall();
     }
 }
 
-// TODO: Maybe move parsing standard requests here altogether
-
-pub(crate) mod standard_request {
-    pub const GET_STATUS: u8 = 0;
-    pub const CLEAR_FEATURE: u8 = 1;
-    pub const SET_FEATURE: u8 = 3;
-    pub const SET_ADDRESS: u8 = 5;
-    pub const GET_DESCRIPTOR: u8 = 6;
-    //pub const SET_DESCRIPTOR: u8 = 7;
-    pub const GET_CONFIGURATION: u8 = 8;
-    pub const SET_CONFIGURATION: u8 = 9;
-    pub const GET_INTERFACE: u8 = 10;
-    pub const SET_INTERFACE: u8 = 11;
-    //pub const SYNCH_FRAME: u8 = 12;
+pub enum TransferDirection {
+    In,
+    Out,
 }

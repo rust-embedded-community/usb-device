@@ -1,5 +1,5 @@
 use bus::{UsbBusWrapper, UsbBus};
-use device::{UsbDevice, UsbDeviceInfo};
+use device::{UsbDevice, Config};
 use class::UsbClass;
 
 /// A USB vendor ID and product ID pair.
@@ -8,7 +8,7 @@ pub struct UsbVidPid(pub u16, pub u16);
 /// Used to build new [`UsbDevice`]s.
 pub struct UsbDeviceBuilder<'a, B: 'a + UsbBus> {
     bus: &'a UsbBusWrapper<B>,
-    info: UsbDeviceInfo<'a>,
+    config: Config<'a, B>,
 }
 
 macro_rules! builder_fields {
@@ -16,7 +16,7 @@ macro_rules! builder_fields {
         $(
             $(#[$meta])*
             pub fn $name(&mut self, $name: $type) -> &mut Self {
-                self.info.$name = $name;
+                self.config.$name = $name;
                 self
             }
         )*
@@ -24,10 +24,19 @@ macro_rules! builder_fields {
 }
 
 impl<'a, B: 'a + UsbBus> UsbDeviceBuilder<'a, B> {
-    pub(crate) fn new(bus: &'a UsbBusWrapper<B>, vid_pid: UsbVidPid) -> UsbDeviceBuilder<'a, B> {
+    pub(crate) fn new(
+        bus: &'a UsbBusWrapper<B>,
+        vid_pid: UsbVidPid,
+        classes: &[&'a dyn UsbClass<B>]) -> UsbDeviceBuilder<'a, B>
+    {
         UsbDeviceBuilder {
             bus,
-            info: UsbDeviceInfo {
+            config: Config {
+                classes: {
+                    let mut c = heapless::Vec::new();
+                    c.extend_from_slice(classes).unwrap();
+                    c
+                },
                 device_class: 0x00,
                 device_sub_class: 0x00,
                 device_protocol: 0x00,
@@ -111,11 +120,11 @@ impl<'a, B: 'a + UsbBus> UsbDeviceBuilder<'a, B> {
             _ => panic!("invalid max_packet_size_0")
         }
 
-        self.info.max_packet_size_0 = max_packet_size_0;
+        self.config.max_packet_size_0 = max_packet_size_0;
         self
     }
 
-    /// Sets the maximum current drawn from the USB bus by the define in milliamps.
+    /// Sets the maximum current drawn from the USB bus by the device in milliamps.
     ///
     /// The default is 100 mA. If your device always uses an external power source and never draws
     /// power from the USB bus, this can be set to 0.
@@ -128,13 +137,13 @@ impl<'a, B: 'a + UsbBus> UsbDeviceBuilder<'a, B> {
             panic!("max_power is too much")
         }
 
-        self.info.max_power = (max_power_ma / 2) as u8;
+        self.config.max_power = (max_power_ma / 2) as u8;
         self
     }
 
     /// Creates a [`UsbDevice`] USB device with the settings in this builder and the specified USB
     /// classes.
-    pub fn build(&self, classes: &[&'a dyn UsbClass]) -> UsbDevice<'a, B> {
-        UsbDevice::build(self.bus, classes, self.info)
+    pub fn build(&self) -> UsbDevice<'a, B> {
+        UsbDevice::build(self.bus, self.config.clone())
     }
 }

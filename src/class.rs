@@ -1,12 +1,11 @@
-use ::Result;
-use bus::StringIndex;
-use device::{ControlOutResult, ControlInResult};
+use ::{Result, UsbError};
+use bus::{UsbBus, StringIndex};
 use descriptor::DescriptorWriter;
 use control;
 use endpoint::EndpointAddress;
 
 /// A trait implemented by USB class implementations.
-pub trait UsbClass {
+pub trait UsbClass<B: UsbBus> {
     /// Called after a USB reset after the bus reset sequence is complete.
     fn reset(&self) -> Result<()> {
         Ok(())
@@ -44,9 +43,8 @@ pub trait UsbClass {
     /// * `req` - The request from the SETUP packet.
     /// * `data` - Data received in the DATA stage of the control transfer. Empty if there was no
     ///   DATA stage.
-    fn control_out(&self, req: &control::Request, data: &[u8]) -> ControlOutResult {
-        let _ = (req, data);
-        ControlOutResult::Ignore
+    fn control_out(&self, xfer: ControlOut<'_, '_, '_, B>) {
+        let _ = xfer;
     }
 
     /// Called when a control request is received with direction DeviceToHost.
@@ -68,9 +66,8 @@ pub trait UsbClass {
     ///
     /// * `req` - The request from the SETUP packet.
     /// * `data` - Data to send in the DATA stage of the control transfer.
-    fn control_in(&self, req: &control::Request, data: &mut [u8]) -> ControlInResult {
-        let _ = (req, data);
-        ControlInResult::Ignore
+    fn control_in(&self, xfer: ControlIn<'_, '_, '_, B>) {
+        let _ = xfer;
     }
 
     /// Called when endpoint with address `addr` has received a SETUP packet. Implementing this
@@ -110,5 +107,61 @@ pub trait UsbClass {
     fn get_string<'a>(&'a self, index: StringIndex, lang_id: u16) -> Option<&'a str> {
         let _ = (index, lang_id);
         None
+    }
+}
+
+pub struct ControlIn<'a, 'p, 'o, B: UsbBus + 'a>(&'o mut Option<&'p mut control::ControlPipe<'a, B>>);
+
+impl<'a, 'p, 'o, B: UsbBus + 'a> ControlIn<'a, 'p, 'o,  B> {
+    pub(crate) fn new(pipe: &'o mut Option<&'p mut control::ControlPipe<'a, B>>) -> Self {
+        ControlIn(pipe)
+    }
+
+    pub fn request(&self) -> &control::Request {
+        self.0.as_ref().unwrap().request()
+    }
+
+    pub fn accept_with(self, data: &[u8]) -> Result<()> {
+        self.0.take().unwrap().accept_in(|buf| {
+            if data.len() > buf.len() {
+                return Err(UsbError::BufferOverflow);
+            }
+
+            buf[..data.len()].copy_from_slice(data);
+
+            Ok(data.len())
+        })
+    }
+
+    pub fn accept(self, f: impl FnOnce(&mut [u8]) -> Result<usize>) -> Result<()> {
+        self.0.take().unwrap().accept_in(f)
+    }
+
+    pub fn reject(self) -> Result<()> {
+        self.0.take().unwrap().reject()
+    }
+}
+
+pub struct ControlOut<'a, 'p, 'o, B: UsbBus + 'a>(&'o mut Option<&'p mut control::ControlPipe<'a, B>>);
+
+impl<'a, 'p, 'o, B: UsbBus + 'a> ControlOut<'a, 'p, 'o, B> {
+    pub(crate) fn new(pipe: &'o mut Option<&'p mut control::ControlPipe<'a, B>>) -> Self {
+        ControlOut(pipe)
+    }
+
+    pub fn request(&self) -> &control::Request {
+        self.0.as_ref().unwrap().request()
+    }
+
+    pub fn data(&self) -> &[u8] {
+        self.0.as_ref().unwrap().data()
+    }
+
+    pub fn accept(self) -> Result<()> {
+        self.0.take().unwrap().accept_out()
+    }
+
+    pub fn reject(self) -> Result<()> {
+        self.0.take().unwrap().reject()
     }
 }
