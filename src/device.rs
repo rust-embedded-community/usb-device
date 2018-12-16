@@ -74,14 +74,11 @@ impl<'a, B: UsbBus + 'a> Clone for Config<'a, B> {
     }
 }
 
-const FEATURE_ENDPOINT_HALT: u16 = 0;
-const FEATURE_DEVICE_REMOTE_WAKEUP: u16 = 1;
-
-const CONFIGURATION_VALUE: u16 = 1;
-
-const DEFAULT_ALTERNATE_SETTING: u16 = 0;
-
 impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
+    const CONFIGURATION_VALUE: u16 = 1;
+
+    const DEFAULT_ALTERNATE_SETTING: u16 = 0;
+
     /// Creates a [`UsbDeviceBuilder`] for constructing a new instance.
     pub fn new(
         bus: &'a UsbBusAllocator<B>,
@@ -277,12 +274,12 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                     => UsbDevice::get_descriptor(&self.config, xfer).unwrap(),
 
                 (Recipient::Device, Request::GET_CONFIGURATION) => {
-                    xfer.accept_with(&CONFIGURATION_VALUE.to_le_bytes()).unwrap();
+                    xfer.accept_with(&Self::CONFIGURATION_VALUE.to_le_bytes()).unwrap();
                 },
 
                 (Recipient::Interface, Request::GET_INTERFACE) => {
                     // TODO: change when alternate settings are implemented
-                    xfer.accept_with(&DEFAULT_ALTERNATE_SETTING.to_le_bytes()).unwrap();
+                    xfer.accept_with(&Self::DEFAULT_ALTERNATE_SETTING.to_le_bytes()).unwrap();
                 },
 
                 _ => (),
@@ -312,22 +309,22 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
             let xfer = ControlOut::new(&mut ctrl);
 
             match (req.recipient, req.request, req.value) {
-                (Recipient::Device, Request::CLEAR_FEATURE, FEATURE_DEVICE_REMOTE_WAKEUP) => {
+                (Recipient::Device, Request::CLEAR_FEATURE, Request::FEATURE_DEVICE_REMOTE_WAKEUP) => {
                     self.remote_wakeup_enabled = false;
                     xfer.accept().unwrap();
                 },
 
-                (Recipient::Endpoint, Request::CLEAR_FEATURE, FEATURE_ENDPOINT_HALT) => {
+                (Recipient::Endpoint, Request::CLEAR_FEATURE, Request::FEATURE_ENDPOINT_HALT) => {
                     self.bus.set_stalled(((req.index as u8) & 0x8f).into(), false);
                     xfer.accept().unwrap();
                 },
 
-                (Recipient::Device, Request::SET_FEATURE, FEATURE_DEVICE_REMOTE_WAKEUP) => {
+                (Recipient::Device, Request::SET_FEATURE, Request::FEATURE_DEVICE_REMOTE_WAKEUP) => {
                     self.remote_wakeup_enabled = true;
                     xfer.accept().unwrap();
                 },
 
-                (Recipient::Endpoint, Request::SET_FEATURE, FEATURE_ENDPOINT_HALT) => {
+                (Recipient::Endpoint, Request::SET_FEATURE, Request::FEATURE_ENDPOINT_HALT) => {
                     self.bus.set_stalled(((req.index as u8) & 0x8f).into(), true);
                     xfer.accept().unwrap();
                 },
@@ -337,12 +334,12 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                     xfer.accept().unwrap();
                 },
 
-                (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_VALUE) => {
+                (Recipient::Device, Request::SET_CONFIGURATION, Self::CONFIGURATION_VALUE) => {
                     self.device_state = UsbDeviceState::Configured;
                     xfer.accept().unwrap();
                 },
 
-                (Recipient::Interface, Request::SET_INTERFACE, DEFAULT_ALTERNATE_SETTING) => {
+                (Recipient::Interface, Request::SET_INTERFACE, Self::DEFAULT_ALTERNATE_SETTING) => {
                     // TODO: do something when alternate settings are implemented
                     xfer.accept().unwrap();
                 },
@@ -397,7 +394,7 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                     &[
                         0, 0, // wTotalLength (placeholder)
                         0, // bNumInterfaces (placeholder)
-                        CONFIGURATION_VALUE as u8, // bConfigurationValue
+                        Self::CONFIGURATION_VALUE as u8, // bConfigurationValue
                         0, // iConfiguration
                         // bmAttributes:
                         0x80

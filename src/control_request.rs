@@ -76,6 +76,9 @@ impl Request {
     pub const SET_INTERFACE: u8 = 11;
     pub const SYNCH_FRAME: u8 = 12;
 
+    pub const FEATURE_ENDPOINT_HALT: u16 = 0;
+    pub const FEATURE_DEVICE_REMOTE_WAKEUP: u16 = 1;
+
     pub(crate) fn parse(buf: &[u8]) -> Result<Request> {
         if buf.len() != 8 {
             return Err(UsbError::InvalidSetupPacket);
