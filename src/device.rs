@@ -1,11 +1,11 @@
 use heapless;
-use ::Result;
-use bus::{UsbBusAllocator, UsbBus, PollResult, StringIndex};
-use descriptor::{DescriptorWriter, descriptor_type, lang_id};
-use endpoint::{EndpointType, EndpointAddress, EndpointDirection};
-use control;
-use class::{UsbClass, ControlIn, ControlOut};
-pub use device_builder::{UsbDeviceBuilder, UsbVidPid};
+use crate::Result;
+use crate::bus::{UsbBusAllocator, UsbBus, PollResult, StringIndex};
+use crate::descriptor::{DescriptorWriter, descriptor_type, lang_id};
+use crate::endpoint::{EndpointType, EndpointAddress, EndpointDirection};
+use crate::control;
+use crate::class::{UsbClass, ControlIn, ControlOut};
+pub use crate::device_builder::{UsbDeviceBuilder, UsbVidPid};
 
 /// The global state of the USB device.
 ///
@@ -241,7 +241,7 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
     }
 
     fn control_in(&mut self) {
-        use control::{Request, Recipient};
+        use crate::control::{Request, Recipient};
 
         let req = *self.control.request();
         let mut ctrl = Some(&mut self.control);
@@ -303,7 +303,7 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
     }
 
     fn control_out(&mut self) {
-        use control::{Request, Recipient};
+        use crate::control::{Request, Recipient};
 
         let req = *self.control.request();
         let mut ctrl = Some(&mut self.control);

@@ -1,4 +1,4 @@
-use ::{Result, UsbError};
+use crate::{Result, UsbError};
 use core::mem;
 
 /// Control request direction.

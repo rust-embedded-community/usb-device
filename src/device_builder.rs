@@ -1,6 +1,6 @@
-use bus::{UsbBusAllocator, UsbBus};
-use device::{UsbDevice, Config};
-use class::UsbClass;
+use crate::bus::{UsbBusAllocator, UsbBus};
+use crate::device::{UsbDevice, Config};
+use crate::class::UsbClass;
 
 /// A USB vendor ID and product ID pair.
 pub struct UsbVidPid(pub u16, pub u16);

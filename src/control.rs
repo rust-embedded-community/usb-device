@@ -1,9 +1,9 @@
 use core::cmp::min;
 use core::mem;
-use ::{UsbError, Result};
-use bus::UsbBus;
-use endpoint::{EndpointIn, EndpointOut};
-pub use control_request::*;
+use crate::{UsbError, Result};
+use crate::bus::UsbBus;
+use crate::endpoint::{EndpointIn, EndpointOut};
+pub use crate::control_request::*;
 
 #[derive(PartialEq, Eq, Debug)]
 #[allow(unused)]

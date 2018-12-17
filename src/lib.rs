@@ -36,8 +36,6 @@
 //#![warn(missing_docs)]
 #![feature(asm)]
 
-extern crate heapless;
-
 /// A USB stack error.
 #[derive(Debug)]
 pub enum UsbError {
@@ -161,18 +159,18 @@ mod device_builder;
 
 /// Prelude for end-users.
 pub mod prelude {
-    pub use ::UsbError;
-    pub use ::device::{UsbDevice, UsbDeviceState, UsbDeviceBuilder, UsbVidPid};
+    pub use crate::UsbError;
+    pub use crate::device::{UsbDevice, UsbDeviceState, UsbDeviceBuilder, UsbVidPid};
 }
 
 /// Prelude for class implementors.
 pub mod class_prelude {
-    pub use ::UsbError;
-    pub use ::bus::{UsbBus, UsbBusAllocator, InterfaceNumber, StringIndex};
-    pub use ::descriptor::DescriptorWriter;
-    pub use ::endpoint::{EndpointType, EndpointIn, EndpointOut, EndpointAddress};
-    pub use ::class::{UsbClass, ControlIn, ControlOut};
-    pub use ::control;
+    pub use crate::UsbError;
+    pub use crate::bus::{UsbBus, UsbBusAllocator, InterfaceNumber, StringIndex};
+    pub use crate::descriptor::DescriptorWriter;
+    pub use crate::endpoint::{EndpointType, EndpointIn, EndpointOut, EndpointAddress};
+    pub use crate::class::{UsbClass, ControlIn, ControlOut};
+    pub use crate::control;
 }
 
 fn _ensure_sync() {
@@ -180,9 +178,9 @@ fn _ensure_sync() {
 
     struct FakeBus { }
 
-    use ::endpoint::{EndpointAddress, EndpointType, EndpointDirection};
+    use crate::endpoint::{EndpointAddress, EndpointType, EndpointDirection};
 
-    impl ::bus::UsbBus for FakeBus {
+    impl crate::bus::UsbBus for FakeBus {
         fn alloc_ep(
             &mut self,
             _ep_dir: EndpointDirection,
@@ -211,10 +209,10 @@ fn _ensure_sync() {
         fn is_stalled(&self, _ep_addr: EndpointAddress) -> bool { false }
         fn suspend(&self) { }
         fn resume(&self) { }
-        fn poll(&self) -> ::bus::PollResult { ::bus::PollResult::None }
+        fn poll(&self) -> crate::bus::PollResult { crate::bus::PollResult::None }
     }
 
     ensure_sync::<FakeBus>();
-    ensure_sync::<::endpoint::EndpointIn<FakeBus>>();
-    ensure_sync::<::endpoint::EndpointOut<FakeBus>>();
+    ensure_sync::<crate::endpoint::EndpointIn<FakeBus>>();
+    ensure_sync::<crate::endpoint::EndpointOut<FakeBus>>();
 }

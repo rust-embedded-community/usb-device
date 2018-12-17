@@ -1,8 +1,8 @@
 use core::mem;
 use core::slice;
-use ::{Result, UsbError};
-use bus::{UsbBus, InterfaceNumber};
-use endpoint::{Endpoint, Direction};
+use crate::{Result, UsbError};
+use crate::bus::{UsbBus, InterfaceNumber};
+use crate::endpoint::{Endpoint, Direction};
 
 /// Standard descriptor types
 #[allow(missing_docs)]

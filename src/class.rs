@@ -1,8 +1,8 @@
-use ::{Result, UsbError};
-use bus::{UsbBus, StringIndex};
-use descriptor::DescriptorWriter;
-use control;
-use endpoint::EndpointAddress;
+use crate::{Result, UsbError};
+use crate::bus::{UsbBus, StringIndex};
+use crate::descriptor::DescriptorWriter;
+use crate::control;
+use crate::endpoint::EndpointAddress;
 
 /// A trait implemented by USB class implementations.
 pub trait UsbClass<B: UsbBus> {

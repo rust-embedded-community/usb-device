@@ -1,9 +1,9 @@
-use endpoint::{Endpoint, EndpointDirection, Direction, EndpointType, EndpointAddress};
+use crate::endpoint::{Endpoint, EndpointDirection, Direction, EndpointType, EndpointAddress};
 use core::cell::RefCell;
 use core::sync::atomic::{AtomicPtr, Ordering};
 use core::mem;
 use core::ptr;
-use ::{Result, UsbError};
+use crate::{Result, UsbError};
 
 /// A trait for device-specific USB peripherals. Implement this to add support for a new hardware
 /// platform.

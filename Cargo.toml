@@ -2,6 +2,7 @@
 name = "usb-device"
 description = "Experimental device-side USB stack for embedded devices."
 version = "0.1.0"
+edition = "2018"
 readme = "README.md"
 keywords = ["no-std", "embedded", "usb"]
 license = "MIT"

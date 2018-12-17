@@ -1,8 +1,8 @@
 use core::marker::PhantomData;
 use core::sync::atomic::{AtomicPtr, Ordering};
 use core::ptr;
-use ::Result;
-use bus::UsbBus;
+use crate::Result;
+use crate::bus::UsbBus;
 
 /// Trait for endpoint type markers.
 pub trait Direction {
