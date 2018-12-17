@@ -1,7 +1,12 @@
 [package]
 name = "usb-device"
+description = "Experimental device-side USB stack for embedded devices."
 version = "0.1.0"
+readme = "README.md"
+keywords = ["no-std", "embedded", "usb"]
+license = "MIT"
 authors = ["Matti Virkkunen <mvirkkunen@gmail.com>"]
+repository = "https://github.com/mvirkkunen/usb-device"
 
 [dependencies]
 heapless = "0.2.1"

@@ -1,7 +1,7 @@
 usb-device
 ==========
 
-Experimental device-side USB framework for microcontrollers in Rust.
+Experimental device-side USB stack for embedded devices in Rust.
 
 This crate is still under development and should not be considered production ready or even USB
 compliant.
