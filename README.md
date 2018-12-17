@@ -30,10 +30,7 @@ Features planned but not implemented yet:
 - A safer DescriptorWriter
 - Multilingual string descriptors
 - Isochronous endpoints
-- Optimize interrupt driven operation (maybe UsbDevice::poll should return which device has data
-  available)
 
 Features not planning to support at the moment:
 
 - More than one configuration descriptor (uncommon in practice)
-- Control transfers on other than endpoint 0 (can be implemented manually if absolutely necessary)
