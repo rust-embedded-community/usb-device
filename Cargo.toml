@@ -11,3 +11,7 @@ repository = "https://github.com/mvirkkunen/usb-device"
 
 [dependencies]
 heapless = "0.2.1"
+
+[dev-dependencies]
+libusb = "0.3.0"
+lazy_static = "1.2.0"
