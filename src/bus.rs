@@ -149,13 +149,6 @@ impl<B: UsbBus> UsbBusAllocator<B> {
         }
     }
 
-    /// Gets a temporary mutable reference to the UsbBus to perform platform-specific
-    /// initialization. May only be called before the related UsbDevice is constructed.
-    pub fn init<R, F: FnOnce(&mut B) -> R>(&self, func: F) -> R {
-        func(&mut *self.bus.borrow_mut())
-    }
-
-    // TODO: There is no need for this whole pointer mess...
     pub(crate) fn freeze<'a>(&'a self) -> &B {
         mem::forget(self.state.borrow_mut());
 
