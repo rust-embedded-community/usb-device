@@ -1,6 +1,6 @@
 use core::cmp::min;
 use core::mem;
-use crate::{UsbError, Result};
+use crate::{Result, UsbDirection, UsbError};
 use crate::bus::UsbBus;
 use crate::endpoint::{EndpointIn, EndpointOut};
 pub use crate::control_request::*;
@@ -85,7 +85,7 @@ impl<'a, B: UsbBus + 'a> ControlPipe<'a, B> {
 
         self.request = Some(req);
 
-        if req.direction == Direction::HostToDevice {
+        if req.direction == UsbDirection::Out {
             // OUT transfer
 
             self.len = 0;

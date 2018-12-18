@@ -1,27 +1,27 @@
 use core::marker::PhantomData;
 use core::sync::atomic::{AtomicPtr, Ordering};
 use core::ptr;
-use crate::Result;
+use crate::{Result, UsbDirection};
 use crate::bus::UsbBus;
 
 /// Trait for endpoint type markers.
-pub trait Direction {
+pub trait EndpointDirection {
     /// Direction value of the marker type.
-    const DIRECTION: EndpointDirection;
+    const DIRECTION: UsbDirection;
 }
 
 /// Marker type for OUT endpoints.
 pub struct Out;
 
-impl Direction for Out {
-    const DIRECTION: EndpointDirection = EndpointDirection::Out;
+impl EndpointDirection for Out {
+    const DIRECTION: UsbDirection = UsbDirection::Out;
 }
 
 /// Marker type for IN endpoints.
 pub struct In;
 
-impl Direction for In {
-    const DIRECTION: EndpointDirection = EndpointDirection::In;
+impl EndpointDirection for In {
+    const DIRECTION: UsbDirection = UsbDirection::In;
 }
 
 /// A host-to-device (OUT) endpoint.
@@ -29,17 +29,6 @@ pub type EndpointOut<'a, B> = Endpoint<'a, B, Out>;
 
 /// A device-to-host (IN) endpoint.
 pub type EndpointIn<'a, B> = Endpoint<'a, B, In>;
-
-/// USB endpoint direction. The values of this enum can be directly cast into `u8` to get the
-/// endpoint address direction bit.
-#[repr(u8)]
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum EndpointDirection {
-    /// Host-to-device (OUT).
-    Out = 0x00,
-    /// device-to-host (IN).
-    In = 0x80,
-}
 
 /// USB endpoint transfer type. The values of this enum can be directly cast into `u8` to get the
 /// transfer bmAttributes transfer type bits.
@@ -59,7 +48,7 @@ pub enum EndpointType {
 
 /// Handle for a USB endpoint. The endpoint direction is constrained by the `D` type argument, which
 /// must be either `In` or `Out`.
-pub struct Endpoint<'a, B: 'a + UsbBus, D: Direction> {
+pub struct Endpoint<'a, B: 'a + UsbBus, D: EndpointDirection> {
     bus_ptr: &'a AtomicPtr<B>,
     address: EndpointAddress,
     ep_type: EndpointType,
@@ -68,7 +57,7 @@ pub struct Endpoint<'a, B: 'a + UsbBus, D: Direction> {
     _marker: PhantomData<D>
 }
 
-impl<'a, B: UsbBus, D: Direction> Endpoint<'a, B, D> {
+impl<'a, B: UsbBus, D: EndpointDirection> Endpoint<'a, B, D> {
     pub(crate) fn new(
         bus_ptr: &'a AtomicPtr<B>,
         address: EndpointAddress,
@@ -180,21 +169,21 @@ impl From<EndpointAddress> for u8 {
 }
 
 impl EndpointAddress {
-    const INBITS: u8 = EndpointDirection::In as u8;
+    const INBITS: u8 = UsbDirection::In as u8;
 
     /// Constructs a new EndpointAddress with the given index and direction.
     #[inline]
-    pub fn from_parts(index: usize, dir: EndpointDirection) -> Self {
+    pub fn from_parts(index: usize, dir: UsbDirection) -> Self {
         EndpointAddress(index as u8 | dir as u8)
     }
 
     /// Gets the direction part of the address.
     #[inline]
-    pub fn direction(&self) -> EndpointDirection {
+    pub fn direction(&self) -> UsbDirection {
         if (self.0 & Self::INBITS) != 0 {
-            EndpointDirection::In
+            UsbDirection::In
         } else {
-            EndpointDirection::Out
+            UsbDirection::Out
         }
     }
 

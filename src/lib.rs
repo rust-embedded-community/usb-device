@@ -69,6 +69,27 @@ pub enum UsbError {
     InvalidState,
 }
 
+/// Direction of USB traffic. Note that in the USB standard the direction is always indicated from
+/// the perspective of the host, which is backward for devices, but the standard directions are used
+/// for consistency.
+///
+/// The values of the enum also match the direction bit used in endpoint addresses and control
+/// request types.
+#[repr(u8)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum UsbDirection {
+    /// Host to device (OUT)
+    Out = 0x00,
+    /// Device to host (IN)
+    In = 0x80,
+}
+
+impl From<u8> for UsbDirection {
+    fn from(value: u8) -> Self {
+        unsafe { core::mem::transmute(value & 0x80) }
+    }
+}
+
 /// Result for USB operations.
 pub type Result<T> = core::result::Result<T, UsbError>;
 
@@ -177,12 +198,13 @@ fn _ensure_sync() {
 
     struct FakeBus { }
 
-    use crate::endpoint::{EndpointAddress, EndpointType, EndpointDirection};
+    use crate::UsbDirection;
+    use crate::endpoint::{EndpointAddress, EndpointType};
 
     impl crate::bus::UsbBus for FakeBus {
         fn alloc_ep(
             &mut self,
-            _ep_dir: EndpointDirection,
+            _ep_dir: UsbDirection,
             _ep_addr: Option<EndpointAddress>,
             _ep_type: EndpointType,
             _max_packet_size: u16,

@@ -1,8 +1,8 @@
 use heapless;
-use crate::Result;
+use crate::{Result, UsbDirection};
 use crate::bus::{UsbBusAllocator, UsbBus, PollResult, StringIndex};
 use crate::descriptor::{DescriptorWriter, descriptor_type, lang_id};
-use crate::endpoint::{EndpointType, EndpointAddress, EndpointDirection};
+use crate::endpoint::{EndpointType, EndpointAddress};
 use crate::control;
 use crate::class::{UsbClass, ControlIn, ControlOut};
 pub use crate::device_builder::{UsbDeviceBuilder, UsbVidPid};
@@ -201,19 +201,19 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                         if (ep_setup & bit) != 0 {
                             for cls in &self.config.classes {
                                 cls.endpoint_setup(
-                                    EndpointAddress::from_parts(i, EndpointDirection::Out));
+                                    EndpointAddress::from_parts(i, UsbDirection::Out));
                             }
                         } else if (ep_out & bit) != 0 {
                             for cls in &self.config.classes {
                                 cls.endpoint_out(
-                                    EndpointAddress::from_parts(i, EndpointDirection::Out));
+                                    EndpointAddress::from_parts(i, UsbDirection::Out));
                             }
                         }
 
                         if (ep_in_complete & bit) != 0 {
                             for cls in &self.config.classes {
                                 cls.endpoint_in_complete(
-                                    EndpointAddress::from_parts(i, EndpointDirection::In));
+                                    EndpointAddress::from_parts(i, UsbDirection::In));
                             }
                         }
 

@@ -1,15 +1,5 @@
-use crate::{Result, UsbError};
+use crate::{Result, UsbDirection, UsbError};
 use core::mem;
-
-/// Control request direction.
-#[repr(u8)]
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum Direction {
-    /// Host-to-device direction (control OUT transfer)
-    HostToDevice = 0,
-    /// Device-to-host direction (control IN transfer)
-    DeviceToHost = 1,
-}
 
 /// Control request type.
 #[repr(u8)]
@@ -30,7 +20,7 @@ pub enum RequestType {
 pub enum Recipient {
     /// Request is intended for the entire device.
     Device = 0,
-    /// Request is intended for an interface. Generally, the `index` field of the reques specifies
+    /// Request is intended for an interface. Generally, the `index` field of the request specifies
     /// the interface number.
     Interface = 1,
     /// Request is intended for an endpoint. Generally, the `index` field of the request specifies
@@ -46,7 +36,7 @@ pub enum Recipient {
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct Request {
     /// Direction of the request.
-    pub direction: Direction,
+    pub direction: UsbDirection,
     /// Type of the request.
     pub request_type: RequestType,
     /// Recipient of the request.
@@ -88,7 +78,7 @@ impl Request {
         let recipient = rt & 0b11111;
 
         Ok(Request {
-            direction: unsafe { mem::transmute(rt >> 7) },
+            direction: rt.into(),
             request_type: unsafe { mem::transmute((rt >> 5) & 0b11) },
             recipient:
                 if recipient <= 3 { unsafe { mem::transmute(recipient) } }

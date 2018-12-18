@@ -1,9 +1,9 @@
-use crate::endpoint::{Endpoint, EndpointDirection, Direction, EndpointType, EndpointAddress};
 use core::cell::RefCell;
 use core::sync::atomic::{AtomicPtr, Ordering};
 use core::mem;
 use core::ptr;
-use crate::{Result, UsbError};
+use crate::{Result, UsbDirection, UsbError};
+use crate::endpoint::{Endpoint, EndpointDirection, EndpointType, EndpointAddress};
 
 /// A trait for device-specific USB peripherals. Implement this to add support for a new hardware
 /// platform.
@@ -39,7 +39,7 @@ pub trait UsbBus: Sync + Sized {
     ///   endpoint in question has already been allocated.
     fn alloc_ep(
         &mut self,
-        ep_dir: EndpointDirection,
+        ep_dir: UsbDirection,
         ep_addr: Option<EndpointAddress>,
         ep_type: EndpointType,
         max_packet_size: u16,
@@ -185,7 +185,7 @@ impl<B: UsbBus> UsbBusAllocator<B> {
     ///
     /// This directly delegates to [`UsbBus::alloc_ep`], so see that method for details. This should
     /// rarely be needed by classes.
-    pub fn alloc<'a, D: Direction>(
+    pub fn alloc<'a, D: EndpointDirection>(
         &'a self,
         ep_addr: Option<EndpointAddress>,
         ep_type: EndpointType,
@@ -211,7 +211,7 @@ impl<B: UsbBus> UsbBusAllocator<B> {
     ///
     /// * `max_packet_size` - Maximum packet size in bytes. Must be one of 8, 16, 32 or 64.
     #[inline]
-    pub fn control<'a, D: Direction>(&'a self, max_packet_size: u16) -> Endpoint<'a, B, D> {
+    pub fn control<'a, D: EndpointDirection>(&'a self, max_packet_size: u16) -> Endpoint<'a, B, D> {
         self.alloc(None, EndpointType::Control, max_packet_size, 0).unwrap()
     }
 
@@ -221,7 +221,7 @@ impl<B: UsbBus> UsbBusAllocator<B> {
     ///
     /// * `max_packet_size` - Maximum packet size in bytes. Must be one of 8, 16, 32 or 64.
     #[inline]
-    pub fn bulk<'a, D: Direction>(&'a self, max_packet_size: u16) -> Endpoint<'a, B, D> {
+    pub fn bulk<'a, D: EndpointDirection>(&'a self, max_packet_size: u16) -> Endpoint<'a, B, D> {
         self.alloc(None, EndpointType::Bulk, max_packet_size, 0).unwrap()
     }
 
@@ -229,7 +229,7 @@ impl<B: UsbBus> UsbBusAllocator<B> {
     ///
     /// * `max_packet_size` - Maximum packet size in bytes. Cannot exceed 64 bytes.
     #[inline]
-    pub fn interrupt<'a, D: Direction>(&'a self, max_packet_size: u16, interval: u8)
+    pub fn interrupt<'a, D: EndpointDirection>(&'a self, max_packet_size: u16, interval: u8)
         -> Endpoint<'a, B, D>
     {
         self.alloc(None, EndpointType::Interrupt, max_packet_size, interval).unwrap()

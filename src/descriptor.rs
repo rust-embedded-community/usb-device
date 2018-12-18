@@ -2,7 +2,7 @@ use core::mem;
 use core::slice;
 use crate::{Result, UsbError};
 use crate::bus::{UsbBus, InterfaceNumber};
-use crate::endpoint::{Endpoint, Direction};
+use crate::endpoint::{Endpoint, EndpointDirection};
 
 /// Standard descriptor types
 #[allow(missing_docs)]
@@ -138,7 +138,9 @@ impl<'a> DescriptorWriter<'a> {
     ///
     /// * `endpoint` - Endpoint previously allocated with
     ///   [`UsbAllocator`](::bus::UsbAllocator).
-    pub fn endpoint<'e, B: UsbBus, D: Direction>(&mut self, endpoint: &Endpoint<'e, B, D>) -> Result<()> {
+    pub fn endpoint<'e, B: UsbBus, D: EndpointDirection>(&mut self, endpoint: &Endpoint<'e, B, D>)
+        -> Result<()>
+    {
         let mps = endpoint.max_packet_size();
 
         self.write(
