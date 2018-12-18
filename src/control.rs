@@ -88,9 +88,6 @@ impl<'a, B: UsbBus + 'a> ControlPipe<'a, B> {
         if req.direction == UsbDirection::Out {
             // OUT transfer
 
-            self.len = 0;
-            self.i = 0;
-
             if req.length > 0 {
                 // Has data stage
 
@@ -100,10 +97,13 @@ impl<'a, B: UsbBus + 'a> ControlPipe<'a, B> {
                     return None;
                 }
 
+                self.i = 0;
+                self.len = req.length as usize;
                 self.state = ControlState::DataOut;
             } else {
                 // No data stage
 
+                self.len = 0;
                 self.state = ControlState::CompleteOut;
                 return Some(TransferDirection::Out);
             }
