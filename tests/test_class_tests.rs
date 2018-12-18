@@ -1,9 +1,7 @@
 extern crate usb_device;
-extern crate libusb;
-#[macro_use] extern crate lazy_static;
 
 mod test_helpers;
-use test_helpers::*;
+use crate::test_helpers::*;
 
 use libusb::*;
 

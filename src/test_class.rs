@@ -1,7 +1,7 @@
 use core::cell::{Cell, RefCell};
-use ::class_prelude::*;
-use ::device::{UsbDevice, UsbVidPid};
-use ::descriptor;
+use crate::class_prelude::*;
+use crate::device::{UsbDevice, UsbVidPid};
+use crate::descriptor;
 
 /// Test USB class for testing USB driver implementations. Driver implementations should include an
 /// example called "test_class" that creates a device with this class.

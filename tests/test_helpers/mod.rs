@@ -1,5 +1,6 @@
 use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
+use lazy_static::lazy_static;
 use libusb::*;
 
 pub use usb_device::test_class;
