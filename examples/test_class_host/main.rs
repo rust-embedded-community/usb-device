@@ -2,7 +2,7 @@
 ///
 /// This is implemented as an example as opposed to a test because the Rust test runner system is
 /// not well suited for running tests that must depend on outside resources such as hardware and
-/// cannot be run in parallel..
+/// cannot be run in parallel.
 
 mod tests;
 mod device;
@@ -18,7 +18,7 @@ fn main() {
 }
 
 fn run_tests(tests: &[(&str, TestFn)]) {
-    println!("testing usb-device hardware");
+    println!("testing usb-device with the TestClass");
 
     let ctx = Context::new().expect("create libusb context");
     let mut dev = match open_device(&ctx) {
