@@ -1,6 +1,4 @@
-use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
-use lazy_static::lazy_static;
 use libusb::*;
 
 pub use usb_device::test_class;
@@ -28,13 +26,8 @@ impl<'a> ::std::ops::DerefMut for DeviceHandles<'a> {
     }
 }
 
-lazy_static! {
-    static ref CONTEXT: Context = Context::new().expect("create libusb context");
-    static ref DEVICE: Mutex<DeviceHandles<'static>> = Mutex::new(open_device());
-}
-
-fn open_device() -> DeviceHandles<'static> {
-    for device in CONTEXT.devices().expect("list devices").iter() {
+pub fn open_device(ctx: &Context) -> Option<DeviceHandles<'_>> {
+    for device in ctx.devices().expect("list devices").iter() {
         let descriptor = device.device_descriptor().expect("get device descriptor");
 
         if !(descriptor.vendor_id() == test_class::VID
@@ -55,17 +48,13 @@ fn open_device() -> DeviceHandles<'static> {
         if prod == test_class::PRODUCT {
             handle.reset().expect("reset device");
 
-            return DeviceHandles {
+            return Some(DeviceHandles {
                 descriptor,
                 handle,
                 en_us: langs[0]
-            };
+            });
         }
     }
 
-    panic!("TestClass device not found");
-}
-
-pub fn get_device() -> MutexGuard<'static, DeviceHandles<'static>> {
-    DEVICE.lock().unwrap()
+    None
 }

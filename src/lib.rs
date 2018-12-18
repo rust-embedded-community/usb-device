@@ -168,7 +168,7 @@ pub mod device;
 /// Creating USB descriptors
 pub mod descriptor;
 
-/// Contains the TestClass USB class for testing.
+/// Test USB class for testing USB driver implementations.
 pub mod test_class;
 
 mod control_request;
