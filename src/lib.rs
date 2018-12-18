@@ -38,34 +38,31 @@
 /// A USB stack error.
 #[derive(Debug)]
 pub enum UsbError {
-    /// There was no packet available when reading
-    NoData,
+    /// An operation would block because the device is currently busy or there is no data available.
+    WouldBlock,
 
-    /// A previous transfer has not been completed yet
-    Busy,
+    /// Parsing failed due to invalid input.
+    ParseError,
 
-    /// An invalid setup packet was received from the host
-    InvalidSetupPacket,
-
-    /// A buffer too short for the received data was passed (fatal)
+    /// A buffer too short for the data to read was passed.
     BufferOverflow,
 
-    /// Classes attempted to allocate too many endpoints (fatal)
+    /// Classes attempted to allocate more endpoints than the peripheral supports.
     EndpointOverflow,
 
-    /// Classes attempted to allocate too much packet memory (fatal)
-    SizeOverflow,
+    /// Classes attempted to allocate more packet buffer memory than the peripheral supports. This
+    /// can be caused by either a single class trying to allocate a packet buffer larger than the
+    /// peripheral supports per endpoint, or multiple allocated endpoints together using more memory
+    /// than the peripheral has available for the buffers.
+    EndpointMemoryOverflow,
 
-    /// An invalid endpoint address was used (fatal)
+    /// The endpoint address is invalid or already used.
     InvalidEndpoint,
 
-    /// A specific endpoint address has already been allocated (fatal)
-    EndpointTaken,
-
-    /// Operation is not supported by device or configuration
+    /// Operation is not supported by device or configuration.
     Unsupported,
 
-    /// Operation is not valid in the current state of the object
+    /// Operation is not valid in the current state of the object.
     InvalidState,
 }
 

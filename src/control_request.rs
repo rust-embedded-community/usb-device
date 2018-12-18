@@ -71,7 +71,7 @@ impl Request {
 
     pub(crate) fn parse(buf: &[u8]) -> Result<Request> {
         if buf.len() != 8 {
-            return Err(UsbError::InvalidSetupPacket);
+            return Err(UsbError::ParseError);
         }
 
         let rt = buf[0];

@@ -62,7 +62,7 @@ impl<'a, B: UsbBus + 'a> ControlPipe<'a, B> {
     pub fn handle_setup<'p>(&'p mut self) -> Option<TransferDirection> {
         let count = match self.ep_out.read(&mut self.buf[..]) {
             Ok(count) => count,
-            Err(UsbError::NoData) => return None,
+            Err(UsbError::WouldBlock) => return None,
             Err(_) => {
                 self.set_error();
                 return None;
@@ -123,7 +123,7 @@ impl<'a, B: UsbBus + 'a> ControlPipe<'a, B> {
                 let i = self.i;
                 let count = match self.ep_out.read(&mut self.buf[i..]) {
                     Ok(count) => count,
-                    Err(UsbError::NoData) => return None,
+                    Err(UsbError::WouldBlock) => return None,
                     Err(_) => {
                         // Failed to read or buffer overflow (overflow is only possible if the host
                         // sends more data than it indicated in the SETUP request)
@@ -162,7 +162,7 @@ impl<'a, B: UsbBus + 'a> ControlPipe<'a, B> {
             },
             ControlState::DataInZlp => {
                 match self.ep_in.write(&[]) {
-                    Err(UsbError::Busy) => return false,
+                    Err(UsbError::WouldBlock) => return false,
                     Err(err) => panic!("{:?}", err),
                     _ => {},
                 };
@@ -190,7 +190,7 @@ impl<'a, B: UsbBus + 'a> ControlPipe<'a, B> {
         let count = min(self.len - self.i, self.ep_in.max_packet_size() as usize);
 
         let count = match self.ep_in.write(&self.buf[self.i..(self.i+count)]) {
-            Err(UsbError::Busy) => return,
+            Err(UsbError::WouldBlock) => return,
             Err(err) => panic!("{:?}", err),
             Ok(c) => c,
         };
