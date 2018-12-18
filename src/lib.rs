@@ -34,7 +34,6 @@
 
 #![no_std]
 //#![warn(missing_docs)]
-#![feature(asm)]
 
 /// A USB stack error.
 #[derive(Debug)]
