@@ -2,6 +2,7 @@ use core::mem;
 use core::slice;
 use crate::{Result, UsbError};
 use crate::bus::{UsbBus, InterfaceNumber};
+use crate::device::DEFAULT_ALTERNATE_SETTING;
 use crate::endpoint::{Endpoint, EndpointDirection};
 
 /// Standard descriptor types
@@ -121,7 +122,7 @@ impl<'a> DescriptorWriter<'a> {
             descriptor_type::INTERFACE,
             &[
                 number.into(), // bInterfaceNumber
-                0, // bAlternateSetting (how to even handle these...)
+                DEFAULT_ALTERNATE_SETTING, // bAlternateSetting (how to even handle these...)
                 num_endpoints, // bNumEndpoints
                 interface_class, // bInterfaceClass
                 interface_sub_class, // bInterfaceSubClass

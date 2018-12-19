@@ -7,8 +7,11 @@
 mod tests;
 mod device;
 
+use std::thread;
+use std::time::Duration;
 use std::panic;
 use libusb::*;
+use usb_device::device::CONFIGURATION_VALUE;
 use crate::device::open_device;
 use crate::tests::{TestFn, get_tests};
 
@@ -18,18 +21,33 @@ fn main() {
 }
 
 fn run_tests(tests: &[(&str, TestFn)]) {
-    println!("testing usb-device with the TestClass");
+    const INTERFACE: u8 = 0;
+
+    println!("testing with the TestClass");
+    println!("looking for device...");
 
     let ctx = Context::new().expect("create libusb context");
-    let mut dev = match open_device(&ctx) {
-        Some(d) => d,
-        None => {
-            println!("Did not find a TestClass device. Make sure the device is correctly programmed and plugged in.");
+
+    // Look for the device for about 5 seconds in case it hasn't finished enumerating yet
+    let mut dev = Err(libusb::Error::NoDevice);
+    for _ in 0..50 {
+        dev = open_device(&ctx);
+        if dev.is_ok() {
+            break;
+        }
+
+        thread::sleep(Duration::from_millis(100));
+    }
+
+    let mut dev = match dev {
+        Ok(d) => d,
+        Err(err) => {
+            println!("Did not find a TestClass device. Make sure the device is correctly programmed and plugged in. Last error: {}", err);
             return;
         }
     };
 
-    println!("running {} tests", tests.len());
+    println!("\nrunning {} tests", tests.len());
 
     let mut success = 0;
     for (name, test) in tests {
@@ -38,8 +56,13 @@ fn run_tests(tests: &[(&str, TestFn)]) {
             return;
         }
 
-        if let Err(err) = dev.set_active_configuration(1) {
+        if let Err(err) = dev.set_active_configuration(CONFIGURATION_VALUE) {
             println!("Failed to set active configuration: {}", err);
+            return;
+        }
+
+        if let Err(err) = dev.claim_interface(INTERFACE) {
+            println!("Failed to claim interface: {}", err);
             return;
         }
 
@@ -51,6 +74,8 @@ fn run_tests(tests: &[(&str, TestFn)]) {
             test(&dev);
         });
         panic::set_hook(hook);
+
+        dev.release_interface(INTERFACE).unwrap();
 
         if let Err(err) = res {
             let err = if let Some(err) = err.downcast_ref::<&'static str>() {

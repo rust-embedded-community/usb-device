@@ -1,13 +1,13 @@
 use std::time::Duration;
 use libusb::*;
-
-pub use usb_device::test_class;
+use usb_device::test_class;
 
 pub const TIMEOUT: Duration = Duration::from_secs(1);
 pub const EN_US: u16 = 0x0409;
 
 pub struct DeviceHandles<'a> {
-    pub descriptor: DeviceDescriptor,
+    pub device_descriptor: DeviceDescriptor,
+    pub config_descriptor: ConfigDescriptor,
     pub handle: DeviceHandle<'a>,
     pub en_us: Language,
 }
@@ -26,35 +26,37 @@ impl<'a> ::std::ops::DerefMut for DeviceHandles<'a> {
     }
 }
 
-pub fn open_device(ctx: &Context) -> Option<DeviceHandles<'_>> {
-    for device in ctx.devices().expect("list devices").iter() {
-        let descriptor = device.device_descriptor().expect("get device descriptor");
+pub fn open_device(ctx: &Context) -> libusb::Result<DeviceHandles<'_>> {
+    for device in ctx.devices()?.iter() {
+        let device_descriptor = device.device_descriptor()?;
 
-        if !(descriptor.vendor_id() == test_class::VID
-            && descriptor.product_id() == test_class::PID) {
+        if !(device_descriptor.vendor_id() == test_class::VID
+            && device_descriptor.product_id() == test_class::PID) {
             continue;
         }
 
-        let mut handle = device.open().expect("open device");
+        let mut handle = device.open()?;
 
-        let langs = handle.read_languages(TIMEOUT).expect("read languages");
+        let langs = handle.read_languages(TIMEOUT)?;
         if langs.len() == 0 || langs[0].lang_id() != EN_US {
             continue;
         }
 
-        let prod = handle.read_product_string(langs[0], &descriptor, TIMEOUT)
-            .expect("read product string");
+        let prod = handle.read_product_string(langs[0], &device_descriptor, TIMEOUT)?;
 
         if prod == test_class::PRODUCT {
-            handle.reset().expect("reset device");
+            handle.reset()?;
 
-            return Some(DeviceHandles {
-                descriptor,
+            let config_descriptor = device.config_descriptor(0)?;
+
+            return Ok(DeviceHandles {
+                device_descriptor,
+                config_descriptor,
                 handle,
                 en_us: langs[0]
             });
         }
     }
 
-    None
+    Err(libusb::Error::NoDevice)
 }

@@ -74,11 +74,11 @@ impl<'a, B: UsbBus + 'a> Clone for Config<'a, B> {
     }
 }
 
+pub const CONFIGURATION_VALUE: u8 = 1;
+
+pub const DEFAULT_ALTERNATE_SETTING: u8 = 0;
+
 impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
-    const CONFIGURATION_VALUE: u16 = 1;
-
-    const DEFAULT_ALTERNATE_SETTING: u16 = 0;
-
     /// Creates a [`UsbDeviceBuilder`] for constructing a new instance.
     pub fn new(
         bus: &'a UsbBusAllocator<B>,
@@ -285,12 +285,12 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                     => UsbDevice::get_descriptor(&self.config, xfer).unwrap(),
 
                 (Recipient::Device, Request::GET_CONFIGURATION) => {
-                    xfer.accept_with(&Self::CONFIGURATION_VALUE.to_le_bytes()).unwrap();
+                    xfer.accept_with(&CONFIGURATION_VALUE.to_le_bytes()).unwrap();
                 },
 
                 (Recipient::Interface, Request::GET_INTERFACE) => {
                     // TODO: change when alternate settings are implemented
-                    xfer.accept_with(&Self::DEFAULT_ALTERNATE_SETTING.to_le_bytes()).unwrap();
+                    xfer.accept_with(&DEFAULT_ALTERNATE_SETTING.to_le_bytes()).unwrap();
                 },
 
                 _ => (),
@@ -319,6 +319,9 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
         if req.request_type == control::RequestType::Standard {
             let xfer = ControlOut::new(&mut ctrl);
 
+            const CONFIGURATION_VALUE_U16: u16 = CONFIGURATION_VALUE as u16;
+            const DEFAULT_ALTERNATE_SETTING_U16: u16 = DEFAULT_ALTERNATE_SETTING as u16;
+
             match (req.recipient, req.request, req.value) {
                 (Recipient::Device, Request::CLEAR_FEATURE, Request::FEATURE_DEVICE_REMOTE_WAKEUP) => {
                     self.remote_wakeup_enabled = false;
@@ -345,12 +348,12 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                     xfer.accept().unwrap();
                 },
 
-                (Recipient::Device, Request::SET_CONFIGURATION, Self::CONFIGURATION_VALUE) => {
+                (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_VALUE_U16) => {
                     self.device_state = UsbDeviceState::Configured;
                     xfer.accept().unwrap();
                 },
 
-                (Recipient::Interface, Request::SET_INTERFACE, Self::DEFAULT_ALTERNATE_SETTING) => {
+                (Recipient::Interface, Request::SET_INTERFACE, DEFAULT_ALTERNATE_SETTING_U16) => {
                     // TODO: do something when alternate settings are implemented
                     xfer.accept().unwrap();
                 },
@@ -405,7 +408,7 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
                     &[
                         0, 0, // wTotalLength (placeholder)
                         0, // bNumInterfaces (placeholder)
-                        Self::CONFIGURATION_VALUE as u8, // bConfigurationValue
+                        CONFIGURATION_VALUE, // bConfigurationValue
                         0, // iConfiguration
                         // bmAttributes:
                         0x80

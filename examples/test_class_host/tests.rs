@@ -1,7 +1,7 @@
-use crate::device::*;
 use libusb::*;
-
 use rand::prelude::*;
+use usb_device::test_class;
+use crate::device::*;
 
 pub type TestFn = fn(&DeviceHandles<'_>) -> ();
 
@@ -27,17 +27,17 @@ tests! {
 
 fn string_descriptors(dev) {
     assert_eq!(
-        dev.read_product_string(dev.en_us, &dev.descriptor, TIMEOUT)
+        dev.read_product_string(dev.en_us, &dev.device_descriptor, TIMEOUT)
             .expect("read product string"),
         test_class::PRODUCT);
 
     assert_eq!(
-        dev.read_manufacturer_string(dev.en_us, &dev.descriptor, TIMEOUT)
+        dev.read_manufacturer_string(dev.en_us, &dev.device_descriptor, TIMEOUT)
             .expect("read manufacturer string"),
         test_class::MANUFACTURER);
 
     assert_eq!(
-        dev.read_serial_number_string(dev.en_us, &dev.descriptor, TIMEOUT)
+        dev.read_serial_number_string(dev.en_us, &dev.device_descriptor, TIMEOUT)
             .expect("read serial number string"),
         test_class::SERIAL_NUMBER);
 
@@ -98,7 +98,7 @@ fn control_data(dev) {
                 request_type(Direction::In, RequestType::Vendor, Recipient::Device),
                 test_class::REQ_READ_BUFFER, 0, 0,
                 &mut response, TIMEOUT).expect(&format!("control read len {}", len)),
-            response.len());
+            data.len());
 
         assert_eq!(&response, &data);
     }
@@ -112,6 +112,36 @@ fn control_error(dev) {
 
     if res.is_ok() {
         panic!("unknown control request succeeded");
+    }
+}
+
+fn bulk_loopback(dev) {
+    for len in &[0, 1, 2, 32, 63, 64, 65, 127, 128, 129] {
+        let data = random_data(*len);
+
+        assert_eq!(
+            dev.write_bulk(0x01, &data, TIMEOUT)
+                .expect(&format!("bulk write len {}", len)),
+            data.len(),
+            "bulk write len {}", len);
+
+        if *len % 64 == 0 {
+            assert_eq!(
+                dev.write_bulk(0x01, &[], TIMEOUT)
+                    .expect(&format!("bulk write zero-length packet")),
+                0,
+                "bulk write zero-length packet");
+        }
+
+        let mut response = vec![0u8; *len];
+
+        assert_eq!(
+            dev.read_bulk(0x81, &mut response, TIMEOUT)
+                .expect(&format!("bulk read len {}", len)),
+            data.len(),
+            "bulk read len {}", len);
+
+        assert_eq!(&response, &data);
     }
 }
 
