@@ -148,7 +148,7 @@ impl<B: UsbBus> UsbBusAllocator<B> {
         }
     }
 
-    pub(crate) fn freeze<'a>(&'a self) -> &B {
+    pub(crate) fn freeze(&self) -> &B {
         mem::forget(self.state.borrow_mut());
 
         self.bus.borrow_mut().enable();
@@ -185,11 +185,11 @@ impl<B: UsbBus> UsbBusAllocator<B> {
     /// This directly delegates to [`UsbBus::alloc_ep`], so see that method for details. This should
     /// rarely be needed by classes.
     pub fn alloc<'a, D: EndpointDirection>(
-        &'a self,
+        &self,
         ep_addr: Option<EndpointAddress>,
         ep_type: EndpointType,
         max_packet_size: u16,
-        interval: u8) -> Result<Endpoint<'a, B, D>>
+        interval: u8) -> Result<Endpoint<'_, B, D>>
     {
         self.bus.borrow_mut()
             .alloc_ep(
@@ -210,7 +210,7 @@ impl<B: UsbBus> UsbBusAllocator<B> {
     ///
     /// * `max_packet_size` - Maximum packet size in bytes. Must be one of 8, 16, 32 or 64.
     #[inline]
-    pub fn control<'a, D: EndpointDirection>(&'a self, max_packet_size: u16) -> Endpoint<'a, B, D> {
+    pub fn control<D: EndpointDirection>(&self, max_packet_size: u16) -> Endpoint<'_, B, D> {
         self.alloc(None, EndpointType::Control, max_packet_size, 0).unwrap()
     }
 
@@ -220,7 +220,7 @@ impl<B: UsbBus> UsbBusAllocator<B> {
     ///
     /// * `max_packet_size` - Maximum packet size in bytes. Must be one of 8, 16, 32 or 64.
     #[inline]
-    pub fn bulk<'a, D: EndpointDirection>(&'a self, max_packet_size: u16) -> Endpoint<'a, B, D> {
+    pub fn bulk<D: EndpointDirection>(&self, max_packet_size: u16) -> Endpoint<'_, B, D> {
         self.alloc(None, EndpointType::Bulk, max_packet_size, 0).unwrap()
     }
 
@@ -228,8 +228,8 @@ impl<B: UsbBus> UsbBusAllocator<B> {
     ///
     /// * `max_packet_size` - Maximum packet size in bytes. Cannot exceed 64 bytes.
     #[inline]
-    pub fn interrupt<'a, D: EndpointDirection>(&'a self, max_packet_size: u16, interval: u8)
-        -> Endpoint<'a, B, D>
+    pub fn interrupt<D: EndpointDirection>(&self, max_packet_size: u16, interval: u8)
+        -> Endpoint<'_, B, D>
     {
         self.alloc(None, EndpointType::Interrupt, max_packet_size, interval).unwrap()
     }

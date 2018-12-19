@@ -30,8 +30,8 @@ pub struct DescriptorWriter<'a> {
     num_interfaces: u8,
 }
 
-impl<'a> DescriptorWriter<'a> {
-    pub(crate) fn new(buf: &'a mut [u8]) -> Self {
+impl DescriptorWriter<'_> {
+    pub(crate) fn new(buf: &mut [u8]) -> DescriptorWriter<'_> {
         DescriptorWriter {
             buf,
             i: 0,

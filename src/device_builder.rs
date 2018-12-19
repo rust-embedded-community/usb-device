@@ -6,7 +6,7 @@ use crate::class::UsbClass;
 pub struct UsbVidPid(pub u16, pub u16);
 
 /// Used to build new [`UsbDevice`]s.
-pub struct UsbDeviceBuilder<'a, B: 'a + UsbBus> {
+pub struct UsbDeviceBuilder<'a, B: UsbBus> {
     alloc: &'a UsbBusAllocator<B>,
     config: Config<'a, B>,
 }
@@ -23,7 +23,7 @@ macro_rules! builder_fields {
     }
 }
 
-impl<'a, B: 'a + UsbBus> UsbDeviceBuilder<'a, B> {
+impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
     pub(crate) fn new(
         alloc: &'a UsbBusAllocator<B>,
         vid_pid: UsbVidPid,

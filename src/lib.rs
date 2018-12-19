@@ -194,14 +194,15 @@ pub mod class_prelude {
 }
 
 fn _ensure_sync() {
-    fn ensure_sync<T: Sync + Send>() {}
-
-    struct FakeBus { }
-
     use crate::UsbDirection;
-    use crate::endpoint::{EndpointAddress, EndpointType};
+    use crate::bus::{UsbBus, UsbBusAllocator, PollResult};
+    use crate::class_prelude::*;
 
-    impl crate::bus::UsbBus for FakeBus {
+    struct DummyBus<'a> {
+        a: &'a str,
+    }
+
+    impl UsbBus for DummyBus<'_> {
         fn alloc_ep(
             &mut self,
             _ep_dir: UsbDirection,
@@ -230,10 +231,29 @@ fn _ensure_sync() {
         fn is_stalled(&self, _ep_addr: EndpointAddress) -> bool { false }
         fn suspend(&self) { }
         fn resume(&self) { }
-        fn poll(&self) -> crate::bus::PollResult { crate::bus::PollResult::None }
+        fn poll(&self) -> PollResult { PollResult::None }
     }
 
-    ensure_sync::<FakeBus>();
-    ensure_sync::<crate::endpoint::EndpointIn<FakeBus>>();
-    ensure_sync::<crate::endpoint::EndpointOut<FakeBus>>();
+    struct DummyClass<'a, B: UsbBus> {
+        ep: crate::endpoint::EndpointIn<'a, B>,
+    }
+
+    impl<B: UsbBus> DummyClass<'_, B> {
+        fn new(alloc: &UsbBusAllocator<B>) -> DummyClass<'_, B> {
+            DummyClass {
+                ep: alloc.bulk(64),
+            }
+        }
+    }
+
+    impl<B: UsbBus> UsbClass<B> for DummyClass<'_, B> {
+
+    }
+
+    fn ensure_sync<T: Sync + Send>() {}
+
+    ensure_sync::<DummyBus>();
+    ensure_sync::<crate::endpoint::EndpointIn<DummyBus>>();
+    ensure_sync::<crate::endpoint::EndpointOut<DummyBus>>();
+    ensure_sync::<DummyClass<'_, DummyBus>>();
 }

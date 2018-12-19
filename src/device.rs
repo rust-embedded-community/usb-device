@@ -30,7 +30,7 @@ pub enum UsbDeviceState {
 const MAX_ENDPOINTS: usize = 16;
 
 /// A USB device consisting of one or more device classes.
-pub struct UsbDevice<'a, B: UsbBus + 'a> {
+pub struct UsbDevice<'a, B: UsbBus> {
     bus: &'a B,
     config: Config<'a, B>,
     control: control::ControlPipe<'a, B>,
@@ -41,7 +41,7 @@ pub struct UsbDevice<'a, B: UsbBus + 'a> {
 }
 
 //#[derive(Copy, Clone)]
-pub(crate) struct Config<'a, B: UsbBus + 'a> {
+pub(crate) struct Config<'a, B: UsbBus> {
     pub classes: heapless::Vec<&'a dyn UsbClass<B>, heapless::consts::U8>,
     pub device_class: u8,
     pub device_sub_class: u8,
@@ -58,8 +58,8 @@ pub(crate) struct Config<'a, B: UsbBus + 'a> {
     pub max_power: u8,
 }
 
-impl<'a, B: UsbBus + 'a> Clone for Config<'a, B> {
-    fn clone(&self) -> Config<'a, B> {
+impl<B: UsbBus> Clone for Config<'_, B> {
+    fn clone(&self) -> Self {
         Config {
             classes: {
                 let mut c = heapless::Vec::new();
@@ -75,9 +75,9 @@ pub const CONFIGURATION_VALUE: u8 = 1;
 
 pub const DEFAULT_ALTERNATE_SETTING: u8 = 0;
 
-impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
+impl<B: UsbBus> UsbDevice<'_, B> {
     /// Creates a [`UsbDeviceBuilder`] for constructing a new instance.
-    pub fn new(
+    pub fn new<'a>(
         bus: &'a UsbBusAllocator<B>,
         vid_pid: UsbVidPid,
         classes: &[&'a dyn UsbClass<B>]) -> UsbDeviceBuilder<'a, B>
@@ -85,7 +85,9 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
         UsbDeviceBuilder::new(bus, vid_pid, classes)
     }
 
-    pub(crate) fn build(alloc: &'a UsbBusAllocator<B>, config: Config<'a, B>) -> UsbDevice<'a, B> {
+    pub(crate) fn build<'a>(alloc: &'a UsbBusAllocator<B>, config: Config<'a, B>)
+        -> UsbDevice<'a, B>
+    {
         let control_out = alloc.alloc(Some(0.into()), EndpointType::Control,
             config.max_packet_size_0 as u16, 0).expect("failed to alloc control endpoint");
 
@@ -364,13 +366,13 @@ impl<'a, B: UsbBus + 'a> UsbDevice<'a, B> {
         }
     }
 
-    fn get_descriptor(config: &Config<B>, xfer: ControlIn<'a, '_, '_, B>) -> Result<()>{
+    fn get_descriptor(config: &Config<B>, xfer: ControlIn<B>) -> Result<()>{
         let req = *xfer.request();
 
         let (dtype, index) = get_descriptor_type_index(req.value);
 
         fn accept<B: UsbBus>(
-            xfer: ControlIn<'_, '_, '_, B>,
+            xfer: ControlIn<B>,
             f: impl FnOnce(&mut DescriptorWriter) -> Result<()>) -> Result<()>
         {
             xfer.accept(|buf| {

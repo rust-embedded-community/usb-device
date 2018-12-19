@@ -7,7 +7,7 @@ use crate::descriptor;
 
 /// Test USB class for testing USB driver implementations. Driver implementations should include an
 /// example called "test_class" that creates a device with this class.
-pub struct TestClass<'a, B: UsbBus + 'a> {
+pub struct TestClass<'a, B: UsbBus> {
     state: RefCell<State>,
     custom_string: StringIndex,
     iface: InterfaceNumber,
@@ -58,7 +58,7 @@ pub const REQ_WRITE_BUFFER: u8 = 3;
 pub const REQ_UNKNOWN: u8 = 42;
 
 
-impl<'a, B: UsbBus + 'a> TestClass<'a, B> {
+impl<B: UsbBus> TestClass<'_, B> {
     pub fn new(alloc: &UsbBusAllocator<B>) -> TestClass<'_, B> {
         TestClass {
             state: RefCell::default(),
@@ -71,8 +71,7 @@ impl<'a, B: UsbBus + 'a> TestClass<'a, B> {
         }
     }
 
-    pub fn make_device(&'a self, usb_bus: &'a UsbBusAllocator<B>)
-        -> UsbDevice<'a, B>
+    pub fn make_device<'a>(&'a self, usb_bus: &'a UsbBusAllocator<B>) -> UsbDevice<'a, B>
     {
         UsbDevice::new(
                 &usb_bus,
@@ -149,7 +148,7 @@ impl<'a, B: UsbBus + 'a> TestClass<'a, B> {
     }
 }
 
-impl<'a, B: UsbBus + 'a> UsbClass<B> for TestClass<'a, B> {
+impl<B: UsbBus> UsbClass<B> for TestClass<'_, B> {
     fn reset(&self) -> Result<()> {
         *self.state.borrow_mut() = Default::default();
 

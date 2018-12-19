@@ -40,7 +40,7 @@ pub trait UsbClass<B: UsbBus> {
     ///
     /// * `req` - The request from the SETUP packet.
     /// * `xfer` - A handle to the transfer.
-    fn control_out(&self, xfer: ControlOut<'_, '_, '_, B>) {
+    fn control_out(&self, xfer: ControlOut<B>) {
         let _ = xfer;
     }
 
@@ -59,7 +59,7 @@ pub trait UsbClass<B: UsbBus> {
     ///
     /// * `req` - The request from the SETUP packet.
     /// * `data` - Data to send in the DATA stage of the control transfer.
-    fn control_in(&self, xfer: ControlIn<'_, '_, '_, B>) {
+    fn control_in(&self, xfer: ControlIn<B>) {
         let _ = xfer;
     }
 
@@ -98,16 +98,16 @@ pub trait UsbClass<B: UsbBus> {
     /// * `index` - A string index allocated earlier with
     ///   [`UsbAllocator`](crate::bus::UsbBusAllocator).
     /// * `lang_id` - The language ID for the string to retrieve.
-    fn get_string<'a>(&'a self, index: StringIndex, lang_id: u16) -> Option<&'a str> {
+    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&str> {
         let _ = (index, lang_id);
         None
     }
 }
 
 /// Handle for a control IN transfer.
-pub struct ControlIn<'a, 'p, 'o, B: UsbBus + 'a>(&'o mut Option<&'p mut control::ControlPipe<'a, B>>);
+pub struct ControlIn<'a, 'p, 'o, B: UsbBus>(&'o mut Option<&'p mut control::ControlPipe<'a, B>>);
 
-impl<'a, 'p, 'o, B: UsbBus + 'a> ControlIn<'a, 'p, 'o,  B> {
+impl<'a, 'p, 'o, B: UsbBus> ControlIn<'a, 'p, 'o,  B> {
     pub(crate) fn new(pipe: &'o mut Option<&'p mut control::ControlPipe<'a, B>>) -> Self {
         ControlIn(pipe)
     }
@@ -142,9 +142,9 @@ impl<'a, 'p, 'o, B: UsbBus + 'a> ControlIn<'a, 'p, 'o,  B> {
     }
 }
 
-pub struct ControlOut<'a, 'p, 'o, B: UsbBus + 'a>(&'o mut Option<&'p mut control::ControlPipe<'a, B>>);
+pub struct ControlOut<'a, 'p, 'o, B: UsbBus>(&'o mut Option<&'p mut control::ControlPipe<'a, B>>);
 
-impl<'a, 'p, 'o, B: UsbBus + 'a> ControlOut<'a, 'p, 'o, B> {
+impl<'a, 'p, 'o, B: UsbBus> ControlOut<'a, 'p, 'o, B> {
     pub(crate) fn new(pipe: &'o mut Option<&'p mut control::ControlPipe<'a, B>>) -> Self {
         ControlOut(pipe)
     }

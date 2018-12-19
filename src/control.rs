@@ -24,7 +24,7 @@ enum ControlState {
 // non-const in the future.
 const CONTROL_BUF_LEN: usize = 128;
 
-pub struct ControlPipe<'a, B: UsbBus + 'a> {
+pub struct ControlPipe<'a, B: UsbBus> {
     ep_out: EndpointOut<'a, B>,
     ep_in: EndpointIn<'a, B>,
     state: ControlState,
@@ -34,8 +34,8 @@ pub struct ControlPipe<'a, B: UsbBus + 'a> {
     len: usize,
 }
 
-impl<'a, B: UsbBus + 'a> ControlPipe<'a, B> {
-    pub fn new(ep_out: EndpointOut<'a, B>, ep_in: EndpointIn<'a, B>) -> ControlPipe<'a, B> {
+impl<B: UsbBus> ControlPipe<'_, B> {
+    pub fn new<'a>(ep_out: EndpointOut<'a, B>, ep_in: EndpointIn<'a, B>) -> ControlPipe<'a, B> {
         ControlPipe {
             ep_out,
             ep_in,

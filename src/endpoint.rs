@@ -48,7 +48,7 @@ pub enum EndpointType {
 
 /// Handle for a USB endpoint. The endpoint direction is constrained by the `D` type argument, which
 /// must be either `In` or `Out`.
-pub struct Endpoint<'a, B: 'a + UsbBus, D: EndpointDirection> {
+pub struct Endpoint<'a, B: UsbBus, D: EndpointDirection> {
     bus_ptr: &'a AtomicPtr<B>,
     address: EndpointAddress,
     ep_type: EndpointType,
@@ -57,13 +57,13 @@ pub struct Endpoint<'a, B: 'a + UsbBus, D: EndpointDirection> {
     _marker: PhantomData<D>
 }
 
-impl<'a, B: UsbBus, D: EndpointDirection> Endpoint<'a, B, D> {
-    pub(crate) fn new(
+impl<B: UsbBus, D: EndpointDirection> Endpoint<'_, B, D> {
+    pub(crate) fn new<'a>(
         bus_ptr: &'a AtomicPtr<B>,
         address: EndpointAddress,
         ep_type: EndpointType,
         max_packet_size: u16,
-        interval: u8) -> Endpoint<'a, B, D>
+        interval: u8) -> Endpoint<'_, B, D>
     {
         Endpoint {
             bus_ptr,
@@ -107,7 +107,7 @@ impl<'a, B: UsbBus, D: EndpointDirection> Endpoint<'a, B, D> {
     }
 }
 
-impl<'a, B: UsbBus> Endpoint<'a, B, In> {
+impl<B: UsbBus> Endpoint<'_, B, In> {
     /// Writes a single packet of data to the specified endpoint and returns number of bytes
     /// actually written.
     ///
@@ -128,7 +128,7 @@ impl<'a, B: UsbBus> Endpoint<'a, B, In> {
     }
 }
 
-impl<'a, B: UsbBus> Endpoint<'a, B, Out> {
+impl<B: UsbBus> Endpoint<'_, B, Out> {
     /// Reads a single packet of data from the specified endpoint and returns the actual length of
     /// the packet.
     ///
