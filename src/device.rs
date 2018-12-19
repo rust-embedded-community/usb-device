@@ -26,9 +26,6 @@ pub enum UsbDeviceState {
     Suspend,
 }
 
-// Completely arbitrary value. Nobody needs more than 4, right?
-const MAX_CLASSES: usize = 4;
-
 // Maximum number of endpoints in one direction. Specified by the USB specification.
 const MAX_ENDPOINTS: usize = 16;
 
@@ -45,7 +42,7 @@ pub struct UsbDevice<'a, B: UsbBus + 'a> {
 
 //#[derive(Copy, Clone)]
 pub(crate) struct Config<'a, B: UsbBus + 'a> {
-    pub classes: heapless::Vec<&'a dyn UsbClass<B>, [&'a dyn UsbClass<B>; MAX_CLASSES]>,
+    pub classes: heapless::Vec<&'a dyn UsbClass<B>, heapless::consts::U8>,
     pub device_class: u8,
     pub device_sub_class: u8,
     pub device_protocol: u8,
