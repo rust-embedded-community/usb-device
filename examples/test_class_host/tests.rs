@@ -145,6 +145,28 @@ fn bulk_loopback(dev) {
     }
 }
 
+fn interrupt_loopback(dev) {
+    for len in &[0, 1, 2, 15, 31] {
+        let data = random_data(*len);
+
+        assert_eq!(
+            dev.write_interrupt(0x02, &data, TIMEOUT)
+                .expect(&format!("interrupt write len {}", len)),
+            data.len(),
+            "interrupt write len {}", len);
+
+        let mut response = vec![0u8; *len];
+
+        assert_eq!(
+            dev.read_interrupt(0x82, &mut response, TIMEOUT)
+                .expect(&format!("interrupt read len {}", len)),
+            data.len(),
+            "interrupt read len {}", len);
+
+        assert_eq!(&response, &data);
+    }
+}
+
 }
 
 fn random_data(len: usize) -> Vec<u8> {

@@ -13,24 +13,34 @@ pub struct TestClass<'a, B: UsbBus + 'a> {
     iface: InterfaceNumber,
     ep_bulk_in: EndpointIn<'a, B>,
     ep_bulk_out: EndpointOut<'a, B>,
+    ep_interrupt_in: EndpointIn<'a, B>,
+    ep_interrupt_out: EndpointOut<'a, B>,
 }
 
 struct State {
-    buf: [u8; 256],
+    control_buf: [u8; 256],
+    bulk_buf: [u8; 256],
+    interrupt_buf: [u8; 256],
     len: usize,
     i: usize,
     expect_bulk_in_complete: bool,
     expect_bulk_out: bool,
+    expect_interrupt_in_complete: bool,
+    expect_interrupt_out: bool,
 }
 
 impl Default for State {
     fn default() -> Self {
         State {
-            buf: [0; 256],
+            control_buf: [0; 256],
+            bulk_buf: [0; 256],
+            interrupt_buf: [0; 256],
             len: 0,
             i: 0,
             expect_bulk_in_complete: false,
             expect_bulk_out: false,
+            expect_interrupt_in_complete: false,
+            expect_interrupt_out: false,
         }
     }
 }
@@ -56,6 +66,8 @@ impl<'a, B: UsbBus + 'a> TestClass<'a, B> {
             iface: alloc.interface(),
             ep_bulk_in: alloc.bulk(64),
             ep_bulk_out: alloc.bulk(64),
+            ep_interrupt_in: alloc.interrupt(31, 1),
+            ep_interrupt_out: alloc.interrupt(31, 1),
         }
     }
 
@@ -76,7 +88,7 @@ impl<'a, B: UsbBus + 'a> TestClass<'a, B> {
         let mut s = self.state.borrow_mut();
 
         let i = s.i;
-        match self.ep_bulk_out.read(&mut s.buf[i..]) {
+        match self.ep_bulk_out.read(&mut s.bulk_buf[i..]) {
             Ok(count) => {
                 if s.expect_bulk_out {
                     s.expect_bulk_out = false;
@@ -96,6 +108,23 @@ impl<'a, B: UsbBus + 'a> TestClass<'a, B> {
             Err(UsbError::WouldBlock) => { },
             Err(err) => panic!("bulk read {:?}", err),
         };
+
+        match self.ep_interrupt_out.read(&mut s.interrupt_buf) {
+            Ok(count) => {
+                if s.expect_interrupt_out {
+                    s.expect_interrupt_out = false;
+                } else {
+                    panic!("unexpectedly read data from interrupt out endpoint");
+                }
+
+                self.ep_interrupt_in.write(&s.interrupt_buf[0..count])
+                    .expect("interrupt write");
+
+                s.expect_interrupt_in_complete = true;
+            },
+            Err(UsbError::WouldBlock) => { },
+            Err(err) => panic!("bulk read {:?}", err),
+        };
     }
 
     fn write_bulk_in(&self, s: &mut State, write_empty: bool) {
@@ -108,7 +137,7 @@ impl<'a, B: UsbBus + 'a> TestClass<'a, B> {
             return;
         }
 
-        match self.ep_bulk_in.write(&s.buf[s.i..s.i+to_write]) {
+        match self.ep_bulk_in.write(&s.bulk_buf[s.i..s.i+to_write]) {
             Ok(count) => {
                 assert_eq!(count, to_write);
                 s.expect_bulk_in_complete = true;
@@ -128,9 +157,11 @@ impl<'a, B: UsbBus + 'a> UsbClass<B> for TestClass<'a, B> {
     }
 
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
-        writer.interface(self.iface, 2, 0x00, 0x00, 0x00)?;
+        writer.interface(self.iface, 4, 0x00, 0x00, 0x00)?;
         writer.endpoint(&self.ep_bulk_in)?;
         writer.endpoint(&self.ep_bulk_out)?;
+        writer.endpoint(&self.ep_interrupt_in)?;
+        writer.endpoint(&self.ep_interrupt_out)?;
 
         Ok(())
     }
@@ -146,6 +177,12 @@ impl<'a, B: UsbBus + 'a> UsbClass<B> for TestClass<'a, B> {
             } else {
                 panic!("unexpected endpoint_in_complete");
             }
+        } else if addr == self.ep_interrupt_in.address() {
+            if s.expect_interrupt_in_complete {
+                s.expect_interrupt_in_complete = false;
+            } else {
+                panic!("unexpected endpoint_in_complete");
+            }
         }
     }
 
@@ -154,6 +191,8 @@ impl<'a, B: UsbBus + 'a> UsbClass<B> for TestClass<'a, B> {
 
         if addr == self.ep_bulk_out.address() {
             s.expect_bulk_out = true;
+        } else if addr == self.ep_interrupt_out.address() {
+            s.expect_interrupt_out = true;
         }
     }
 
@@ -169,8 +208,8 @@ impl<'a, B: UsbBus + 'a> UsbClass<B> for TestClass<'a, B> {
         let s = self.state.borrow_mut();
 
         match req.request {
-            REQ_READ_BUFFER if req.length as usize <= s.buf.len()
-                => xfer.accept_with(&s.buf[0..req.length as usize]).unwrap(),
+            REQ_READ_BUFFER if req.length as usize <= s.control_buf.len()
+                => xfer.accept_with(&s.control_buf[0..req.length as usize]).unwrap(),
             _ => xfer.reject().unwrap(),
         }
     }
@@ -188,18 +227,18 @@ impl<'a, B: UsbBus + 'a> UsbClass<B> for TestClass<'a, B> {
 
         match req.request {
             REQ_STORE_REQUEST => {
-                s.buf[0] = (req.direction as u8) | (req.request_type as u8) << 5 | (req.recipient as u8);
-                s.buf[1] = req.request;
-                s.buf[2..4].copy_from_slice(&req.value.to_le_bytes());
-                s.buf[4..6].copy_from_slice(&req.index.to_le_bytes());
-                s.buf[6..8].copy_from_slice(&req.length.to_le_bytes());
+                s.control_buf[0] = (req.direction as u8) | (req.request_type as u8) << 5 | (req.recipient as u8);
+                s.control_buf[1] = req.request;
+                s.control_buf[2..4].copy_from_slice(&req.value.to_le_bytes());
+                s.control_buf[4..6].copy_from_slice(&req.index.to_le_bytes());
+                s.control_buf[6..8].copy_from_slice(&req.length.to_le_bytes());
 
                 xfer.accept().unwrap();
             },
-            REQ_WRITE_BUFFER if xfer.data().len() as usize <= s.buf.len() => {
+            REQ_WRITE_BUFFER if xfer.data().len() as usize <= s.control_buf.len() => {
                 assert_eq!(xfer.data().len(), req.length as usize, "xfer data len == req.length");
 
-                s.buf[0..xfer.data().len()].copy_from_slice(xfer.data());
+                s.control_buf[0..xfer.data().len()].copy_from_slice(xfer.data());
 
                 xfer.accept().unwrap();
             }
