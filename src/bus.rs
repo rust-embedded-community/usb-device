@@ -8,16 +8,16 @@ use crate::endpoint::{Endpoint, EndpointDirection, EndpointType, EndpointAddress
 /// A trait for device-specific USB peripherals. Implement this to add support for a new hardware
 /// platform.
 ///
-/// The UsbBus is shared by reference between the global [`UsbDevice`](::device::UsbDevice) as well
-/// as [`UsbClass`](::class::UsbClass)es, and therefore any required mutability must be implemented
-/// using interior mutability. Most operations that may mutate the bus object itself take place
-/// before [`enable`](UsbBus::enable) is called. After the bus is enabled, in practice most access
-/// won't mutate the object itself but only endpoint-specific registers and buffers, the access to
-/// which is mostly arbitrated by endpoint handles.
+/// The UsbBus is shared by reference between the global [`UsbDevice`](crate::device::UsbDevice) as
+/// well as [`UsbClass`](crate::class::UsbClass)es, and therefore any required mutability must be
+/// implemented using interior mutability. Most operations that may mutate the bus object itself
+/// take place before [`enable`](UsbBus::enable) is called. After the bus is enabled, in practice
+/// most access won't mutate the object itself but only endpoint-specific registers and buffers, the
+/// access to which is mostly arbitrated by endpoint handles.
 pub trait UsbBus: Sync + Sized {
     /// Allocates an endpoint and specified endpoint parameters. This method is called by the device
     /// and class implementations to allocate endpoints, and can only be called before
-    /// [`UsbBus::enable`] is called.
+    /// [`enable`](UsbBus::enable) is called.
     ///
     /// # Arguments
     ///
@@ -30,13 +30,11 @@ pub trait UsbBus: Sync + Sized {
     ///
     /// # Errors
     ///
-    /// * [`Busy`](::UsbError::Busy) - The bus has already been enabled and no further allocations
-    ///   may take place.
-    /// * [`EndpointOverflow`](::UsbError::EndpointOverflow) - Available total number of endpoints,
-    ///   endpoints of the specified type, or endpoind packet memory has been exhausted. This is
-    ///   generally caused when a user tries to add too many classes to a composite device.
-    /// * [`EndpointTaken`](::UsbError::EndpointTaken) - A specific `ep_addr` was specified but the
-    ///   endpoint in question has already been allocated.
+    /// * [`EndpointOverflow`](crate::UsbError::EndpointOverflow) - Available total number of
+    ///   endpoints, endpoints of the specified type, or endpoind packet memory has been exhausted.
+    ///   This is generally caused when a user tries to add too many classes to a composite device.
+    /// * [`InvalidEndpoint`](crate::UsbError::InvalidEndpoint) - A specific `ep_addr` was specified
+    ///   but the endpoint in question has already been allocated.
     fn alloc_ep(
         &mut self,
         ep_dir: UsbDirection,
@@ -64,9 +62,10 @@ pub trait UsbBus: Sync + Sized {
     ///
     /// # Errors
     ///
-    /// * [`InvalidEndpoint`](::UsbError::InvalidEndpoint) - The `ep_addr` does not point to a
+    /// * [`InvalidEndpoint`](crate::UsbError::InvalidEndpoint) - The `ep_addr` does not point to a
     ///   valid endpoint that was previously allocated with [`UsbBus::alloc_ep`].
-    /// * [`Busy`](::UsbError::Busy) - A previously written packet is still pending to be sent.
+    /// * [`WouldBlock`](crate::UsbError::WouldBlock) - A previously written packet is still pending
+    ///   to be sent.
     ///
     /// Implementations may also return other errors if applicable.
     fn write(&self, ep_addr: EndpointAddress, buf: &[u8]) -> Result<usize>;
@@ -78,13 +77,13 @@ pub trait UsbBus: Sync + Sized {
     ///
     /// # Errors
     ///
-    /// * [`InvalidEndpoint`](::UsbError::InvalidEndpoint) - The `ep_addr` does not point to a
+    /// * [`InvalidEndpoint`](crate::UsbError::InvalidEndpoint) - The `ep_addr` does not point to a
     ///   valid endpoint that was previously allocated with [`UsbBus::alloc_ep`].
-    /// * [`NoData`](::UsbError::NoData) - There is no packet to be read. Note that this is
-    ///   different from a received zero-length packet, which is valid in USB. A zero-length packet
-    ///   will return `Ok(0)`.
-    /// * [`BufferOverflow`](::UsbError::BufferOverflow) - The received packet is too long to fix
-    ///   in `buf`. This is generally an error in the class implementation.
+    /// * [`WouldBlock`](crate::UsbError::WouldBlock) - There is no packet to be read. Note that
+    ///   this is different from a received zero-length packet, which is valid in USB. A zero-length
+    ///   packet will return `Ok(0)`.
+    /// * [`BufferOverflow`](crate::UsbError::BufferOverflow) - The received packet is too long to
+    ///   fix in `buf`. This is generally an error in the class implementation.
     ///
     /// Implementations may also return other errors if applicable.
     fn read(&self, ep_addr: EndpointAddress, buf: &mut [u8]) -> Result<usize>;
@@ -98,8 +97,8 @@ pub trait UsbBus: Sync + Sized {
 
     /// Causes the USB peripheral to enter USB suspend mode, lowering power consumption and
     /// preparing to detect a USB wakeup event. This should only be called after
-    /// [`poll`](UsbDevice::poll) returns [`PollResult::Suspend]. The device shall stay suspended
-    /// using `poll` returns a value other than `Suspend`.
+    /// [`poll`](crate::device::UsbDevice::poll) returns [`PollResult::Suspend`]. The device shall
+    /// stay suspended using `poll` returns a value other than `Suspend`.
     fn suspend(&self);
 
     /// Resumes from suspend mode. This may only be called after the peripheral has been previously
@@ -118,7 +117,7 @@ pub trait UsbBus: Sync + Sized {
     ///
     /// # Errors
     ///
-    /// * [`Unsupported`](::UsbError::Unsupported) - This UsbBus implementation doesn't support
+    /// * [`Unsupported`](crate::UsbError::Unsupported) - This UsbBus implementation doesn't support
     ///   simulating a disconnect or it has not been enabled at creation time.
     fn force_reset(&self) -> Result<()> {
         Err(UsbError::Unsupported)

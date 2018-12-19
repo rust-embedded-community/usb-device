@@ -104,11 +104,11 @@ pub mod bus;
 /// documentation for more information on the callback methods.
 ///
 /// Your class should *not* hold a direct reference to the [`UsbBus`](bus::UsbBus) object. Rather it
-/// should take a temporary reference to the [`UsbAllocator`](bus::UsbAllocator) object exposed by
-/// the bus in its constructor, and use that to allocate endpoints, as well as interface and string
-/// handles. Using the [`Endpoint`](endpoint::Endpoint) handles which wrap a reference to the
-/// `UsbBus` instance ensures that classes cannot inadvertently access an endpoint owned by another
-/// class.
+/// should take a temporary reference to the [`UsbBusAllocator`](bus::UsbBusAllocator) object
+/// exposed by the bus in its constructor, and use that to allocate endpoints, as well as interface
+/// and string handles. Using the [`Endpoint`](endpoint::Endpoint) handles which wrap a reference to
+/// the `UsbBus` instance ensures that classes cannot inadvertently access an endpoint owned by
+/// another class.
 ///
 /// In addition to implementing the trait, add struct methods for the end-user to send and receive
 /// data via your class. For example, a serial port class might have class-specific methods `read`

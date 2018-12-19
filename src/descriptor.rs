@@ -107,10 +107,10 @@ impl<'a> DescriptorWriter<'a> {
     /// # Arguments
     ///
     /// * `number` - Interface number previously allocated with
-    ///   [`UsbAllocator::interface`](::bus::UsbAllocator::interface).
+    ///   [`UsbBusAllocator::interface`](crate::bus::UsbBusAllocator::interface).
     /// * `num_endpoints` - Number of endpoint descriptors to follow.
-    /// * `interface_class` - Class code assigned by USB.org. Use `0xff` for vendor-specific
-    ///   devices that do not conform to any class.
+    /// * `interface_class` - Class code assigned by USB.org. Use `0xff` for vendor-specific devices
+    ///   that do not conform to any class.
     /// * `interface_sub_class` - Sub-class code. Depends on class.
     /// * `interface_protocol` - Protocol code. Depends on class and sub-class.
     pub fn interface(&mut self, number: InterfaceNumber, num_endpoints: u8,
@@ -138,7 +138,7 @@ impl<'a> DescriptorWriter<'a> {
     /// # Arguments
     ///
     /// * `endpoint` - Endpoint previously allocated with
-    ///   [`UsbAllocator`](::bus::UsbAllocator).
+    ///   [`UsbBusAllocator`](crate::bus::UsbBusAllocator).
     pub fn endpoint<'e, B: UsbBus, D: EndpointDirection>(&mut self, endpoint: &Endpoint<'e, B, D>)
         -> Result<()>
     {

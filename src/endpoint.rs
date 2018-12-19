@@ -119,9 +119,10 @@ impl<'a, B: UsbBus> Endpoint<'a, B, In> {
     /// Note: USB bus implementation errors are directly passed through, so be prepared to handle
     /// other errors as well.
     ///
-    /// * [`InvalidEndpoint`](::UsbError::InvalidEndpoint) - The `ep_addr` does not point to a
+    /// * [`InvalidEndpoint`](crate::UsbError::InvalidEndpoint) - The `ep_addr` does not point to a
     ///   valid endpoint that was previously allocated with [`UsbBus::alloc_ep`].
-    /// * [`Busy`](::UsbError::Busy) - A previously written packet is still pending to be sent.
+    /// * [`WouldBlock`](crate::UsbError::WouldBlock) - A previously written packet is still pending
+    ///   to be sent.
     pub fn write(&self, data: &[u8]) -> Result<usize> {
         self.bus().write(self.address, data)
     }
@@ -138,13 +139,13 @@ impl<'a, B: UsbBus> Endpoint<'a, B, Out> {
     /// Note: USB bus implementation errors are directly passed through, so be prepared to handle
     /// other errors as well.
     ///
-    /// * [`InvalidEndpoint`](::UsbError::InvalidEndpoint) - The `ep_addr` does not point to a
+    /// * [`InvalidEndpoint`](crate::UsbError::InvalidEndpoint) - The `ep_addr` does not point to a
     ///   valid endpoint that was previously allocated with [`UsbBus::alloc_ep`].
-    /// * [`NoData`](::UsbError::NoData) - There is no packet to be read. Note that this is
-    ///   different from a received zero-length packet, which is valid in USB. A zero-length packet
-    ///   will return `Ok(0)`.
-    /// * [`BufferOverflow`](::UsbError::BufferOverflow) - The received packet is too long to fix
-    ///   in `buf`. This is generally an error in the class implementation.
+    /// * [`WouldBlock`](crate::UsbError::WouldBlock) - There is no packet to be read. Note that
+    ///   this is different from a received zero-length packet, which is valid in USB. A zero-length
+    ///   packet will return `Ok(0)`.
+    /// * [`BufferOverflow`](crate::UsbError::BufferOverflow) - The received packet is too long to
+    ///   fix in `buf`. This is generally an error in the class implementation.
     pub fn read(&self, data: &mut [u8]) -> Result<usize> {
         self.bus().read(self.address, data)
     }

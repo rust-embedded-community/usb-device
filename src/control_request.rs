@@ -5,7 +5,8 @@ use core::mem;
 #[repr(u8)]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum RequestType {
-    /// Request is a USB standard request. Usually handled by [`UsbDevice`](::device::UsbDevice).
+    /// Request is a USB standard request. Usually handled by
+    /// [`UsbDevice`](crate::device::UsbDevice).
     Standard = 0,
     /// Request is intended for a USB class.
     Class = 1,

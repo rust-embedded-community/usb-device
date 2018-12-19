@@ -14,7 +14,7 @@ pub trait UsbClass<B: UsbBus> {
     /// Called when a GET_DESCRIPTOR request is received for a configuration descriptor. When
     /// called, the implementation should write its interface, endpoint and any extra class
     /// descriptors into `writer`. The configuration descriptor itself will be written by
-    /// [UsbDevice](::device::UsbDevice) and shouldn't be written by classes.
+    /// [UsbDevice](crate::device::UsbDevice) and shouldn't be written by classes.
     ///
     /// # Errors
     ///
@@ -31,18 +31,15 @@ pub trait UsbClass<B: UsbBus> {
     /// error. Classes can even choose to override standard requests, but doing that is rarely
     /// necessary.
     ///
-    /// To ignore the request (default), return [`ControlOutResult::Ignore`]. To accept the request,
-    /// return [`ControlOutResult::Ok`]. To report an error and return a STALL handshake to the
-    /// host, return [`ControlOutResult::Err`].
+    /// See [`ControlOut`] for how to respond to the transfer.
     ///
     /// When implementing your own class, you should ignore any requests that are not meant for your
-    /// class so that potential other classes in the composite device can process them.
+    /// class so that any other classes in the composite device can process them.
     ///
     /// # Arguments
     ///
     /// * `req` - The request from the SETUP packet.
-    /// * `data` - Data received in the DATA stage of the control transfer. Empty if there was no
-    ///   DATA stage.
+    /// * `xfer` - A handle to the transfer.
     fn control_out(&self, xfer: ControlOut<'_, '_, '_, B>) {
         let _ = xfer;
     }
@@ -53,14 +50,10 @@ pub trait UsbClass<B: UsbBus> {
     /// error. Classes can even choose to override standard requests, but doing that is rarely
     /// necessary.
     ///
-    /// To ignore the request (default), return [`ControlInResult::Ignore`]. To accept the request,
-    /// write your response to the buffer passed in `data` and return [`ControlInResult::Ok`] with
-    /// the number of bytes written. Note that the number of bytes should not exceed `req.length`
-    /// bytes. To report an error and return a STALL handshake to the host, return
-    /// [`ControlInResult::Err`].
+    /// See [`ControlIn`] for how to respond to the transfer.
     ///
     /// When implementing your own class, you should ignore any requests that are not meant for your
-    /// class so that potential other classes in the composite device can process them.
+    /// class so that any other classes in the composite device can process them.
     ///
     /// # Arguments
     ///
@@ -102,7 +95,8 @@ pub trait UsbClass<B: UsbBus> {
     ///
     /// # Arguments
     ///
-    /// * `index` - A string index allocated earlier with [`UsbAllocator`](::bus::UsbAllocator).
+    /// * `index` - A string index allocated earlier with
+    ///   [`UsbAllocator`](crate::bus::UsbBusAllocator).
     /// * `lang_id` - The language ID for the string to retrieve.
     fn get_string<'a>(&'a self, index: StringIndex, lang_id: u16) -> Option<&'a str> {
         let _ = (index, lang_id);
@@ -110,6 +104,7 @@ pub trait UsbClass<B: UsbBus> {
     }
 }
 
+/// Handle for a control IN transfer.
 pub struct ControlIn<'a, 'p, 'o, B: UsbBus + 'a>(&'o mut Option<&'p mut control::ControlPipe<'a, B>>);
 
 impl<'a, 'p, 'o, B: UsbBus + 'a> ControlIn<'a, 'p, 'o,  B> {
@@ -117,10 +112,12 @@ impl<'a, 'p, 'o, B: UsbBus + 'a> ControlIn<'a, 'p, 'o,  B> {
         ControlIn(pipe)
     }
 
+    /// Gets the request from the SETUP packet.
     pub fn request(&self) -> &control::Request {
         self.0.as_ref().unwrap().request()
     }
 
+    /// Accepts the transfer with the supplied buffer.
     pub fn accept_with(self, data: &[u8]) -> Result<()> {
         self.0.take().unwrap().accept_in(|buf| {
             if data.len() > buf.len() {
@@ -133,10 +130,13 @@ impl<'a, 'p, 'o, B: UsbBus + 'a> ControlIn<'a, 'p, 'o,  B> {
         })
     }
 
+    /// Accepts the transfer with a callback that can write to the internal buffer of the control
+    /// pipe. Can be used to avoid an extra copy.
     pub fn accept(self, f: impl FnOnce(&mut [u8]) -> Result<usize>) -> Result<()> {
         self.0.take().unwrap().accept_in(f)
     }
 
+    /// Rejects the transfer by stalling the pipe.
     pub fn reject(self) -> Result<()> {
         self.0.take().unwrap().reject()
     }
@@ -149,18 +149,22 @@ impl<'a, 'p, 'o, B: UsbBus + 'a> ControlOut<'a, 'p, 'o, B> {
         ControlOut(pipe)
     }
 
+    /// Gets the request from the SETUP packet.
     pub fn request(&self) -> &control::Request {
         self.0.as_ref().unwrap().request()
     }
 
+    /// Gets the data from the data stage of the request. May be empty if there was no data stage.
     pub fn data(&self) -> &[u8] {
         self.0.as_ref().unwrap().data()
     }
 
+    /// Accepts the transfer by succesfully responding to the status stage.
     pub fn accept(self) -> Result<()> {
         self.0.take().unwrap().accept_out()
     }
 
+    /// Rejects the transfer by stalling the pipe.
     pub fn reject(self) -> Result<()> {
         self.0.take().unwrap().reject()
     }
