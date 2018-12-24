@@ -7,7 +7,8 @@
 mod tests;
 mod device;
 
-use std::sync::{Arc, Mutex};
+use std::io::stdout;
+use std::io::prelude::*;
 use std::thread;
 use std::time::Duration;
 use std::panic;
@@ -68,17 +69,20 @@ fn run_tests(tests: &[(&str, TestFn)]) {
         }
 
         print!("test {} ... ", name);
+        stdout().flush().ok();
 
-        let out = Arc::new(Mutex::new(String::new()));
+        let mut out = String::new();
 
-        let out_clone = out.clone();
+        let res = {
+            let hook = panic::take_hook();
+            panic::set_hook(Box::new(|_| { }));
+            let res = panic::catch_unwind(panic::AssertUnwindSafe(|| {
+                test(&mut dev, &mut out);
+            }));
+            panic::set_hook(hook);
 
-        let hook = panic::take_hook();
-        panic::set_hook(Box::new(|_| { }));
-        let res = panic::catch_unwind(|| {
-            test(&dev, out_clone);
-        });
-        panic::set_hook(hook);
+            res
+        };
 
         dev.release_interface(INTERFACE).unwrap();
 
@@ -94,8 +98,6 @@ fn run_tests(tests: &[(&str, TestFn)]) {
             println!("FAILED\nerror: {}\n", err);
         } else {
             println!("ok");
-
-            let out = out.lock().unwrap();
 
             if !out.is_empty() {
                 print!("{}", out);

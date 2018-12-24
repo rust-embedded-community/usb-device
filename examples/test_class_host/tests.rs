@@ -1,33 +1,11 @@
 use std::fmt::Write;
-use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use libusb::*;
 use rand::prelude::*;
 use usb_device::test_class;
 use crate::device::*;
 
-pub type TestFn = fn(&DeviceHandles, Arc<Mutex<String>>) -> ();
-
-/*struct TestOutput {
-    buf: String,
-}
-
-impl TestOutput {
-    fn new() -> Self {
-        TestOutput
-    }
-
-    fn output(&self) -> &str {
-        &self.buf
-    }
-}
-
-impl std::fmt::Write for TestOutput {
-    fn write_str(&mut self, s: &str) -> std::result::Result<(), std::fmt::Error> {
-        self.buf.push_str(s);
-        Ok(())
-    }
-}*/
+pub type TestFn = fn(&mut DeviceHandles, &mut String) -> ();
 
 macro_rules! tests {
     { $(fn $name:ident($dev:ident, $out:ident) $body:expr)* } => {
@@ -35,8 +13,8 @@ macro_rules! tests {
             let mut tests: Vec<(&'static str, TestFn)> = Vec::new();
 
             $(
-                fn $name($dev: &DeviceHandles<'_>, out_mutex: Arc<Mutex<String>>) {
-                    let mut $out = out_mutex.lock().unwrap();
+                fn $name($dev: &mut DeviceHandles<'_>, $out: &mut String) {
+                    //let mut $out = out_mutex.lock().unwrap();
 
                     $body
                 }
@@ -194,7 +172,7 @@ fn interrupt_loopback(dev, _out) {
 }
 
 fn bench_bulk_write(dev, out) {
-    run_bench(dev, &mut out, |data| {
+    run_bench(dev, out, |data| {
         assert_eq!(
             dev.write_bulk(0x01, data, TIMEOUT)
                 .expect("bulk write"),
@@ -204,7 +182,7 @@ fn bench_bulk_write(dev, out) {
 }
 
 fn bench_bulk_read(dev, out) {
-    run_bench(dev, &mut out, |data| {
+    run_bench(dev, out, |data| {
         assert_eq!(
             dev.read_bulk(0x81, data, TIMEOUT)
                 .expect("bulk read"),
