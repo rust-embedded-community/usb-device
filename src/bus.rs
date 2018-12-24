@@ -258,7 +258,6 @@ impl From<StringIndex> for u8 {
 }
 
 /// Event and incoming packet information returned by [`UsbBus::poll`].
-#[derive(Eq, PartialEq)]
 pub enum PollResult {
     /// No events or packets to report.
     None,

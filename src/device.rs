@@ -147,11 +147,12 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         let pr = self.bus.poll();
 
         if self.device_state == UsbDeviceState::Suspend {
-            if !(pr == PollResult::Suspend || pr == PollResult::None) {
-                self.bus.resume();
-                self.device_state = UsbDeviceState::Default;
-            } else {
-                return false;
+            match pr {
+                PollResult::Suspend | PollResult::None => { return false; },
+                _ => {
+                    self.bus.resume();
+                    self.device_state = UsbDeviceState::Default;
+                },
             }
         }
 
