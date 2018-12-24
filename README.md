@@ -27,7 +27,6 @@ TODO
 Features planned but not implemented yet:
 
 - Interface alternate settings
-- A safer DescriptorWriter
 - Multilingual string descriptors
 - Isochronous endpoints
 

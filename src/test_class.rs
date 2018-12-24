@@ -156,7 +156,7 @@ impl<B: UsbBus> UsbClass<B> for TestClass<'_, B> {
     }
 
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
-        writer.interface(self.iface, 4, 0x00, 0x00, 0x00)?;
+        writer.interface(self.iface, 0xff, 0x00, 0x00)?;
         writer.endpoint(&self.ep_bulk_in)?;
         writer.endpoint(&self.ep_bulk_out)?;
         writer.endpoint(&self.ep_interrupt_in)?;

@@ -371,74 +371,39 @@ impl<B: UsbBus> UsbDevice<'_, B> {
 
         let (dtype, index) = get_descriptor_type_index(req.value);
 
-        fn accept<B: UsbBus>(
+        fn accept_writer<B: UsbBus>(
             xfer: ControlIn<B>,
             f: impl FnOnce(&mut DescriptorWriter) -> Result<()>) -> Result<()>
         {
             xfer.accept(|buf| {
                 let mut writer = DescriptorWriter::new(buf);
                 f(&mut writer)?;
-                Ok(writer.count())
+                Ok(writer.position())
             })
         }
 
         match dtype {
-            descriptor_type::DEVICE => accept(xfer, |writer|
-                writer.write(
-                    descriptor_type::DEVICE,
-                    &[
-                        0x00, 0x02, // bcdUSB
-                        config.device_class, // bDeviceClass
-                        config.device_sub_class, // bDeviceSubClass
-                        config.device_protocol, // bDeviceProtocol
-                        config.max_packet_size_0, // bMaxPacketSize0
-                        config.vendor_id as u8, (config.vendor_id >> 8) as u8, // idVendor
-                        config.product_id as u8, (config.product_id >> 8) as u8, // idProduct
-                        config.device_release as u8, (config.device_release >> 8) as u8, // bcdDevice
-                        1, // iManufacturer
-                        2, // iProduct
-                        3, // iSerialNumber
-                        1, // bNumConfigurations
-                    ])),
+            descriptor_type::DEVICE => accept_writer(xfer, |w| w.device(config)),
 
-            descriptor_type::CONFIGURATION => accept(xfer, |writer| {
-                writer.write(
-                    descriptor_type::CONFIGURATION,
-                    &[
-                        0, 0, // wTotalLength (placeholder)
-                        0, // bNumInterfaces (placeholder)
-                        CONFIGURATION_VALUE, // bConfigurationValue
-                        0, // iConfiguration
-                        // bmAttributes:
-                        0x80
-                            | if config.self_powered { 0x40 } else { 0x00 }
-                            | if config.supports_remote_wakeup { 0x20 } else { 0x00 },
-                        config.max_power // bMaxPower
-                    ])?;
+            descriptor_type::CONFIGURATION => accept_writer(xfer, |w| {
+                w.configuration(config)?;
 
                 for cls in &config.classes {
-                    cls.get_configuration_descriptors(writer)?;
+                    cls.get_configuration_descriptors(w)?;
+                    w.end_class();
                 }
 
-                let total_length = writer.count();
-                let num_interfaces = writer.num_interfaces();
-
-                writer.insert(2, &[total_length as u8, (total_length >> 8) as u8]);
-
-                writer.insert(4, &[num_interfaces]);
+                w.end_configuration();
 
                 Ok(())
             }),
 
             descriptor_type::STRING => {
                 if index == 0 {
-                    accept(xfer, |writer|
-                        writer.write(
+                    accept_writer(xfer, |w|
+                        w.write(
                             descriptor_type::STRING,
-                            &[
-                                lang_id::ENGLISH_US as u8,
-                                (lang_id::ENGLISH_US >> 8) as u8,
-                            ]))
+                            &lang_id::ENGLISH_US.to_le_bytes()))
                 } else {
                     let s = match index {
                         1 => Some(config.manufacturer),
@@ -455,7 +420,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     };
 
                     if let Some(s) = s {
-                        accept(xfer, |writer| writer.write_string(s))
+                        accept_writer(xfer, |w| w.string(s))
                     } else {
                         xfer.reject()
                     }

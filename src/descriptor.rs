@@ -1,8 +1,6 @@
-use core::mem;
-use core::slice;
 use crate::{Result, UsbError};
 use crate::bus::{UsbBus, InterfaceNumber};
-use crate::device::DEFAULT_ALTERNATE_SETTING;
+use crate::device;
 use crate::endpoint::{Endpoint, EndpointDirection};
 
 /// Standard descriptor types
@@ -26,104 +24,113 @@ pub mod lang_id {
 /// A writer for USB descriptors.
 pub struct DescriptorWriter<'a> {
     buf: &'a mut [u8],
-    i: usize,
-    num_interfaces: u8,
+    position: usize,
+    num_interfaces_mark: Option<usize>,
+    num_endpoints_mark: Option<usize>,
 }
 
 impl DescriptorWriter<'_> {
     pub(crate) fn new(buf: &mut [u8]) -> DescriptorWriter<'_> {
         DescriptorWriter {
             buf,
-            i: 0,
-            num_interfaces: 0,
+            position: 0,
+            num_interfaces_mark: None,
+            num_endpoints_mark: None,
         }
     }
 
-    pub(crate) fn num_interfaces(&self) -> u8 { self.num_interfaces }
-
-    pub(crate) fn count(&self) -> usize { self.i }
-
-    fn write_header(&mut self, length: usize, descriptor_type: u8) -> Result<()> {
-        if self.i + length + 2 as usize > self.buf.len() {
-            return Err(UsbError::BufferOverflow);
-        }
-
-        self.buf[self.i] = (length + 2) as u8;
-        self.buf[self.i + 1] = descriptor_type;
-        self.i += 2;
-
-        Ok(())
-    }
-
-    pub(crate) fn insert(&mut self, index: usize, data: &[u8]) {
-        self.buf[index..index+data.len()].copy_from_slice(data);
+    pub fn position(&self) -> usize {
+        self.position
     }
 
     /// Writes an arbitrary (usually class-specific) descriptor.
     pub fn write(&mut self, descriptor_type: u8, descriptor: &[u8]) -> Result<()> {
         let length = descriptor.len();
 
-        self.write_header(length, descriptor_type)?;
-
-        self.buf[self.i..self.i+length].copy_from_slice(descriptor);
-        self.i += length;
-
-        Ok(())
-    }
-
-    pub(crate) fn write_string(&mut self, string: &str) -> Result<()> {
-        let mut buf: [u16; 64] = unsafe { mem::uninitialized() };
-        let mut i = 0;
-
-        for c in string.chars() {
-            let c = c as u32;
-
-            if c < 0x10000 {
-                buf[i] = (c as u16).to_le();
-
-                i += 1;
-            } else {
-                let c = c - 0x10000;
-
-                buf[i] = (((c >> 10) + 0xd800) as u16).to_le();
-                buf[i + 1] = (((c & 0x003f) + 0xdc00) as u16).to_le();
-                i += 2;
-            }
+        if self.position + 2 + length > self.buf.len() {
+            return Err(UsbError::BufferOverflow);
         }
 
-        let length = i * 2;
+        self.buf[self.position] = (length + 2) as u8;
+        self.buf[self.position + 1] = descriptor_type;
 
-        self.write_header(length, descriptor_type::STRING)?;
+        let start = self.position + 2;
 
-        self.buf[self.i..self.i+length].copy_from_slice(
-            unsafe { slice::from_raw_parts(&buf[0] as *const u16 as *const u8, length) });
-        self.i += length;
+        self.buf[start..start + length].copy_from_slice(descriptor);
+
+        self.position = start + length;
 
         Ok(())
     }
 
-    /// Writes a string descriptor.
+    pub(crate) fn device<B: UsbBus>(&mut self, config: &device::Config<B>) -> Result<()> {
+        self.write(
+            descriptor_type::DEVICE,
+            &[
+                0x00, 0x02, // bcdUSB
+                config.device_class, // bDeviceClass
+                config.device_sub_class, // bDeviceSubClass
+                config.device_protocol, // bDeviceProtocol
+                config.max_packet_size_0, // bMaxPacketSize0
+                config.vendor_id as u8, (config.vendor_id >> 8) as u8, // idVendor
+                config.product_id as u8, (config.product_id >> 8) as u8, // idProduct
+                config.device_release as u8, (config.device_release >> 8) as u8, // bcdDevice
+                1, // iManufacturer
+                2, // iProduct
+                3, // iSerialNumber
+                1, // bNumConfigurations
+            ])
+    }
+
+    pub(crate) fn configuration<B: UsbBus>(&mut self, config: &device::Config<B>) -> Result<()> {
+        self.num_interfaces_mark = Some(self.position + 4);
+
+        self.write(
+            descriptor_type::CONFIGURATION,
+            &[
+                0, 0, // wTotalLength
+                0, // bNumInterfaces
+                device::CONFIGURATION_VALUE, // bConfigurationValue
+                0, // iConfiguration
+                0x80
+                    | if config.self_powered { 0x40 } else { 0x00 }
+                    | if config.supports_remote_wakeup { 0x20 } else { 0x00 }, // bmAttributes
+                config.max_power // bMaxPower
+            ])
+    }
+
+    pub(crate) fn end_class(&mut self) {
+        self.num_endpoints_mark = None;
+    }
+
+    pub(crate) fn end_configuration(&mut self) {
+        let position = self.position as u16;
+        self.buf[2..4].copy_from_slice(&position.to_le_bytes());
+    }
+
+    /// Writes a interface descriptor.
     ///
     /// # Arguments
     ///
     /// * `number` - Interface number previously allocated with
     ///   [`UsbBusAllocator::interface`](crate::bus::UsbBusAllocator::interface).
-    /// * `num_endpoints` - Number of endpoint descriptors to follow.
     /// * `interface_class` - Class code assigned by USB.org. Use `0xff` for vendor-specific devices
     ///   that do not conform to any class.
     /// * `interface_sub_class` - Sub-class code. Depends on class.
     /// * `interface_protocol` - Protocol code. Depends on class and sub-class.
-    pub fn interface(&mut self, number: InterfaceNumber, num_endpoints: u8,
+    pub fn interface(&mut self, number: InterfaceNumber,
         interface_class: u8, interface_sub_class: u8, interface_protocol: u8) -> Result<()>
     {
-        self.num_interfaces += 1;
+        self.buf[self.num_interfaces_mark.unwrap()] += 1;
+
+        self.num_endpoints_mark = Some(self.position + 4);
 
         self.write(
             descriptor_type::INTERFACE,
             &[
                 number.into(), // bInterfaceNumber
-                DEFAULT_ALTERNATE_SETTING, // bAlternateSetting (how to even handle these...)
-                num_endpoints, // bNumEndpoints
+                device::DEFAULT_ALTERNATE_SETTING, // bAlternateSetting (how to even handle these...)
+                0, // bNumEndpoints
                 interface_class, // bInterfaceClass
                 interface_sub_class, // bInterfaceSubClass
                 interface_protocol, // bInterfaceProtocol
@@ -142,6 +149,8 @@ impl DescriptorWriter<'_> {
     pub fn endpoint<'e, B: UsbBus, D: EndpointDirection>(&mut self, endpoint: &Endpoint<'e, B, D>)
         -> Result<()>
     {
+        self.buf[self.num_endpoints_mark.expect("missing interface descriptor")] += 1;
+
         let mps = endpoint.max_packet_size();
 
         self.write(
@@ -152,6 +161,35 @@ impl DescriptorWriter<'_> {
                 mps as u8, (mps >> 8) as u8, // wMaxPacketSize
                 endpoint.interval(), // bInterval
             ])?;
+
+        Ok(())
+    }
+
+    /// Writer a string descriptor.
+    pub(crate) fn string(&mut self, string: &str) -> Result<()> {
+        let mut pos = self.position;
+
+        if pos + 2 > self.buf.len() {
+            return Err(UsbError::BufferOverflow);
+        }
+
+        self.buf[pos] = 0; // length placeholder
+        self.buf[pos + 1] = descriptor_type::STRING;
+
+        pos += 2;
+
+        for c in string.encode_utf16() {
+            if pos >= self.buf.len() {
+                return Err(UsbError::BufferOverflow);
+            }
+
+            self.buf[pos..pos + 2].copy_from_slice(&c.to_le_bytes());
+            pos += 2;
+        }
+
+        self.buf[self.position] = (pos - self.position) as u8;
+
+        self.position = pos;
 
         Ok(())
     }

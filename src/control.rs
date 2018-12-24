@@ -47,6 +47,10 @@ impl<B: UsbBus> ControlPipe<'_, B> {
         }
     }
 
+    pub fn buf_len(&self) -> usize {
+        self.buf.len()
+    }
+
     pub fn request(&self) -> &Request {
         self.request.as_ref().unwrap()
     }
