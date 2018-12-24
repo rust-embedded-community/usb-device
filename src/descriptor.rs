@@ -75,9 +75,9 @@ impl DescriptorWriter<'_> {
                 config.vendor_id as u8, (config.vendor_id >> 8) as u8, // idVendor
                 config.product_id as u8, (config.product_id >> 8) as u8, // idProduct
                 config.device_release as u8, (config.device_release >> 8) as u8, // bcdDevice
-                1, // iManufacturer
-                2, // iProduct
-                3, // iSerialNumber
+                config.manufacturer.map_or(0, |_| 1), // iManufacturer
+                config.product.map_or(0, |_| 2), // iProduct
+                config.serial_number.map_or(0, |_| 3), // iSerialNumber
                 1, // bNumConfigurations
             ])
     }

@@ -50,9 +50,9 @@ pub(crate) struct Config<'a, B: UsbBus> {
     pub vendor_id: u16,
     pub product_id: u16,
     pub device_release: u16,
-    pub manufacturer: &'a str,
-    pub product: &'a str,
-    pub serial_number: &'a str,
+    pub manufacturer: Option<&'a str>,
+    pub product: Option<&'a str>,
+    pub serial_number: Option<&'a str>,
     pub self_powered: bool,
     pub supports_remote_wakeup: bool,
     pub max_power: u8,
@@ -407,9 +407,9 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                             &lang_id::ENGLISH_US.to_le_bytes()))
                 } else {
                     let s = match index {
-                        1 => Some(config.manufacturer),
-                        2 => Some(config.product),
-                        3 => Some(config.serial_number),
+                        1 => config.manufacturer,
+                        2 => config.product,
+                        3 => config.serial_number,
                         _ => {
                             let index = StringIndex::new(index);
                             let lang_id = req.index;

@@ -44,9 +44,9 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
                 vendor_id: vid_pid.0,
                 product_id: vid_pid.1,
                 device_release: 0x0010,
-                manufacturer: "",
-                product: "",
-                serial_number: "",
+                manufacturer: None,
+                product: None,
+                serial_number: None,
                 self_powered: false,
                 supports_remote_wakeup: false,
                 max_power: 50,
@@ -76,21 +76,6 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
         /// Default: `0x0010` ("0.1")
         device_release: u16,
 
-        /// Sets the manufacturer name string descriptor.
-        ///
-        /// Default: `""`
-        manufacturer: &'a str,
-
-        /// Sets the product name string descriptor.
-        ///
-        /// Default: `""`
-        product: &'a str,
-
-        /// Sets the serial number string descriptor.
-        ///
-        /// Default: `""`
-        serial_number: &'a str,
-
         /// Sets whether the device may have an external power source.
         ///
         /// This should be set to `true` even if the device is sometimes self-powered and may not
@@ -105,6 +90,30 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
         ///
         /// Default: `false`
         supports_remote_wakeup: bool,
+    }
+
+    /// Sets the manufacturer name string descriptor.
+    ///
+    /// Default: (none)
+    pub fn manufacturer(&mut self, manufacturer: &'a str) -> &mut Self {
+        self.config.manufacturer = Some(manufacturer);
+        self
+    }
+
+    /// Sets the product name string descriptor.
+    ///
+    /// Default: (none)
+    pub fn product(&mut self, product: &'a str) -> &mut Self {
+        self.config.product = Some(product);
+        self
+    }
+
+    /// Sets the serial number string descriptor.
+    ///
+    /// Default: (none)
+    pub fn serial_number(&mut self, serial_number: &'a str) -> &mut Self {
+        self.config.serial_number = Some(serial_number);
+        self
     }
 
     /// Sets the maximum packet size in bytes for the control endpoint 0.
