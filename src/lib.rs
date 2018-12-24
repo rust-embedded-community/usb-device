@@ -1,29 +1,30 @@
-//! Device-side USB stack for microcontrollers.
+//! Experimental device-side USB stack for embedded devices.
 //!
-//! This crate contains is used for implementing device-agnostic USB device classes, as well as
-//! device-specific USB peripheral drivers.
+//! ## Implementing a USB device
 //!
-//! # Users
+//! A USB device consists of a [`UsbDevice`](device::UsbDevice) instance, one or more
+//! [`UsbClass`](crate::class::UsbClass)es, and a platform-specific [`UsbBus`](bus::UsbBus)
+//! implementation which together form a USB composite device.
 //!
-//! This crate is useful for three distinct groups:
+//! In the future USB device implementors will be able to use pre-existing peripheral driver crates
+//! and USB class implementation crates. The necessary types for the basic USB composite device
+//! implementation are available with:
 //!
-//! ## End-users
+//! `use usb_device::prelude::*`.
 //!
-//! End-users will often be able to use pre-existing peripheral driver crates and USB class
-//! implementation crates. See the [`device`] module for more information. The necessary types for
-//! most end-users are conveniently available with `use usb_device::prelude::*`.
+//! See the [`device`] module for a more complete example.
 //!
-//! ## Class implementors
+//! ## USB classes
 //!
-//! For information on how to implement new USB classes, see the [`class`] module. The necessary
-//! types for creating new classes are conveniently available with
+//! For information on how to implement new USB classes, see the [`class`] module and the
+//! [`TestClass`](test_class::TestClass) source code for an example of a custom USB device class
+//! implementation. The necessary types for creating new classes are available with:
+//!
 //! `use usb_device::class_prelude::*`.
 //!
-//! End-users can also implement new classes if their device uses a proprietary USB based protocol.
+//! ## USB peripheral drivers
 //!
-//! ## Peripheral driver implementors
-//!
-//! New peripheral driver crates can be created by implementing the [`bus::UsbBus`] trait.
+//! New peripheral driver crates can be created by implementing the [`UsbBus`](bus::UsbBus) trait.
 //!
 //! # Note about terminology
 //!
@@ -33,7 +34,7 @@
 //! and people doing that should be familiar with the USB standard.
 
 #![no_std]
-//#![warn(missing_docs)]
+#![warn(missing_docs)]
 
 /// A USB stack error.
 #[derive(Debug)]
@@ -168,14 +169,16 @@ pub mod device;
 /// Creating USB descriptors
 pub mod descriptor;
 
-/// Test USB class for testing USB driver implementations.
+/// Test USB class for testing USB driver implementations. Peripheral driver implementations should
+/// include an example called "test_class" that creates a device with this class to enable the
+/// driver to be tested with the test_class_host example in this crate.
 pub mod test_class;
 
 mod control_pipe;
 
 mod device_builder;
 
-/// Prelude for end-users.
+/// Prelude for device implementors.
 pub mod prelude {
     pub use crate::UsbError;
     pub use crate::device::{UsbDevice, UsbDeviceState, UsbDeviceBuilder, UsbVidPid};

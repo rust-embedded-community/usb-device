@@ -55,19 +55,43 @@ pub struct Request {
 }
 
 impl Request {
+    /// Standard USB control request Get Status
     pub const GET_STATUS: u8 = 0;
+
+    /// Standard USB control request Clear Feature
     pub const CLEAR_FEATURE: u8 = 1;
+
+    /// Standard USB control request Set Feature
     pub const SET_FEATURE: u8 = 3;
+
+    /// Standard USB control request Set Address
     pub const SET_ADDRESS: u8 = 5;
+
+    /// Standard USB control request Get Descriptor
     pub const GET_DESCRIPTOR: u8 = 6;
+
+    /// Standard USB control request Set Descriptor
     pub const SET_DESCRIPTOR: u8 = 7;
+
+    /// Standard USB control request Get Configuration
     pub const GET_CONFIGURATION: u8 = 8;
+
+    /// Standard USB control request Set Configuration
     pub const SET_CONFIGURATION: u8 = 9;
+
+    /// Standard USB control request Get Interface
     pub const GET_INTERFACE: u8 = 10;
+
+    /// Standard USB control request Set Interface
     pub const SET_INTERFACE: u8 = 11;
+
+    /// Standard USB control request Synch Frame
     pub const SYNCH_FRAME: u8 = 12;
 
+    /// Standard USB feature Endpoint Halt for Set/Clear Feature
     pub const FEATURE_ENDPOINT_HALT: u16 = 0;
+
+    /// Standard USB feature Device Remote Wakeup for Set/Clear Feature
     pub const FEATURE_DEVICE_REMOTE_WAKEUP: u16 = 1;
 
     pub(crate) fn parse(buf: &[u8]) -> Result<Request> {

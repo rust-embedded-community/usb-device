@@ -103,7 +103,9 @@ pub trait UsbClass<B: UsbBus> {
     }
 }
 
-/// Handle for a control IN transfer.
+/// Handle for a control IN transfer. When implementing a class, use the methods of this object to
+/// response to the transfer with either data or an error (STALL condition). To ignore the request
+/// and pass it on to the next class, simply don't call any method.
 pub struct ControlIn<'a, 'p, 'o, B: UsbBus>(&'o mut Option<&'p mut ControlPipe<'a, B>>);
 
 impl<'a, 'p, 'o, B: UsbBus> ControlIn<'a, 'p, 'o,  B> {
@@ -141,6 +143,9 @@ impl<'a, 'p, 'o, B: UsbBus> ControlIn<'a, 'p, 'o,  B> {
     }
 }
 
+/// Handle for a control OUT transfer. When implementing a class, use the methods of this object to
+/// response to the transfer with an ACT or an error (STALL condition). To ignore the request and
+/// pass it on to the next class, simply don't call any method.
 pub struct ControlOut<'a, 'p, 'o, B: UsbBus>(&'o mut Option<&'p mut ControlPipe<'a, B>>);
 
 impl<'a, 'p, 'o, B: UsbBus> ControlOut<'a, 'p, 'o, B> {

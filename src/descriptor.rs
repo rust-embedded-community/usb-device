@@ -39,6 +39,7 @@ impl DescriptorWriter<'_> {
         }
     }
 
+    /// Gets the current position in the buffer, i.e. the number of bytes written so far.
     pub fn position(&self) -> usize {
         self.position
     }

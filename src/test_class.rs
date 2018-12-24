@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use core::cell::RefCell;
 use core::cmp;
 use crate::Result;
@@ -5,8 +7,8 @@ use crate::class_prelude::*;
 use crate::device::{UsbDevice, UsbVidPid};
 use crate::descriptor;
 
-/// Test USB class for testing USB driver implementations. Driver implementations should include an
-/// example called "test_class" that creates a device with this class.
+/// Test USB class for testing USB driver implementations. Supports various endpoint types and
+/// requests for testing USB peripheral drivers on actual hardware.
 pub struct TestClass<'a, B: UsbBus> {
     state: RefCell<State>,
     custom_string: StringIndex,
@@ -61,6 +63,7 @@ pub const REQ_SET_BENCH_ENABLED: u8 = 4;
 pub const REQ_UNKNOWN: u8 = 42;
 
 impl<B: UsbBus> TestClass<'_, B> {
+    /// Creates a new TestClass.
     pub fn new(alloc: &UsbBusAllocator<B>) -> TestClass<'_, B> {
         TestClass {
             state: RefCell::default(),
@@ -73,6 +76,7 @@ impl<B: UsbBus> TestClass<'_, B> {
         }
     }
 
+    /// Convenience method to create a UsbDevice that is configured correctly for TestClass.
     pub fn make_device<'a>(&'a self, usb_bus: &'a UsbBusAllocator<B>) -> UsbDevice<'a, B> {
         UsbDevice::new(
                 &usb_bus,
@@ -84,6 +88,7 @@ impl<B: UsbBus> TestClass<'_, B> {
             .build()
     }
 
+    /// Must be called after polling the UsbDevice.
     pub fn poll(&self) {
         let mut s = self.state.borrow_mut();
 

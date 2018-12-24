@@ -7,13 +7,15 @@ This crate is still under development and should not be considered production re
 compliant.
 
 The UsbDevice object represents a composite USB device and is the most important object for
-end-users. Most of the other items are for implementing new USB classes or device-specific drivers.
+application implementors. The UsbDevice combines a number of UsbClasses (either custom ones, or
+pre-existing ones provided by other crates) and a UsbBus device drives to implement the USB device.
 
-The UsbClass trait can be used to implemented USB classes such as HID devices or serial ports.
-Pre-made class implementations will be provided in separate crates.
+The UsbClass trait can be used to implemented USB classes such as a HID device or a serial port. An
+implementation may also use a custom class if the required functionality isn't covered by a standard
+class.
 
 The UsbBus trait is intended to be implemented by device-specific crates to provide a driver for
-each device specific USB peripheral.
+each device's USB peripheral.
 
 Related crates
 --------------

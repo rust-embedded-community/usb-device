@@ -58,8 +58,10 @@ pub(crate) struct Config<'a, B: UsbBus> {
     pub max_power: u8,
 }
 
+/// The bConfiguration value for the single configuration supported by this device.
 pub const CONFIGURATION_VALUE: u8 = 1;
 
+/// The default value for bAlternateSetting for all interfaces.
 pub const DEFAULT_ALTERNATE_SETTING: u8 = 0;
 
 impl<B: UsbBus> UsbDevice<'_, B> {

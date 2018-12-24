@@ -66,6 +66,10 @@ pub trait UsbBus: Sync + Sized {
     ///   valid endpoint that was previously allocated with [`UsbBus::alloc_ep`].
     /// * [`WouldBlock`](crate::UsbError::WouldBlock) - A previously written packet is still pending
     ///   to be sent.
+    /// * [`BufferOverflow`](crate::UsbError::BufferOverflow) - The packet is too long to fit in the
+    ///   transmission buffer. This is generally an error in the class implementation, because the
+    ///   class shouldn't provide more data than the `max_packet_size` it specified when allocating
+    ///   the endpoint.
     ///
     /// Implementations may also return other errors if applicable.
     fn write(&self, ep_addr: EndpointAddress, buf: &[u8]) -> Result<usize>;
@@ -83,7 +87,9 @@ pub trait UsbBus: Sync + Sized {
     ///   this is different from a received zero-length packet, which is valid in USB. A zero-length
     ///   packet will return `Ok(0)`.
     /// * [`BufferOverflow`](crate::UsbError::BufferOverflow) - The received packet is too long to
-    ///   fix in `buf`. This is generally an error in the class implementation.
+    ///   fit in `buf`. This is generally an error in the class implementation, because the class
+    ///   should use a buffer that is large enough for the `max_packet_size` it specified when
+    ///   allocating the endpoint.
     ///
     /// Implementations may also return other errors if applicable.
     fn read(&self, ep_addr: EndpointAddress, buf: &mut [u8]) -> Result<usize>;
@@ -96,24 +102,27 @@ pub trait UsbBus: Sync + Sized {
     fn is_stalled(&self, ep_addr: EndpointAddress) -> bool;
 
     /// Causes the USB peripheral to enter USB suspend mode, lowering power consumption and
-    /// preparing to detect a USB wakeup event. This should only be called after
-    /// [`poll`](crate::device::UsbDevice::poll) returns [`PollResult::Suspend`]. The device shall
-    /// stay suspended using `poll` returns a value other than `Suspend`.
+    /// preparing to detect a USB wakeup event. This will be called after
+    /// [`poll`](crate::device::UsbDevice::poll) returns [`PollResult::Suspend`]. The device will
+    /// continue be polled, and it shall return a value other than `Suspend` from `poll` when it no
+    /// longer detects the suspend condition.
     fn suspend(&self);
 
     /// Resumes from suspend mode. This may only be called after the peripheral has been previously
     /// suspended.
     fn resume(&self);
 
-    /// Gets information about events and incoming data. See the [`PollResult`] struct for more
-    /// information.
+    /// Gets information about events and incoming data. Usually called in a loop or from an
+    /// interrupt handler. See the [`PollResult`] struct for more information.
     fn poll(&self) -> PollResult;
 
     /// Simulates a disconnect from the USB bus, causing the host to reset and re-enumerate the
     /// device.
     ///
-    /// Mostly used for development. By calling this at the start of your program ensures that
-    /// the host re-enumerates your device after a new program has been flashed.
+    /// Mostly used for development. By calling this at the start of your program ensures that the
+    /// host re-enumerates your device after a new program has been flashed.
+    ///
+    /// The default implementation just returns `Unsupported`.
     ///
     /// # Errors
     ///
@@ -137,6 +146,8 @@ pub struct UsbBusAllocator<B: UsbBus> {
 }
 
 impl<B: UsbBus> UsbBusAllocator<B> {
+    /// Creates a new [`UsbBusAllocator`] that wraps the provided [`UsbBus`]. Usually only called by
+    /// USB driver implementations.
     pub fn new(bus: B) -> UsbBusAllocator<B> {
         UsbBusAllocator {
             bus: RefCell::new(bus),
