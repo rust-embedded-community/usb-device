@@ -137,7 +137,7 @@ impl<B: UsbBus> TestClass<'_, B> {
                 s.expect_interrupt_in_complete = true;
             },
             Err(UsbError::WouldBlock) => { },
-            Err(err) => panic!("bulk read {:?}", err),
+            Err(err) => panic!("interrupt read {:?}", err),
         };
     }
 
