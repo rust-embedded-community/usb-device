@@ -1,17 +1,43 @@
+use std::fmt::Write;
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
 use libusb::*;
 use rand::prelude::*;
 use usb_device::test_class;
 use crate::device::*;
 
-pub type TestFn = fn(&DeviceHandles<'_>) -> ();
+pub type TestFn = fn(&DeviceHandles, Arc<Mutex<String>>) -> ();
+
+/*struct TestOutput {
+    buf: String,
+}
+
+impl TestOutput {
+    fn new() -> Self {
+        TestOutput
+    }
+
+    fn output(&self) -> &str {
+        &self.buf
+    }
+}
+
+impl std::fmt::Write for TestOutput {
+    fn write_str(&mut self, s: &str) -> std::result::Result<(), std::fmt::Error> {
+        self.buf.push_str(s);
+        Ok(())
+    }
+}*/
 
 macro_rules! tests {
-    { $(fn $name:ident($dev:ident) $body:expr)* } => {
+    { $(fn $name:ident($dev:ident, $out:ident) $body:expr)* } => {
         pub fn get_tests() -> Vec<(&'static str, TestFn)> {
             let mut tests: Vec<(&'static str, TestFn)> = Vec::new();
 
             $(
-                fn $name($dev: &DeviceHandles<'_>) {
+                fn $name($dev: &DeviceHandles<'_>, out_mutex: Arc<Mutex<String>>) {
+                    let mut $out = out_mutex.lock().unwrap();
+
                     $body
                 }
 
@@ -25,7 +51,7 @@ macro_rules! tests {
 
 tests! {
 
-fn string_descriptors(dev) {
+fn string_descriptors(dev, _out) {
     assert_eq!(
         dev.read_product_string(dev.en_us, &dev.device_descriptor, TIMEOUT)
             .expect("read product string"),
@@ -47,7 +73,7 @@ fn string_descriptors(dev) {
         test_class::CUSTOM_STRING);
 }
 
-fn control_request(dev) {
+fn control_request(dev, _out) {
     let mut rng = rand::thread_rng();
 
     let value: u16 = rng.gen();
@@ -80,7 +106,7 @@ fn control_request(dev) {
     assert_eq!(&response, &expected);
 }
 
-fn control_data(dev) {
+fn control_data(dev, _out) {
     for len in &[0, 7, 8, 9, 15, 16, 17] {
         let data = random_data(*len);
 
@@ -104,7 +130,7 @@ fn control_data(dev) {
     }
 }
 
-fn control_error(dev) {
+fn control_error(dev, _out) {
     let res = dev.write_control(
         request_type(Direction::Out, RequestType::Vendor, Recipient::Device),
         test_class::REQ_UNKNOWN, 0, 0,
@@ -115,7 +141,7 @@ fn control_error(dev) {
     }
 }
 
-fn bulk_loopback(dev) {
+fn bulk_loopback(dev, _out) {
     for len in &[0, 1, 2, 32, 63, 64, 65, 127, 128, 129] {
         let data = random_data(*len);
 
@@ -145,7 +171,7 @@ fn bulk_loopback(dev) {
     }
 }
 
-fn interrupt_loopback(dev) {
+fn interrupt_loopback(dev, _out) {
     for len in &[0, 1, 2, 15, 31] {
         let data = random_data(*len);
 
@@ -167,6 +193,49 @@ fn interrupt_loopback(dev) {
     }
 }
 
+fn bench_bulk_write(dev, out) {
+    run_bench(dev, &mut out, |data| {
+        assert_eq!(
+            dev.write_bulk(0x01, data, TIMEOUT)
+                .expect("bulk write"),
+            data.len(),
+            "bulk write");
+    });
+}
+
+fn bench_bulk_read(dev, out) {
+    run_bench(dev, &mut out, |data| {
+        assert_eq!(
+            dev.read_bulk(0x81, data, TIMEOUT)
+                .expect("bulk read"),
+            data.len(),
+            "bulk read");
+    });
+}
+
+}
+
+fn run_bench(dev: &DeviceHandles, out: &mut String, f: impl Fn(&mut [u8]) -> ()) {
+    const PACKET_LEN: usize = 64;
+    const PACKETS: usize = 1_500_000 / PACKET_LEN;
+
+    dev.write_control(
+        request_type(Direction::Out, RequestType::Vendor, Recipient::Device),
+        test_class::REQ_SET_BENCH_ENABLED, 1, 0,
+        &[], TIMEOUT).expect("enable bench mode");
+
+    let mut data = random_data(PACKET_LEN);
+
+    let start = Instant::now();
+    for _ in 0..PACKETS {
+        f(&mut data);
+    }
+
+    let elapsed = start.elapsed();
+    let elapsed = elapsed.as_secs() as f64 + (elapsed.subsec_micros() as f64) * 0.000_001;
+    let throughput = (PACKETS * PACKET_LEN * 8) as f64 / 1_000_000.0 / elapsed;
+
+    writeln!(out, "  {} packets in {:.3}s -> {:.3}Mbit/s", PACKETS, elapsed, throughput).unwrap();
 }
 
 fn random_data(len: usize) -> Vec<u8> {

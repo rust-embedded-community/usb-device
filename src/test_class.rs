@@ -23,6 +23,7 @@ struct State {
     interrupt_buf: [u8; 256],
     len: usize,
     i: usize,
+    bench: bool,
     expect_bulk_in_complete: bool,
     expect_bulk_out: bool,
     expect_interrupt_in_complete: bool,
@@ -37,6 +38,7 @@ impl Default for State {
             interrupt_buf: [0; 256],
             len: 0,
             i: 0,
+            bench: false,
             expect_bulk_in_complete: false,
             expect_bulk_out: false,
             expect_interrupt_in_complete: false,
@@ -55,8 +57,8 @@ pub const CUSTOM_STRING: &'static str = "TestClass Custom String";
 pub const REQ_STORE_REQUEST: u8 = 1;
 pub const REQ_READ_BUFFER: u8 = 2;
 pub const REQ_WRITE_BUFFER: u8 = 3;
+pub const REQ_SET_BENCH_ENABLED: u8 = 4;
 pub const REQ_UNKNOWN: u8 = 42;
-
 
 impl<B: UsbBus> TestClass<'_, B> {
     pub fn new(alloc: &UsbBusAllocator<B>) -> TestClass<'_, B> {
@@ -71,8 +73,7 @@ impl<B: UsbBus> TestClass<'_, B> {
         }
     }
 
-    pub fn make_device<'a>(&'a self, usb_bus: &'a UsbBusAllocator<B>) -> UsbDevice<'a, B>
-    {
+    pub fn make_device<'a>(&'a self, usb_bus: &'a UsbBusAllocator<B>) -> UsbDevice<'a, B> {
         UsbDevice::new(
                 &usb_bus,
                 UsbVidPid(VID, PID),
@@ -85,6 +86,20 @@ impl<B: UsbBus> TestClass<'_, B> {
 
     pub fn poll(&self) {
         let mut s = self.state.borrow_mut();
+
+        if s.bench {
+            match self.ep_bulk_out.read(&mut s.bulk_buf) {
+                Ok(_) | Err(UsbError::WouldBlock) => { },
+                Err(err) => panic!("bulk bench read {:?}", err),
+            };
+
+            match self.ep_bulk_in.write(&s.bulk_buf[0..self.ep_bulk_in.max_packet_size() as usize]) {
+                Ok(_) | Err(UsbError::WouldBlock) => { },
+                Err(err) => panic!("bulk bench write {:?}", err),
+            };
+
+            return;
+        }
 
         let i = s.i;
         match self.ep_bulk_out.read(&mut s.bulk_buf[i..]) {
@@ -99,7 +114,7 @@ impl<B: UsbBus> TestClass<'_, B> {
 
                 if count < self.ep_bulk_out.max_packet_size() as usize {
                     s.len = s.i;
-                    s.i = 0;//
+                    s.i = 0;
 
                     self.write_bulk_in(&mut s, count == 0);
                 }
@@ -167,6 +182,10 @@ impl<B: UsbBus> UsbClass<B> for TestClass<'_, B> {
 
     fn endpoint_in_complete(&self, addr: EndpointAddress) {
         let mut s = self.state.borrow_mut();
+
+        if s.bench {
+            return;
+        }
 
         if addr == self.ep_bulk_in.address() {
             if s.expect_bulk_in_complete {
@@ -240,7 +259,12 @@ impl<B: UsbBus> UsbClass<B> for TestClass<'_, B> {
                 s.control_buf[0..xfer.data().len()].copy_from_slice(xfer.data());
 
                 xfer.accept().unwrap();
-            }
+            },
+            REQ_SET_BENCH_ENABLED => {
+                s.bench = req.value != 0;
+
+                xfer.accept().unwrap();
+            },
             _ => xfer.reject().unwrap()
         }
     }
