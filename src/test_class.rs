@@ -164,10 +164,8 @@ impl<B: UsbBus> TestClass<'_, B> {
 }
 
 impl<B: UsbBus> UsbClass<B> for TestClass<'_, B> {
-    fn reset(&self) -> Result<()> {
+    fn reset(&self) {
         *self.state.borrow_mut() = Default::default();
-
-        Ok(())
     }
 
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {

@@ -144,7 +144,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                 }
             },
             ControlState::StatusOut => {
-                self.ep_out.read(&mut []).unwrap();
+                self.ep_out.read(&mut []).ok();
                 self.state = ControlState::Idle;
             },
             _ => {

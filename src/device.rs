@@ -249,13 +249,13 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                         | if self.self_powered { 0x0001 } else { 0x0000 }
                         | if self.remote_wakeup_enabled { 0x0002 } else { 0x0000 };
 
-                    xfer.accept_with(&status.to_le_bytes()).unwrap();
+                    xfer.accept_with(&status.to_le_bytes()).ok();
                 },
 
                 (Recipient::Interface, Request::GET_STATUS) => {
                     let status: u16 = 0x0000;
 
-                    xfer.accept_with(&status.to_le_bytes()).unwrap();
+                    xfer.accept_with(&status.to_le_bytes()).ok();
                 },
 
                 (Recipient::Endpoint, Request::GET_STATUS) => {
@@ -264,19 +264,19 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     let status: u16 = 0x0000
                         | if self.bus.is_stalled(ep_addr) { 0x0001 } else { 0x0000 };
 
-                    xfer.accept_with(&status.to_le_bytes()).unwrap();
+                    xfer.accept_with(&status.to_le_bytes()).ok();
                 },
 
                 (Recipient::Device, Request::GET_DESCRIPTOR)
-                    => UsbDevice::get_descriptor(&self.config, xfer).unwrap(),
+                    => UsbDevice::get_descriptor(&self.config, xfer),
 
                 (Recipient::Device, Request::GET_CONFIGURATION) => {
-                    xfer.accept_with(&CONFIGURATION_VALUE.to_le_bytes()).unwrap();
+                    xfer.accept_with(&CONFIGURATION_VALUE.to_le_bytes()).ok();
                 },
 
                 (Recipient::Interface, Request::GET_INTERFACE) => {
                     // TODO: change when alternate settings are implemented
-                    xfer.accept_with(&DEFAULT_ALTERNATE_SETTING.to_le_bytes()).unwrap();
+                    xfer.accept_with(&DEFAULT_ALTERNATE_SETTING.to_le_bytes()).ok();
                 },
 
                 _ => (),
@@ -284,7 +284,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         }
 
         if let Some(ctrl) = ctrl {
-            ctrl.reject().unwrap();
+            ctrl.reject().ok();
         }
     }
 
@@ -311,62 +311,62 @@ impl<B: UsbBus> UsbDevice<'_, B> {
             match (req.recipient, req.request, req.value) {
                 (Recipient::Device, Request::CLEAR_FEATURE, Request::FEATURE_DEVICE_REMOTE_WAKEUP) => {
                     self.remote_wakeup_enabled = false;
-                    xfer.accept().unwrap();
+                    xfer.accept().ok();
                 },
 
                 (Recipient::Endpoint, Request::CLEAR_FEATURE, Request::FEATURE_ENDPOINT_HALT) => {
                     self.bus.set_stalled(((req.index as u8) & 0x8f).into(), false);
-                    xfer.accept().unwrap();
+                    xfer.accept().ok();
                 },
 
                 (Recipient::Device, Request::SET_FEATURE, Request::FEATURE_DEVICE_REMOTE_WAKEUP) => {
                     self.remote_wakeup_enabled = true;
-                    xfer.accept().unwrap();
+                    xfer.accept().ok();
                 },
 
                 (Recipient::Endpoint, Request::SET_FEATURE, Request::FEATURE_ENDPOINT_HALT) => {
                     self.bus.set_stalled(((req.index as u8) & 0x8f).into(), true);
-                    xfer.accept().unwrap();
+                    xfer.accept().ok();
                 },
 
                 (Recipient::Device, Request::SET_ADDRESS, 1..=127) => {
                     self.pending_address = req.value as u8;
-                    xfer.accept().unwrap();
+                    xfer.accept().ok();
                 },
 
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_VALUE_U16) => {
                     self.device_state = UsbDeviceState::Configured;
-                    xfer.accept().unwrap();
+                    xfer.accept().ok();
                 },
 
                 (Recipient::Interface, Request::SET_INTERFACE, DEFAULT_ALTERNATE_SETTING_U16) => {
                     // TODO: do something when alternate settings are implemented
-                    xfer.accept().unwrap();
+                    xfer.accept().ok();
                 },
 
-                _ => { xfer.reject().unwrap(); return; },
+                _ => { xfer.reject().ok(); return; },
             }
         }
 
         if let Some(ctrl) = ctrl {
-            ctrl.reject().unwrap();
+            ctrl.reject().ok();
         }
     }
 
-    fn get_descriptor(config: &Config<B>, xfer: ControlIn<B>) -> Result<()>{
+    fn get_descriptor(config: &Config<B>, xfer: ControlIn<B>) {
         let req = *xfer.request();
 
         let (dtype, index) = get_descriptor_type_index(req.value);
 
         fn accept_writer<B: UsbBus>(
             xfer: ControlIn<B>,
-            f: impl FnOnce(&mut DescriptorWriter) -> Result<()>) -> Result<()>
+            f: impl FnOnce(&mut DescriptorWriter) -> Result<()>)
         {
             xfer.accept(|buf| {
                 let mut writer = DescriptorWriter::new(buf);
                 f(&mut writer)?;
                 Ok(writer.position())
-            })
+            }).ok();
         }
 
         match dtype {
@@ -407,14 +407,14 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     };
 
                     if let Some(s) = s {
-                        accept_writer(xfer, |w| w.string(s))
+                        accept_writer(xfer, |w| w.string(s));
                     } else {
-                        xfer.reject()
+                        xfer.reject().ok();
                     }
                 }
             },
 
-            _ => xfer.reject(),
+            _ => { xfer.reject().ok(); },
         }
     }
 
@@ -428,7 +428,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         self.control.reset();
 
         for cls in &self.config.classes {
-            cls.reset().unwrap();
+            cls.reset();
         }
     }
 }
