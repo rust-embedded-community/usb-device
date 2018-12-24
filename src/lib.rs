@@ -175,8 +175,6 @@ mod control_request;
 
 mod device_builder;
 
-//#[macro_use] extern crate stlinky;
-
 /// Prelude for end-users.
 pub mod prelude {
     pub use crate::UsbError;

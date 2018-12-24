@@ -165,7 +165,7 @@ impl DescriptorWriter<'_> {
         Ok(())
     }
 
-    /// Writer a string descriptor.
+    /// Writes a string descriptor.
     pub(crate) fn string(&mut self, string: &str) -> Result<()> {
         let mut pos = self.position;
 

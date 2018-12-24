@@ -24,7 +24,8 @@ enum ControlState {
 // non-const in the future.
 const CONTROL_BUF_LEN: usize = 128;
 
-pub struct ControlPipe<'a, B: UsbBus> {
+/// Buffers and parses USB control transfers.
+pub(crate) struct ControlPipe<'a, B: UsbBus> {
     ep_out: EndpointOut<'a, B>,
     ep_in: EndpointIn<'a, B>,
     state: ControlState,
@@ -47,10 +48,6 @@ impl<B: UsbBus> ControlPipe<'_, B> {
         }
     }
 
-    pub fn buf_len(&self) -> usize {
-        self.buf.len()
-    }
-
     pub fn request(&self) -> &Request {
         self.request.as_ref().unwrap()
     }
@@ -63,7 +60,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
         self.state = ControlState::Idle;
     }
 
-    pub fn handle_setup<'p>(&'p mut self) -> Option<TransferDirection> {
+    pub fn handle_setup<'p>(&'p mut self) -> Option<UsbDirection> {
         let count = match self.ep_out.read(&mut self.buf[..]) {
             Ok(count) => count,
             Err(UsbError::WouldBlock) => return None,
@@ -109,19 +106,19 @@ impl<B: UsbBus> ControlPipe<'_, B> {
 
                 self.len = 0;
                 self.state = ControlState::CompleteOut;
-                return Some(TransferDirection::Out);
+                return Some(UsbDirection::Out);
             }
         } else {
             // IN transfer
 
             self.state = ControlState::CompleteIn;
-            return Some(TransferDirection::In);
+            return Some(UsbDirection::In);
         }
 
         return None;
     }
 
-    pub fn handle_out<'p>(&'p mut self) -> Option<TransferDirection> {
+    pub fn handle_out<'p>(&'p mut self) -> Option<UsbDirection> {
         match self.state {
             ControlState::DataOut => {
                 let i = self.i;
@@ -140,7 +137,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
 
                 if self.i >= self.len {
                     self.state = ControlState::CompleteOut;
-                    return Some(TransferDirection::Out);
+                    return Some(UsbDirection::Out);
                 }
             },
             ControlState::StatusOut => {
@@ -253,9 +250,4 @@ impl<B: UsbBus> ControlPipe<'_, B> {
         self.ep_out.stall();
         self.ep_in.stall();
     }
-}
-
-pub enum TransferDirection {
-    In,
-    Out,
 }

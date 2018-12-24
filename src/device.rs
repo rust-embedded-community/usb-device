@@ -160,8 +160,8 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     };
 
                     match xfer {
-                        Some(control::TransferDirection::In) => self.control_in(),
-                        Some(control::TransferDirection::Out) => self.control_out(),
+                        Some(UsbDirection::In) => self.control_in(),
+                        Some(UsbDirection::Out) => self.control_out(),
                         _ => (),
                     };
 
