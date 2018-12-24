@@ -2,6 +2,7 @@ use crate::{Result, UsbError};
 use crate::bus::{UsbBus, StringIndex};
 use crate::descriptor::DescriptorWriter;
 use crate::control;
+use crate::control_pipe::ControlPipe;
 use crate::endpoint::EndpointAddress;
 
 /// A trait implemented by USB class implementations.
@@ -103,10 +104,10 @@ pub trait UsbClass<B: UsbBus> {
 }
 
 /// Handle for a control IN transfer.
-pub struct ControlIn<'a, 'p, 'o, B: UsbBus>(&'o mut Option<&'p mut control::ControlPipe<'a, B>>);
+pub struct ControlIn<'a, 'p, 'o, B: UsbBus>(&'o mut Option<&'p mut ControlPipe<'a, B>>);
 
 impl<'a, 'p, 'o, B: UsbBus> ControlIn<'a, 'p, 'o,  B> {
-    pub(crate) fn new(pipe: &'o mut Option<&'p mut control::ControlPipe<'a, B>>) -> Self {
+    pub(crate) fn new(pipe: &'o mut Option<&'p mut ControlPipe<'a, B>>) -> Self {
         ControlIn(pipe)
     }
 
@@ -140,10 +141,10 @@ impl<'a, 'p, 'o, B: UsbBus> ControlIn<'a, 'p, 'o,  B> {
     }
 }
 
-pub struct ControlOut<'a, 'p, 'o, B: UsbBus>(&'o mut Option<&'p mut control::ControlPipe<'a, B>>);
+pub struct ControlOut<'a, 'p, 'o, B: UsbBus>(&'o mut Option<&'p mut ControlPipe<'a, B>>);
 
 impl<'a, 'p, 'o, B: UsbBus> ControlOut<'a, 'p, 'o, B> {
-    pub(crate) fn new(pipe: &'o mut Option<&'p mut control::ControlPipe<'a, B>>) -> Self {
+    pub(crate) fn new(pipe: &'o mut Option<&'p mut ControlPipe<'a, B>>) -> Self {
         ControlOut(pipe)
     }
 

@@ -1,10 +1,11 @@
 use heapless;
 use crate::{Result, UsbDirection};
 use crate::bus::{UsbBusAllocator, UsbBus, PollResult, StringIndex};
+use crate::class::{UsbClass, ControlIn, ControlOut};
+use crate::control;
+use crate::control_pipe::ControlPipe;
 use crate::descriptor::{DescriptorWriter, descriptor_type, lang_id};
 use crate::endpoint::{EndpointType, EndpointAddress};
-use crate::control;
-use crate::class::{UsbClass, ControlIn, ControlOut};
 pub use crate::device_builder::{UsbDeviceBuilder, UsbVidPid};
 
 /// The global state of the USB device.
@@ -33,7 +34,7 @@ const MAX_ENDPOINTS: usize = 16;
 pub struct UsbDevice<'a, B: UsbBus> {
     bus: &'a B,
     config: Config<'a, B>,
-    control: control::ControlPipe<'a, B>,
+    control: ControlPipe<'a, B>,
     device_state: UsbDeviceState,
     remote_wakeup_enabled: bool,
     self_powered: bool,
@@ -85,7 +86,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         let mut dev = UsbDevice {
             bus,
             config,
-            control: control::ControlPipe::new(control_out, control_in),
+            control: ControlPipe::new(control_out, control_in),
             device_state: UsbDeviceState::Default,
             remote_wakeup_enabled: false,
             self_powered: false,
