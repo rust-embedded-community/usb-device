@@ -15,7 +15,7 @@ macro_rules! builder_fields {
     ( $( $(#[$meta:meta])* $name:ident: $type:ty, )* ) => {
         $(
             $(#[$meta])*
-            pub fn $name(&mut self, $name: $type) -> &mut Self {
+            pub fn $name(mut self, $name: $type) -> Self {
                 self.config.$name = $name;
                 self
             }
@@ -95,7 +95,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
     /// Sets the manufacturer name string descriptor.
     ///
     /// Default: (none)
-    pub fn manufacturer(&mut self, manufacturer: &'a str) -> &mut Self {
+    pub fn manufacturer(mut self, manufacturer: &'a str) -> Self {
         self.config.manufacturer = Some(manufacturer);
         self
     }
@@ -103,7 +103,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
     /// Sets the product name string descriptor.
     ///
     /// Default: (none)
-    pub fn product(&mut self, product: &'a str) -> &mut Self {
+    pub fn product(mut self, product: &'a str) -> Self {
         self.config.product = Some(product);
         self
     }
@@ -111,7 +111,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
     /// Sets the serial number string descriptor.
     ///
     /// Default: (none)
-    pub fn serial_number(&mut self, serial_number: &'a str) -> &mut Self {
+    pub fn serial_number(mut self, serial_number: &'a str) -> Self {
         self.config.serial_number = Some(serial_number);
         self
     }
@@ -123,7 +123,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
     /// which case using a larger packet size may be more efficient.
     ///
     /// Default: 8 bytes
-    pub fn max_packet_size_0(&mut self, max_packet_size_0: u8) -> &mut Self {
+    pub fn max_packet_size_0(mut self, max_packet_size_0: u8) -> Self {
         match max_packet_size_0 {
             8 | 16 | 32 | 64 => { }
             _ => panic!("invalid max_packet_size_0")
@@ -141,7 +141,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
     /// See also: `self_powered`
     ///
     /// Default: 100mA
-    pub fn max_power(&mut self, max_power_ma: usize) -> &mut Self {
+    pub fn max_power(mut self, max_power_ma: usize) -> Self {
         if max_power_ma > 500 {
             panic!("max_power is too much")
         }
@@ -152,7 +152,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
 
     /// Creates a [`UsbDevice`] USB device with the settings in this builder and the specified USB
     /// classes.
-    pub fn build(&self) -> UsbDevice<'a, B> {
-        UsbDevice::build(self.alloc, self.config.clone())
+    pub fn build(self) -> UsbDevice<'a, B> {
+        UsbDevice::build(self.alloc, self.config)
     }
 }

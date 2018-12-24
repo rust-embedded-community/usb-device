@@ -40,7 +40,6 @@ pub struct UsbDevice<'a, B: UsbBus> {
     pending_address: u8,
 }
 
-//#[derive(Copy, Clone)]
 pub(crate) struct Config<'a, B: UsbBus> {
     pub classes: heapless::Vec<&'a dyn UsbClass<B>, heapless::consts::U8>,
     pub device_class: u8,
@@ -56,19 +55,6 @@ pub(crate) struct Config<'a, B: UsbBus> {
     pub self_powered: bool,
     pub supports_remote_wakeup: bool,
     pub max_power: u8,
-}
-
-impl<B: UsbBus> Clone for Config<'_, B> {
-    fn clone(&self) -> Self {
-        Config {
-            classes: {
-                let mut c = heapless::Vec::new();
-                c.extend_from_slice(&self.classes).unwrap();
-                c
-            },
-            ..*self
-        }
-    }
 }
 
 pub const CONFIGURATION_VALUE: u8 = 1;
