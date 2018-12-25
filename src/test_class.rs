@@ -3,7 +3,7 @@
 use core::cmp;
 use crate::Result;
 use crate::class_prelude::*;
-use crate::device::{UsbDevice, UsbVidPid};
+use crate::device::{UsbDevice, UsbDeviceBuilder, UsbVidPid};
 use crate::descriptor;
 
 /// Test USB class for testing USB driver implementations. Supports various endpoint types and
@@ -65,7 +65,7 @@ impl<B: UsbBus> TestClass<'_, B> {
 
     /// Convenience method to create a UsbDevice that is configured correctly for TestClass.
     pub fn make_device<'a, 'b>(&'a self, usb_bus: &'b UsbBusAllocator<B>) -> UsbDevice<'b, B> {
-        UsbDevice::new(&usb_bus, UsbVidPid(VID, PID))
+        UsbDeviceBuilder::new(&usb_bus, UsbVidPid(VID, PID))
             .manufacturer(MANUFACTURER)
             .product(PRODUCT)
             .serial_number(SERIAL_NUMBER)

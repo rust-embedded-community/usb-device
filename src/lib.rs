@@ -138,24 +138,24 @@ pub mod endpoint;
 /// // Create one or more USB class implementation. The name and arguments depend on the class,
 /// // however most classes require the UsbAllocator as the first argument in order to allocate
 /// // the required shared resources.
-/// let mut serial = usb_serial::SerialClass::new(&usb_bus.allocator());
+/// let mut serial = usb_serial::SerialPort::new(&usb_bus.allocator());
 ///
 /// // Build the final [UsbDevice](device::UsbDevice) instance. The required arguments are a
 /// // reference to the peripheral driver created earlier, as well as a USB vendor ID/product ID
 /// // pair. Additional builder arguments can specify parameters such as device class code or
 /// // product name. If using an existing class, remember to check the class crate documentation
 /// // for correct values.
-/// let mut usb_dev = UsbDevice::new(&usb_bus, UsbVidPid(0x5824, 0x27dd))
+/// let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x5824, 0x27dd))
 ///     .product("Serial port")
 ///     .device_class(usb_serial::DEVICE_CLASS)
-///     .build(); // pass one or more classes here
+///     .build();
 ///
 /// // At this point the USB peripheral is enabled and a connected host will attempt to enumerate
 /// // it.
 /// loop {
 ///     // Must be called more often than once every 10ms to handle events and stay USB compilant,
 ///     // or from a device-specific interrupt handler.
-///     if (usb_dev.poll(&[&mut serial])) {}
+///     if (usb_dev.poll(&mut [&mut serial])) {}
 ///         // Call class-specific methods here
 ///         serial.read(...);
 ///     }
@@ -178,7 +178,7 @@ mod device_builder;
 /// Prelude for device implementors.
 pub mod prelude {
     pub use crate::UsbError;
-    pub use crate::device::{UsbDevice, UsbDeviceState, UsbDeviceBuilder, UsbVidPid};
+    pub use crate::device::{UsbDevice, UsbDeviceBuilder, UsbDeviceState, UsbVidPid};
 }
 
 /// Prelude for class implementors.

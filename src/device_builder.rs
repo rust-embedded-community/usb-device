@@ -23,7 +23,8 @@ macro_rules! builder_fields {
 }
 
 impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
-    pub(crate) fn new(
+    /// Creates a builder for constructing a new [`UsbDevice`].
+    pub fn new(
         alloc: &'a UsbBusAllocator<B>,
         vid_pid: UsbVidPid) -> UsbDeviceBuilder<'a, B>
     {
@@ -45,6 +46,11 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
                 max_power: 50,
             }
         }
+    }
+
+    /// Creates the [`UsbDevice`] instance with the configuration in this builder.
+    pub fn build(self) -> UsbDevice<'a, B> {
+        UsbDevice::build(self.alloc, self.config)
     }
 
     builder_fields! {
@@ -141,10 +147,5 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
 
         self.config.max_power = (max_power_ma / 2) as u8;
         self
-    }
-
-    /// Creates a [`UsbDevice`] USB device with the settings in this builder.
-    pub fn build(self) -> UsbDevice<'a, B> {
-        UsbDevice::build(self.alloc, self.config)
     }
 }

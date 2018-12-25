@@ -65,14 +65,6 @@ pub const DEFAULT_ALTERNATE_SETTING: u8 = 0;
 type ClassList<'a, B> = [&'a mut dyn UsbClass<B>];
 
 impl<B: UsbBus> UsbDevice<'_, B> {
-    /// Creates a [`UsbDeviceBuilder`] for constructing a new instance.
-    pub fn new<'a>(
-        bus: &'a UsbBusAllocator<B>,
-        vid_pid: UsbVidPid) -> UsbDeviceBuilder<'a, B>
-    {
-        UsbDeviceBuilder::new(bus, vid_pid)
-    }
-
     pub(crate) fn build<'a>(alloc: &'a UsbBusAllocator<B>, config: Config<'a>)
         -> UsbDevice<'a, B>
     {

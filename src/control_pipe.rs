@@ -25,7 +25,7 @@ enum ControlState {
 const CONTROL_BUF_LEN: usize = 128;
 
 /// Buffers and parses USB control transfers.
-pub(crate) struct ControlPipe<'a, B: UsbBus> {
+pub struct ControlPipe<'a, B: UsbBus> {
     ep_out: EndpointOut<'a, B>,
     ep_in: EndpointIn<'a, B>,
     state: ControlState,
