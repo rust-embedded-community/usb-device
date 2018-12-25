@@ -7,9 +7,6 @@ use crate::endpoint::EndpointAddress;
 
 /// A trait implemented by USB class implementations.
 pub trait UsbClass<B: UsbBus> {
-    /// Called after a USB reset after the bus reset sequence is complete.
-    fn reset(&mut self) { }
-
     /// Called when a GET_DESCRIPTOR request is received for a configuration descriptor. When
     /// called, the implementation should write its interface, endpoint and any extra class
     /// descriptors into `writer`. The configuration descriptor itself will be written by
@@ -38,6 +35,12 @@ pub trait UsbClass<B: UsbBus> {
         let _ = (index, lang_id);
         None
     }
+
+    /// Called after a USB reset after the bus reset sequence is complete.
+    fn reset(&mut self) { }
+
+    /// Called whenever the `UsbDevice` is polled.
+    fn poll(&mut self) { }
 
     /// Called when a control request is received with direction HostToDevice.
     ///

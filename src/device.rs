@@ -216,6 +216,10 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     }
                 }
 
+                for cls in classes.iter_mut() {
+                    cls.poll();
+                }
+
                 return true;
             },
             PollResult::Resume => { }
