@@ -114,4 +114,9 @@ impl Request {
             length: (buf[6] as u16) | ((buf[7] as u16) << 8),
         })
     }
+
+    /// Gets the descriptor type and index from the value field of a GET_DESCRIPTOR request.
+    pub fn descriptor_type_index(&self) -> (u8, u8) {
+        ((self.value >> 8) as u8, self.value as u8)
+    }
 }

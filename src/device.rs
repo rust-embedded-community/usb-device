@@ -366,7 +366,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
     fn get_descriptor(config: &Config, classes: &mut ClassList<'_, B>, xfer: ControlIn<B>) {
         let req = *xfer.request();
 
-        let (dtype, index) = get_descriptor_type_index(req.value);
+        let (dtype, index) = req.descriptor_type_index();
 
         fn accept_writer<B: UsbBus>(
             xfer: ControlIn<B>,
@@ -441,9 +441,4 @@ impl<B: UsbBus> UsbDevice<'_, B> {
             cls.reset();
         }
     }
-}
-
-/// Gets the descriptor type and value from the value field of a GET_DESCRIPTOR request
-fn get_descriptor_type_index(value: u16) -> (u8, u8) {
-    ((value >> 8) as u8, value as u8)
 }
