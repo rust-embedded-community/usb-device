@@ -1,16 +1,13 @@
 [package]
 name = "usb-device"
 description = "Experimental device-side USB stack for embedded devices."
-version = "0.1.0"
+version = "0.2.0"
 edition = "2018"
 readme = "README.md"
 keywords = ["no-std", "embedded", "usb"]
 license = "MIT"
 authors = ["Matti Virkkunen <mvirkkunen@gmail.com>"]
 repository = "https://github.com/mvirkkunen/usb-device"
-
-[dependencies]
-heapless = "0.4.1"
 
 [dev-dependencies]
 libusb = "0.3.0"

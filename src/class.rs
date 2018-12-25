@@ -8,7 +8,7 @@ use crate::endpoint::EndpointAddress;
 /// A trait implemented by USB class implementations.
 pub trait UsbClass<B: UsbBus> {
     /// Called after a USB reset after the bus reset sequence is complete.
-    fn reset(&self) { }
+    fn reset(&mut self) { }
 
     /// Called when a GET_DESCRIPTOR request is received for a configuration descriptor. When
     /// called, the implementation should write its interface, endpoint and any extra class
@@ -22,6 +22,21 @@ pub trait UsbClass<B: UsbBus> {
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
         let _ = writer;
         Ok (())
+    }
+
+    /// Gets a class-specific string descriptor.
+    ///
+    /// Note: All string descriptor requests are passed to all classes in turn, so implementations
+    /// should return [`None`] if an unknown index is requested.
+    ///
+    /// # Arguments
+    ///
+    /// * `index` - A string index allocated earlier with
+    ///   [`UsbAllocator`](crate::bus::UsbBusAllocator).
+    /// * `lang_id` - The language ID for the string to retrieve.
+    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&str> {
+        let _ = (index, lang_id);
+        None
     }
 
     /// Called when a control request is received with direction HostToDevice.
@@ -39,7 +54,7 @@ pub trait UsbClass<B: UsbBus> {
     ///
     /// * `req` - The request from the SETUP packet.
     /// * `xfer` - A handle to the transfer.
-    fn control_out(&self, xfer: ControlOut<B>) {
+    fn control_out(&mut self, xfer: ControlOut<B>) {
         let _ = xfer;
     }
 
@@ -58,7 +73,7 @@ pub trait UsbClass<B: UsbBus> {
     ///
     /// * `req` - The request from the SETUP packet.
     /// * `data` - Data to send in the DATA stage of the control transfer.
-    fn control_in(&self, xfer: ControlIn<B>) {
+    fn control_in(&mut self, xfer: ControlIn<B>) {
         let _ = xfer;
     }
 
@@ -67,7 +82,7 @@ pub trait UsbClass<B: UsbBus> {
     ///
     /// Note: This method may be called for an endpoint address you didn't allocate, and in that
     /// case you should ignore the event.
-    fn endpoint_setup(&self, addr: EndpointAddress) {
+    fn endpoint_setup(&mut self, addr: EndpointAddress) {
         let _ = addr;
     }
 
@@ -75,7 +90,7 @@ pub trait UsbClass<B: UsbBus> {
     ///
     /// Note: This method may be called for an endpoint address you didn't allocate, and in that
     /// case you should ignore the event.
-    fn endpoint_out(&self, addr: EndpointAddress) {
+    fn endpoint_out(&mut self, addr: EndpointAddress) {
         let _ = addr;
     }
 
@@ -83,23 +98,8 @@ pub trait UsbClass<B: UsbBus> {
     ///
     /// Note: This method may be called for an endpoint address you didn't allocate, and in that
     /// case you should ignore the event.
-    fn endpoint_in_complete(&self, addr: EndpointAddress) {
+    fn endpoint_in_complete(&mut self, addr: EndpointAddress) {
         let _ = addr;
-    }
-
-    /// Gets a class-specific string descriptor.
-    ///
-    /// Note: All string descriptor requests are passed to all classes in turn, so implementations
-    /// should return [`None`] if an unknown index is requested.
-    ///
-    /// # Arguments
-    ///
-    /// * `index` - A string index allocated earlier with
-    ///   [`UsbAllocator`](crate::bus::UsbBusAllocator).
-    /// * `lang_id` - The language ID for the string to retrieve.
-    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&str> {
-        let _ = (index, lang_id);
-        None
     }
 }
 

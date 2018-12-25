@@ -138,27 +138,24 @@ pub mod endpoint;
 /// // Create one or more USB class implementation. The name and arguments depend on the class,
 /// // however most classes require the UsbAllocator as the first argument in order to allocate
 /// // the required shared resources.
-/// let serial = usb_serial::SerialClass::new(&usb_bus.allocator());
+/// let mut serial = usb_serial::SerialClass::new(&usb_bus.allocator());
 ///
 /// // Build the final [UsbDevice](device::UsbDevice) instance. The required arguments are a
 /// // reference to the peripheral driver created earlier, as well as a USB vendor ID/product ID
 /// // pair. Additional builder arguments can specify parameters such as device class code or
 /// // product name. If using an existing class, remember to check the class crate documentation
 /// // for correct values.
-/// let usb_dev = UsbDevice::new(&usb_bus, UsbVidPid(0x5824, 0x27dd))
+/// let mut usb_dev = UsbDevice::new(&usb_bus, UsbVidPid(0x5824, 0x27dd))
 ///     .product("Serial port")
 ///     .device_class(usb_serial::DEVICE_CLASS)
-///     .build(&[&serial]); // pass one or more classes here
+///     .build(); // pass one or more classes here
 ///
 /// // At this point the USB peripheral is enabled and a connected host will attempt to enumerate
 /// // it.
 /// loop {
 ///     // Must be called more often than once every 10ms to handle events and stay USB compilant,
 ///     // or from a device-specific interrupt handler.
-///     usb_dev.poll();
-///
-///     // Most USB operations are only valid when the device is in the Configured state.
-///     if usb_dev.state() == UsbDeviceState::Configured {
+///     if (usb_dev.poll(&[&mut serial])) {}
 ///         // Call class-specific methods here
 ///         serial.read(...);
 ///     }

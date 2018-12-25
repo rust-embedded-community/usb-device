@@ -64,7 +64,7 @@ impl DescriptorWriter<'_> {
         Ok(())
     }
 
-    pub(crate) fn device<B: UsbBus>(&mut self, config: &device::Config<B>) -> Result<()> {
+    pub(crate) fn device(&mut self, config: &device::Config) -> Result<()> {
         self.write(
             descriptor_type::DEVICE,
             &[
@@ -83,7 +83,7 @@ impl DescriptorWriter<'_> {
             ])
     }
 
-    pub(crate) fn configuration<B: UsbBus>(&mut self, config: &device::Config<B>) -> Result<()> {
+    pub(crate) fn configuration(&mut self, config: &device::Config) -> Result<()> {
         self.num_interfaces_mark = Some(self.position + 4);
 
         self.write(

@@ -1,6 +1,5 @@
 use crate::bus::{UsbBusAllocator, UsbBus};
 use crate::device::{UsbDevice, Config};
-use crate::class::UsbClass;
 
 /// A USB vendor ID and product ID pair.
 pub struct UsbVidPid(pub u16, pub u16);
@@ -8,7 +7,7 @@ pub struct UsbVidPid(pub u16, pub u16);
 /// Used to build new [`UsbDevice`]s.
 pub struct UsbDeviceBuilder<'a, B: UsbBus> {
     alloc: &'a UsbBusAllocator<B>,
-    config: Config<'a, B>,
+    config: Config<'a>,
 }
 
 macro_rules! builder_fields {
@@ -26,17 +25,11 @@ macro_rules! builder_fields {
 impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
     pub(crate) fn new(
         alloc: &'a UsbBusAllocator<B>,
-        vid_pid: UsbVidPid,
-        classes: &[&'a dyn UsbClass<B>]) -> UsbDeviceBuilder<'a, B>
+        vid_pid: UsbVidPid) -> UsbDeviceBuilder<'a, B>
     {
         UsbDeviceBuilder {
             alloc,
             config: Config {
-                classes: {
-                    let mut c = heapless::Vec::new();
-                    c.extend_from_slice(classes).unwrap();
-                    c
-                },
                 device_class: 0x00,
                 device_sub_class: 0x00,
                 device_protocol: 0x00,
@@ -150,8 +143,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
         self
     }
 
-    /// Creates a [`UsbDevice`] USB device with the settings in this builder and the specified USB
-    /// classes.
+    /// Creates a [`UsbDevice`] USB device with the settings in this builder.
     pub fn build(self) -> UsbDevice<'a, B> {
         UsbDevice::build(self.alloc, self.config)
     }

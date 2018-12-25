@@ -1,4 +1,3 @@
-use heapless;
 use crate::{Result, UsbDirection};
 use crate::bus::{UsbBusAllocator, UsbBus, PollResult, StringIndex};
 use crate::class::{UsbClass, ControlIn, ControlOut};
@@ -33,7 +32,7 @@ const MAX_ENDPOINTS: usize = 16;
 /// A USB device consisting of one or more device classes.
 pub struct UsbDevice<'a, B: UsbBus> {
     bus: &'a B,
-    config: Config<'a, B>,
+    config: Config<'a>,
     control: ControlPipe<'a, B>,
     device_state: UsbDeviceState,
     remote_wakeup_enabled: bool,
@@ -41,8 +40,7 @@ pub struct UsbDevice<'a, B: UsbBus> {
     pending_address: u8,
 }
 
-pub(crate) struct Config<'a, B: UsbBus> {
-    pub classes: heapless::Vec<&'a dyn UsbClass<B>, heapless::consts::U8>,
+pub(crate) struct Config<'a> {
     pub device_class: u8,
     pub device_sub_class: u8,
     pub device_protocol: u8,
@@ -64,17 +62,18 @@ pub const CONFIGURATION_VALUE: u8 = 1;
 /// The default value for bAlternateSetting for all interfaces.
 pub const DEFAULT_ALTERNATE_SETTING: u8 = 0;
 
+type ClassList<'a, B> = [&'a mut dyn UsbClass<B>];
+
 impl<B: UsbBus> UsbDevice<'_, B> {
     /// Creates a [`UsbDeviceBuilder`] for constructing a new instance.
     pub fn new<'a>(
         bus: &'a UsbBusAllocator<B>,
-        vid_pid: UsbVidPid,
-        classes: &[&'a dyn UsbClass<B>]) -> UsbDeviceBuilder<'a, B>
+        vid_pid: UsbVidPid) -> UsbDeviceBuilder<'a, B>
     {
-        UsbDeviceBuilder::new(bus, vid_pid, classes)
+        UsbDeviceBuilder::new(bus, vid_pid)
     }
 
-    pub(crate) fn build<'a>(alloc: &'a UsbBusAllocator<B>, config: Config<'a, B>)
+    pub(crate) fn build<'a>(alloc: &'a UsbBusAllocator<B>, config: Config<'a>)
         -> UsbDevice<'a, B>
     {
         let control_out = alloc.alloc(Some(0.into()), EndpointType::Control,
@@ -85,7 +84,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
 
         let bus = alloc.freeze();
 
-        let mut dev = UsbDevice {
+        UsbDevice {
             bus,
             config,
             control: ControlPipe::new(control_out, control_in),
@@ -93,11 +92,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
             remote_wakeup_enabled: false,
             self_powered: false,
             pending_address: 0,
-        };
-
-        dev.reset();
-
-        dev
+        }
     }
 
     /// Gets the current state of the device.
@@ -127,12 +122,24 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         self.bus.force_reset()
     }
 
-    /// Polls the [`UsbBus`] for new events and dispatches them accordingly. Returns true if one of
-    /// the classes may have data available for reading or be ready for writing, false otherwise.
-    /// This should be called periodically as often as possible for the best data rate, or
-    /// preferably from an interrupt handler. Must be called at least one every 10 milliseconds to
-    /// be USB compliant.
-    pub fn poll<'t>(&'t mut self) -> bool {
+    /// Polls the [`UsbBus`] for new events and dispatches them to the provided classes. Returns
+    /// true if one of the classes may have data available for reading or be ready for writing,
+    /// false otherwise. This should be called periodically as often as possible for the best data
+    /// rate, or preferably from an interrupt handler. Must be called at least one every 10
+    /// milliseconds while connected to the USB host to be USB compliant.
+    ///
+    /// Note: The list of classes passed in must be the same for every call while the device is
+    /// configured, or the device may enumerate incorrectly or otherwise misbehave. The easiest way
+    /// to do this is to call the `poll` method in only one place in your code, as follows:
+    ///
+    /// ``` ignore
+    /// usb_dev.poll(&mut [&mut class1, &mut class2]);
+    /// ```
+    ///
+    /// Strictly speaking the list of classes is allowed to change between polls if the device has
+    /// been reset, which is indicated by `state` being equal to [`UsbDeviceState::Default`], but
+    /// this is likely to cause compatibility problems with some operating systems.
+    pub fn poll(&mut self, classes: &mut ClassList<'_, B>) -> bool {
         let pr = self.bus.poll();
 
         if self.device_state == UsbDeviceState::Suspend {
@@ -147,7 +154,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
 
         match pr {
             PollResult::None => { }
-            PollResult::Reset => self.reset(),
+            PollResult::Reset => self.reset(classes),
             PollResult::Data { ep_out, ep_in_complete, ep_setup } => {
                 // Combine bit fields for quick tests
                 let mut eps = ep_out | ep_in_complete | ep_setup;
@@ -163,8 +170,8 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     };
 
                     match xfer {
-                        Some(UsbDirection::In) => self.control_in(),
-                        Some(UsbDirection::Out) => self.control_out(),
+                        Some(UsbDirection::In) => self.control_in(classes),
+                        Some(UsbDirection::Out) => self.control_out(classes),
                         _ => (),
                     };
 
@@ -188,19 +195,19 @@ impl<B: UsbBus> UsbDevice<'_, B> {
 
                     for i in 1..MAX_ENDPOINTS {
                         if (ep_setup & bit) != 0 {
-                            for cls in &self.config.classes {
+                            for cls in classes.iter_mut() {
                                 cls.endpoint_setup(
                                     EndpointAddress::from_parts(i, UsbDirection::Out));
                             }
                         } else if (ep_out & bit) != 0 {
-                            for cls in &self.config.classes {
+                            for cls in classes.iter_mut() {
                                 cls.endpoint_out(
                                     EndpointAddress::from_parts(i, UsbDirection::Out));
                             }
                         }
 
                         if (ep_in_complete & bit) != 0 {
-                            for cls in &self.config.classes {
+                            for cls in classes.iter_mut() {
                                 cls.endpoint_in_complete(
                                     EndpointAddress::from_parts(i, UsbDirection::In));
                             }
@@ -229,13 +236,13 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         return false;
     }
 
-    fn control_in(&mut self) {
+    fn control_in(&mut self, classes: &mut ClassList<'_, B>) {
         use crate::control::{Request, Recipient};
 
         let req = *self.control.request();
         let mut ctrl = Some(&mut self.control);
 
-        for cls in &self.config.classes {
+        for cls in classes.iter_mut() {
             cls.control_in(ControlIn::new(&mut ctrl));
 
             if ctrl.is_none() {
@@ -271,7 +278,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 },
 
                 (Recipient::Device, Request::GET_DESCRIPTOR)
-                    => UsbDevice::get_descriptor(&self.config, xfer),
+                    => UsbDevice::get_descriptor(&self.config, classes, xfer),
 
                 (Recipient::Device, Request::GET_CONFIGURATION) => {
                     xfer.accept_with(&CONFIGURATION_VALUE.to_le_bytes()).ok();
@@ -291,13 +298,13 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         }
     }
 
-    fn control_out(&mut self) {
+    fn control_out(&mut self, classes: &mut ClassList<'_, B>) {
         use crate::control::{Request, Recipient};
 
         let req = *self.control.request();
         let mut ctrl = Some(&mut self.control);
 
-        for cls in &self.config.classes {
+        for cls in classes {
             cls.control_out(ControlOut::new(&mut ctrl));
 
             if ctrl.is_none() {
@@ -356,7 +363,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         }
     }
 
-    fn get_descriptor(config: &Config<B>, xfer: ControlIn<B>) {
+    fn get_descriptor(config: &Config, classes: &mut ClassList<'_, B>, xfer: ControlIn<B>) {
         let req = *xfer.request();
 
         let (dtype, index) = get_descriptor_type_index(req.value);
@@ -378,7 +385,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
             descriptor_type::CONFIGURATION => accept_writer(xfer, |w| {
                 w.configuration(config)?;
 
-                for cls in &config.classes {
+                for cls in classes {
                     cls.get_configuration_descriptors(w)?;
                     w.end_class();
                 }
@@ -403,7 +410,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                             let index = StringIndex::new(index);
                             let lang_id = req.index;
 
-                            config.classes.iter()
+                            classes.iter()
                                 .filter_map(|cls| cls.get_string(index, lang_id))
                                 .nth(0)
                         },
@@ -421,7 +428,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         }
     }
 
-    fn reset(&mut self) {
+    fn reset(&mut self, classes: &mut ClassList<'_, B>) {
         self.bus.reset();
 
         self.device_state = UsbDeviceState::Default;
@@ -430,7 +437,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
 
         self.control.reset();
 
-        for cls in &self.config.classes {
+        for cls in classes {
             cls.reset();
         }
     }
