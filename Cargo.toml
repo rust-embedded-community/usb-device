@@ -12,3 +12,8 @@ repository = "https://github.com/mvirkkunen/usb-device"
 [dev-dependencies]
 libusb = "0.3.0"
 rand = "0.6.1"
+
+[[test]]
+name = "test_class_host"
+path = "tests/test_class_host/main.rs"
+harness = false

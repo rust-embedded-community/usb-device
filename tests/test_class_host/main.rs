@@ -25,7 +25,7 @@ fn main() {
 fn run_tests(tests: &[(&str, TestFn)]) {
     const INTERFACE: u8 = 0;
 
-    println!("testing with the TestClass");
+    println!("test_class_host starting");
     println!("looking for device...");
 
     let ctx = Context::new().expect("create libusb context");
@@ -111,5 +111,7 @@ fn run_tests(tests: &[(&str, TestFn)]) {
 
     if success == tests.len() {
         println!("\nALL TESTS PASSED!");
+    } else {
+        std::process::exit(1);
     }
 }
