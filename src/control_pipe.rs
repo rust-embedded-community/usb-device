@@ -48,6 +48,10 @@ impl<B: UsbBus> ControlPipe<'_, B> {
         }
     }
 
+    pub fn waiting_for_response(&self) -> bool {
+        self.state == ControlState::CompleteOut || self.state == ControlState::CompleteIn
+    }
+
     pub fn request(&self) -> &Request {
         self.request.as_ref().unwrap()
     }
@@ -225,6 +229,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
         let len = f(&mut self.buf[..])?;
 
         if len > self.buf.len() {
+            self.set_error();
             return Err(UsbError::BufferOverflow);
         }
 

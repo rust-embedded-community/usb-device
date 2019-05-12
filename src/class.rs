@@ -109,21 +109,21 @@ pub trait UsbClass<B: UsbBus> {
 /// Handle for a control IN transfer. When implementing a class, use the methods of this object to
 /// response to the transfer with either data or an error (STALL condition). To ignore the request
 /// and pass it on to the next class, simply don't call any method.
-pub struct ControlIn<'a, 'p, 'o, B: UsbBus>(&'o mut Option<&'p mut ControlPipe<'a, B>>);
+pub struct ControlIn<'a, 'p, B: UsbBus>(&'p mut ControlPipe<'a, B>);
 
-impl<'a, 'p, 'o, B: UsbBus> ControlIn<'a, 'p, 'o,  B> {
-    pub(crate) fn new(pipe: &'o mut Option<&'p mut ControlPipe<'a, B>>) -> Self {
+impl<'a, 'p, B: UsbBus> ControlIn<'a, 'p,  B> {
+    pub(crate) fn new(pipe: &'p mut ControlPipe<'a, B>) -> Self {
         ControlIn(pipe)
     }
 
     /// Gets the request from the SETUP packet.
     pub fn request(&self) -> &control::Request {
-        self.0.as_ref().unwrap().request()
+        self.0.request()
     }
 
     /// Accepts the transfer with the supplied buffer.
     pub fn accept_with(self, data: &[u8]) -> Result<()> {
-        self.0.take().unwrap().accept_in(|buf| {
+        self.0.accept_in(|buf| {
             if data.len() > buf.len() {
                 return Err(UsbError::BufferOverflow);
             }
@@ -137,42 +137,42 @@ impl<'a, 'p, 'o, B: UsbBus> ControlIn<'a, 'p, 'o,  B> {
     /// Accepts the transfer with a callback that can write to the internal buffer of the control
     /// pipe. Can be used to avoid an extra copy.
     pub fn accept(self, f: impl FnOnce(&mut [u8]) -> Result<usize>) -> Result<()> {
-        self.0.take().unwrap().accept_in(f)
+        self.0.accept_in(f)
     }
 
     /// Rejects the transfer by stalling the pipe.
     pub fn reject(self) -> Result<()> {
-        self.0.take().unwrap().reject()
+        self.0.reject()
     }
 }
 
 /// Handle for a control OUT transfer. When implementing a class, use the methods of this object to
 /// response to the transfer with an ACT or an error (STALL condition). To ignore the request and
 /// pass it on to the next class, simply don't call any method.
-pub struct ControlOut<'a, 'p, 'o, B: UsbBus>(&'o mut Option<&'p mut ControlPipe<'a, B>>);
+pub struct ControlOut<'a, 'p, B: UsbBus>(&'p mut ControlPipe<'a, B>);
 
-impl<'a, 'p, 'o, B: UsbBus> ControlOut<'a, 'p, 'o, B> {
-    pub(crate) fn new(pipe: &'o mut Option<&'p mut ControlPipe<'a, B>>) -> Self {
+impl<'a, 'p, B: UsbBus> ControlOut<'a, 'p, B> {
+    pub(crate) fn new(pipe: &'p mut ControlPipe<'a, B>) -> Self {
         ControlOut(pipe)
     }
 
     /// Gets the request from the SETUP packet.
     pub fn request(&self) -> &control::Request {
-        self.0.as_ref().unwrap().request()
+        self.0.request()
     }
 
     /// Gets the data from the data stage of the request. May be empty if there was no data stage.
     pub fn data(&self) -> &[u8] {
-        self.0.as_ref().unwrap().data()
+        self.0.data()
     }
 
     /// Accepts the transfer by succesfully responding to the status stage.
     pub fn accept(self) -> Result<()> {
-        self.0.take().unwrap().accept_out()
+        self.0.accept_out()
     }
 
     /// Rejects the transfer by stalling the pipe.
     pub fn reject(self) -> Result<()> {
-        self.0.take().unwrap().reject()
+        self.0.reject()
     }
 }
