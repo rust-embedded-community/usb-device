@@ -153,7 +153,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
 
                 // Pending events for endpoint 0?
                 if (eps & 1) != 0 {
-                    let xfer = if (ep_setup & 1) != 0 {
+                    let req = if (ep_setup & 1) != 0 {
                         self.control.handle_setup()
                     } else if (ep_out & 1) != 0 {
                         self.control.handle_out()
@@ -161,9 +161,11 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                         None
                     };
 
-                    match xfer {
-                        Some(UsbDirection::In) => self.control_in(classes),
-                        Some(UsbDirection::Out) => self.control_out(classes),
+                    match req {
+                        Some(req) if req.direction == UsbDirection::In
+                            => self.control_in(classes, req),
+                        Some(req) if req.direction == UsbDirection::Out
+                            => self.control_out(classes, req),
                         _ => (),
                     };
 
@@ -232,13 +234,11 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         return false;
     }
 
-    fn control_in(&mut self, classes: &mut ClassList<'_, B>) {
+    fn control_in(&mut self, classes: &mut ClassList<'_, B>, req: control::Request) {
         use crate::control::{Request, Recipient};
 
-        let req = *self.control.request();
-
         for cls in classes.iter_mut() {
-            cls.control_in(ControlIn::new(&mut self.control));
+            cls.control_in(ControlIn::new(&mut self.control, &req));
 
             if !self.control.waiting_for_response() {
                 return;
@@ -246,7 +246,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         }
 
         if req.request_type == control::RequestType::Standard {
-            let xfer = ControlIn::new(&mut self.control);
+            let xfer = ControlIn::new(&mut self.control, &req);
 
             match (req.recipient, req.request) {
                 (Recipient::Device, Request::GET_STATUS) => {
@@ -293,13 +293,11 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         }
     }
 
-    fn control_out(&mut self, classes: &mut ClassList<'_, B>) {
+    fn control_out(&mut self, classes: &mut ClassList<'_, B>, req: control::Request) {
         use crate::control::{Request, Recipient};
 
-        let req = *self.control.request();
-
         for cls in classes {
-            cls.control_out(ControlOut::new(&mut self.control));
+            cls.control_out(ControlOut::new(&mut self.control, &req));
 
             if !self.control.waiting_for_response() {
                 return;
@@ -307,7 +305,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         }
 
         if req.request_type == control::RequestType::Standard {
-            let xfer = ControlOut::new(&mut self.control);
+            let xfer = ControlOut::new(&mut self.control, &req);
 
             const CONFIGURATION_VALUE_U16: u16 = CONFIGURATION_VALUE as u16;
             const DEFAULT_ALTERNATE_SETTING_U16: u16 = DEFAULT_ALTERNATE_SETTING as u16;

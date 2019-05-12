@@ -5,17 +5,17 @@ use crate::bus::UsbBus;
 use crate::control::Request;
 use crate::endpoint::{EndpointIn, EndpointOut};
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(Debug)]
 #[allow(unused)]
 enum ControlState {
     Idle,
     DataIn,
     DataInZlp,
     DataInLast,
-    CompleteIn,
+    CompleteIn(Request),
     StatusOut,
     CompleteOut,
-    DataOut,
+    DataOut(Request),
     StatusIn,
     Error,
 }
@@ -29,7 +29,6 @@ pub struct ControlPipe<'a, B: UsbBus> {
     ep_out: EndpointOut<'a, B>,
     ep_in: EndpointIn<'a, B>,
     state: ControlState,
-    request: Option<Request>,
     buf: [u8; CONTROL_BUF_LEN],
     i: usize,
     len: usize,
@@ -41,7 +40,6 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             ep_out,
             ep_in,
             state: ControlState::Idle,
-            request: None,
             buf: unsafe { mem::uninitialized() },
             i: 0,
             len: 0,
@@ -49,11 +47,10 @@ impl<B: UsbBus> ControlPipe<'_, B> {
     }
 
     pub fn waiting_for_response(&self) -> bool {
-        self.state == ControlState::CompleteOut || self.state == ControlState::CompleteIn
-    }
-
-    pub fn request(&self) -> &Request {
-        self.request.as_ref().unwrap()
+        match self.state {
+            ControlState::CompleteOut | ControlState::CompleteIn(_) => true,
+            _ => false,
+        }
     }
 
     pub fn data(&self) -> &[u8] {
@@ -64,7 +61,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
         self.state = ControlState::Idle;
     }
 
-    pub fn handle_setup<'p>(&'p mut self) -> Option<UsbDirection> {
+    pub fn handle_setup<'p>(&'p mut self) -> Option<Request> {
         let count = match self.ep_out.read(&mut self.buf[..]) {
             Ok(count) => count,
             Err(UsbError::WouldBlock) => return None,
@@ -88,8 +85,6 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             req.request, req.value, req.index, req.length,
             self.state);*/
 
-        self.request = Some(req);
-
         if req.direction == UsbDirection::Out {
             // OUT transfer
 
@@ -104,27 +99,27 @@ impl<B: UsbBus> ControlPipe<'_, B> {
 
                 self.i = 0;
                 self.len = req.length as usize;
-                self.state = ControlState::DataOut;
+                self.state = ControlState::DataOut(req);
             } else {
                 // No data stage
 
                 self.len = 0;
                 self.state = ControlState::CompleteOut;
-                return Some(UsbDirection::Out);
+                return Some(req);
             }
         } else {
             // IN transfer
 
-            self.state = ControlState::CompleteIn;
-            return Some(UsbDirection::In);
+            self.state = ControlState::CompleteIn(req);
+            return Some(req);
         }
 
         return None;
     }
 
-    pub fn handle_out<'p>(&'p mut self) -> Option<UsbDirection> {
+    pub fn handle_out<'p>(&'p mut self) -> Option<Request> {
         match self.state {
-            ControlState::DataOut => {
+            ControlState::DataOut(req) => {
                 let i = self.i;
                 let count = match self.ep_out.read(&mut self.buf[i..]) {
                     Ok(count) => count,
@@ -141,7 +136,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
 
                 if self.i >= self.len {
                     self.state = ControlState::CompleteOut;
-                    return Some(UsbDirection::Out);
+                    return Some(req);
                 }
             },
             ControlState::StatusOut => {
@@ -212,9 +207,10 @@ impl<B: UsbBus> ControlPipe<'_, B> {
     }
 
     pub fn accept_out(&mut self) -> Result<()> {
-        if self.state != ControlState::CompleteOut {
-            return Err(UsbError::InvalidState);
-        }
+        match self.state {
+            ControlState::CompleteOut => {},
+            _ => return Err(UsbError::InvalidState),
+        };
 
         self.ep_in.write(&[]).ok();
         self.state = ControlState::StatusIn;
@@ -222,9 +218,10 @@ impl<B: UsbBus> ControlPipe<'_, B> {
     }
 
     pub fn accept_in(&mut self, f: impl FnOnce(&mut [u8]) -> Result<usize>) -> Result<()> {
-        if self.state != ControlState::CompleteIn {
-            return Err(UsbError::InvalidState);
-        }
+        let req = match self.state {
+            ControlState::CompleteIn(req) => req,
+            _ => return Err(UsbError::InvalidState),
+        };
 
         let len = f(&mut self.buf[..])?;
 
@@ -233,7 +230,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             return Err(UsbError::BufferOverflow);
         }
 
-        self.len = min(len, self.request.unwrap().length as usize);
+        self.len = min(len, req.length as usize);
         self.i = 0;
         self.state = ControlState::DataIn;
         self.write_in_chunk();
@@ -242,7 +239,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
     }
 
     pub fn reject(&mut self) -> Result<()> {
-        if !(self.state == ControlState::CompleteOut || self.state == ControlState::CompleteIn) {
+        if !self.waiting_for_response() {
             return Err(UsbError::InvalidState);
         }
 
