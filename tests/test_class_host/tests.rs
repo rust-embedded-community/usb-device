@@ -14,8 +14,6 @@ macro_rules! tests {
 
             $(
                 fn $name($dev: &mut DeviceHandles<'_>, $out: &mut String) {
-                    //let mut $out = out_mutex.lock().unwrap();
-
                     $body
                 }
 
@@ -213,7 +211,8 @@ fn run_bench(dev: &DeviceHandles, out: &mut String, f: impl Fn(&mut [u8]) -> ())
     let elapsed = elapsed.as_secs() as f64 + (elapsed.subsec_micros() as f64) * 0.000_001;
     let throughput = (PACKETS * PACKET_LEN * 8) as f64 / 1_000_000.0 / elapsed;
 
-    writeln!(out, "  {} packets in {:.3}s -> {:.3}Mbit/s", PACKETS, elapsed, throughput).unwrap();
+    writeln!(out, "  {} packets in {:.3}s -> {:.3}Mbit/s", PACKETS, elapsed, throughput)
+        .expect("write failed");
 }
 
 fn random_data(len: usize) -> Vec<u8> {

@@ -84,7 +84,7 @@ fn run_tests(tests: &[(&str, TestFn)]) {
             res
         };
 
-        dev.release_interface(INTERFACE).unwrap();
+        dev.release_interface(INTERFACE).expect("failed to release interface");
 
         if let Err(err) = res {
             let err = if let Some(err) = err.downcast_ref::<&'static str>() {

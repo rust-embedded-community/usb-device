@@ -220,8 +220,9 @@ impl<B: UsbBus> UsbClass<B> for TestClass<'_, B> {
 
         match req.request {
             REQ_READ_BUFFER if req.length as usize <= self.control_buf.len()
-                => xfer.accept_with(&self.control_buf[0..req.length as usize]).unwrap(),
-            _ => xfer.reject().unwrap(),
+                => xfer.accept_with(&self.control_buf[0..req.length as usize])
+                    .expect("control_in REQ_READ_BUFFER failed"),
+            _ => xfer.reject().expect("control_in reject failed"),
         }
     }
 
@@ -242,21 +243,21 @@ impl<B: UsbBus> UsbClass<B> for TestClass<'_, B> {
                 self.control_buf[4..6].copy_from_slice(&req.index.to_le_bytes());
                 self.control_buf[6..8].copy_from_slice(&req.length.to_le_bytes());
 
-                xfer.accept().unwrap();
+                xfer.accept().expect("control_out REQ_STORE_REQUEST failed");
             },
             REQ_WRITE_BUFFER if xfer.data().len() as usize <= self.control_buf.len() => {
                 assert_eq!(xfer.data().len(), req.length as usize, "xfer data len == req.length");
 
                 self.control_buf[0..xfer.data().len()].copy_from_slice(xfer.data());
 
-                xfer.accept().unwrap();
+                xfer.accept().expect("control_out REQ_WRITE_BUFFER failed");
             },
             REQ_SET_BENCH_ENABLED => {
                 self.bench = req.value != 0;
 
-                xfer.accept().unwrap();
+                xfer.accept().expect("control_out REQ_SET_BENCH_ENABLED failed");
             },
-            _ => xfer.reject().unwrap()
+            _ => xfer.reject().expect("control_out reject failed"),
         }
     }
 }
