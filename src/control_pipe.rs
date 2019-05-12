@@ -161,11 +161,11 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                 self.write_in_chunk();
             },
             ControlState::DataInZlp => {
-                match self.ep_in.write(&[]) {
-                    Err(UsbError::WouldBlock) => return false,
-                    Err(err) => panic!("{:?}", err),
-                    _ => {},
-                };
+                if self.ep_in.write(&[]).is_err() {
+                    // There isn't much we can do if the write fails, except to wait for another
+                    // poll or for the host to resend the request.
+                    return false;
+                }
 
                 self.state = ControlState::DataInLast;
             },
@@ -190,9 +190,10 @@ impl<B: UsbBus> ControlPipe<'_, B> {
         let count = min(self.len - self.i, self.ep_in.max_packet_size() as usize);
 
         let count = match self.ep_in.write(&self.buf[self.i..(self.i+count)]) {
-            Err(UsbError::WouldBlock) => return,
-            Err(err) => panic!("{:?}", err),
             Ok(c) => c,
+            // There isn't much we can do if the write fails, except to wait for another poll or for
+            // the host to resend the request.
+            Err(_) => return,
         };
 
         self.i += count;
