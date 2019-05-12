@@ -122,7 +122,10 @@ impl DescriptorWriter<'_> {
     pub fn interface(&mut self, number: InterfaceNumber,
         interface_class: u8, interface_sub_class: u8, interface_protocol: u8) -> Result<()>
     {
-        self.buf[self.num_interfaces_mark.unwrap()] += 1;
+        match self.num_interfaces_mark {
+            Some(mark) => self.buf[mark] += 1,
+            None => return Err(UsbError::InvalidState),
+        };
 
         self.num_endpoints_mark = Some(self.position + 4);
 
@@ -150,7 +153,10 @@ impl DescriptorWriter<'_> {
     pub fn endpoint<'e, B: UsbBus, D: EndpointDirection>(&mut self, endpoint: &Endpoint<'e, B, D>)
         -> Result<()>
     {
-        self.buf[self.num_endpoints_mark.expect("missing interface descriptor")] += 1;
+        match self.num_endpoints_mark {
+            Some(mark) => self.buf[mark] += 1,
+            None => return Err(UsbError::InvalidState),
+        };
 
         let mps = endpoint.max_packet_size();
 
