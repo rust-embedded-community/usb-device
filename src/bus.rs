@@ -193,8 +193,8 @@ impl<B: UsbBus> UsbBusAllocator<B> {
 
     /// Allocates an endpoint with the specified direction and address.
     ///
-    /// This directly delegates to [`UsbBus::alloc_ep`], so see that method for details. This should
-    /// rarely be needed by classes.
+    /// This directly delegates to [`UsbBus::alloc_ep`], so see that method for details. In most
+    /// cases classes should call the endpoint type specific methods instead.
     pub fn alloc<'a, D: EndpointDirection>(
         &self,
         ep_addr: Option<EndpointAddress>,
@@ -220,9 +220,14 @@ impl<B: UsbBus> UsbBusAllocator<B> {
     /// # Arguments
     ///
     /// * `max_packet_size` - Maximum packet size in bytes. Must be one of 8, 16, 32 or 64.
+    ///
+    /// # Panics
+    ///
+    /// Panics if endpoint allocation fails, because running out of endpoints or memory is not
+    /// feasibly recoverable.
     #[inline]
     pub fn control<D: EndpointDirection>(&self, max_packet_size: u16) -> Endpoint<'_, B, D> {
-        self.alloc(None, EndpointType::Control, max_packet_size, 0).unwrap()
+        self.alloc(None, EndpointType::Control, max_packet_size, 0).expect("alloc_ep failed")
     }
 
     /// Allocates a bulk endpoint.
@@ -230,19 +235,31 @@ impl<B: UsbBus> UsbBusAllocator<B> {
     /// # Arguments
     ///
     /// * `max_packet_size` - Maximum packet size in bytes. Must be one of 8, 16, 32 or 64.
+    ///
+    /// # Panics
+    ///
+    /// Panics if endpoint allocation fails, because running out of endpoints or memory is not
+    /// feasibly recoverable.
     #[inline]
     pub fn bulk<D: EndpointDirection>(&self, max_packet_size: u16) -> Endpoint<'_, B, D> {
-        self.alloc(None, EndpointType::Bulk, max_packet_size, 0).unwrap()
+        self.alloc(None, EndpointType::Bulk, max_packet_size, 0).expect("alloc_ep failed")
     }
 
     /// Allocates an interrupt endpoint.
     ///
     /// * `max_packet_size` - Maximum packet size in bytes. Cannot exceed 64 bytes.
+    ///
+    /// # Panics
+    ///
+    /// Panics if endpoint allocation fails, because running out of endpoints or memory is not
+    /// feasibly recoverable.
     #[inline]
     pub fn interrupt<D: EndpointDirection>(&self, max_packet_size: u16, interval: u8)
         -> Endpoint<'_, B, D>
     {
-        self.alloc(None, EndpointType::Interrupt, max_packet_size, interval).unwrap()
+        self
+            .alloc(None, EndpointType::Interrupt, max_packet_size, interval)
+            .expect("alloc_ep failed")
     }
 }
 
