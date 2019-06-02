@@ -56,6 +56,9 @@ pub(crate) struct Config<'a> {
     pub max_power: u8,
 }
 
+/// The bConfiguration value for the not configured state.
+pub const CONFIGURATION_NONE: u8 = 0;
+
 /// The bConfiguration value for the single configuration supported by this device.
 pub const CONFIGURATION_VALUE: u8 = 1;
 
@@ -280,7 +283,12 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     => UsbDevice::get_descriptor(&self.config, classes, xfer),
 
                 (Recipient::Device, Request::GET_CONFIGURATION) => {
-                    xfer.accept_with(&CONFIGURATION_VALUE.to_le_bytes()).ok();
+                    let config = match self.device_state {
+                        UsbDeviceState::Configured => CONFIGURATION_VALUE,
+                        _ => CONFIGURATION_NONE,
+                    };
+
+                    xfer.accept_with(&config.to_le_bytes()).ok();
                 },
 
                 (Recipient::Interface, Request::GET_INTERFACE) => {
@@ -311,6 +319,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         if req.request_type == control::RequestType::Standard {
             let xfer = ControlOut::new(&mut self.control, &req);
 
+            const CONFIGURATION_NONE_U16: u16 = CONFIGURATION_NONE as u16;
             const CONFIGURATION_VALUE_U16: u16 = CONFIGURATION_VALUE as u16;
             const DEFAULT_ALTERNATE_SETTING_U16: u16 = DEFAULT_ALTERNATE_SETTING as u16;
 
@@ -343,6 +352,18 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_VALUE_U16) => {
                     self.device_state = UsbDeviceState::Configured;
                     xfer.accept().ok();
+                },
+
+                (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_NONE_U16) => {
+                    match self.device_state {
+                        UsbDeviceState::Default => {
+                            xfer.reject().ok();
+                        },
+                        _ => {
+                            self.device_state = UsbDeviceState::Addressed;
+                            xfer.accept().ok();
+                        },
+                    }
                 },
 
                 (Recipient::Interface, Request::SET_INTERFACE, DEFAULT_ALTERNATE_SETTING_U16) => {
