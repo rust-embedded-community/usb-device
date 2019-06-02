@@ -119,9 +119,6 @@ pub trait UsbBus: Sync + Sized {
     /// Simulates a disconnect from the USB bus, causing the host to reset and re-enumerate the
     /// device.
     ///
-    /// Mostly used for development. By calling this at the start of your program ensures that the
-    /// host re-enumerates your device after a new program has been flashed.
-    ///
     /// The default implementation just returns `Unsupported`.
     ///
     /// # Errors
@@ -305,16 +302,16 @@ pub enum PollResult {
         /// completed transfer.
         ep_in_complete: u16,
 
-        /// A SETUP packet has been received. The corresponding bit in `ep_out` may also be set but
-        /// is ignored.
+        /// A SETUP packet has been received. This event should continue to be reported until the
+        /// packet is read. The corresponding bit in `ep_out` may also be set but is ignored.
         ep_setup: u16
     },
 
     /// A USB suspend request has been detected or, in the case of self-powered devices, the device
-    /// has been disconnected from the USB usb.
+    /// has been disconnected from the USB bus.
     Suspend,
 
     /// A USB resume request has been detected after being suspended or, in the case of self-powered
-    /// devices, the device has been connected to the USB usb.
+    /// devices, the device has been connected to the USB bus.
     Resume,
 }

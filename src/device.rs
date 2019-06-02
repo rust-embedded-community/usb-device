@@ -109,7 +109,11 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         self.self_powered = is_self_powered;
     }
 
-    /// Forces a reset on the UsbBus.
+    /// Simulates a disconnect from the USB bus, causing the host to reset and re-enumerate the
+    /// device.
+    ///
+    /// Mostly useful for development. Calling this at the start of your program ensures that the
+    /// host re-enumerates your device after a new program has been flashed.
     pub fn force_reset(&mut self) -> Result<()> {
         self.bus.force_reset()
     }
@@ -117,20 +121,20 @@ impl<B: UsbBus> UsbDevice<'_, B> {
     /// Polls the [`UsbBus`] for new events and dispatches them to the provided classes. Returns
     /// true if one of the classes may have data available for reading or be ready for writing,
     /// false otherwise. This should be called periodically as often as possible for the best data
-    /// rate, or preferably from an interrupt handler. Must be called at least one every 10
+    /// rate, or preferably from an interrupt handler. Must be called at least once every 10
     /// milliseconds while connected to the USB host to be USB compliant.
     ///
-    /// Note: The list of classes passed in must be the same for every call while the device is
-    /// configured, or the device may enumerate incorrectly or otherwise misbehave. The easiest way
-    /// to do this is to call the `poll` method in only one place in your code, as follows:
+    /// Note: The list of classes passed in must be the same classes in the same order for every
+    /// call while the device is configured, or the device may enumerate incorrectly or otherwise
+    /// misbehave. The easiest way to do this is to call the `poll` method in only one place in your
+    /// code, as follows:
     ///
     /// ``` ignore
     /// usb_dev.poll(&mut [&mut class1, &mut class2]);
     /// ```
     ///
     /// Strictly speaking the list of classes is allowed to change between polls if the device has
-    /// been reset, which is indicated by `state` being equal to [`UsbDeviceState::Default`], but
-    /// this is likely to cause compatibility problems with some operating systems.
+    /// been reset, which is indicated by `state` being equal to [`UsbDeviceState::Default`].
     pub fn poll(&mut self, classes: &mut ClassList<'_, B>) -> bool {
         let pr = self.bus.poll();
 

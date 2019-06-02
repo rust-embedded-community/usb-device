@@ -5,7 +5,10 @@ use crate::control;
 use crate::control_pipe::ControlPipe;
 use crate::endpoint::EndpointAddress;
 
-/// A trait implemented by USB class implementations.
+/// A trait for implementing USB classes.
+///
+/// All methods are optional callbacks that will be called by
+/// [UsbBus::poll](crate::bus::UsbBus::poll)
 pub trait UsbClass<B: UsbBus> {
     /// Called when a GET_DESCRIPTOR request is received for a configuration descriptor. When
     /// called, the implementation should write its interface, endpoint and any extra class

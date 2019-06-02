@@ -109,20 +109,20 @@ impl<B: UsbBus, D: EndpointDirection> Endpoint<'_, B, D> {
 
 impl<B: UsbBus> Endpoint<'_, B, In> {
     /// Writes a single packet of data to the specified endpoint and returns number of bytes
-    /// actually written.
-    ///
-    /// The only reason for a short write is if the caller passes a slice larger than the amount of
-    /// memory allocated earlier, and this is generally an error in the class implementation.
+    /// actually written. The buffer must not be longer than the `max_packet_size` specified when
+    /// allocating the endpoint.
     ///
     /// # Errors
     ///
     /// Note: USB bus implementation errors are directly passed through, so be prepared to handle
     /// other errors as well.
     ///
-    /// * [`InvalidEndpoint`](crate::UsbError::InvalidEndpoint) - The `ep_addr` does not point to a
-    ///   valid endpoint that was previously allocated with [`UsbBus::alloc_ep`].
-    /// * [`WouldBlock`](crate::UsbError::WouldBlock) - A previously written packet is still pending
-    ///   to be sent.
+    /// * [`WouldBlock`](crate::UsbError::WouldBlock) - The transmission buffer of the USB
+    ///   peripheral is full and the packet cannot be sent now. A peripheral may or may not support
+    ///   concurrent transmission of packets.
+    /// * [`BufferOverflow`](crate::UsbError::BufferOverflow) - The data is longer than the
+    ///   `max_packet_size` specified when allocating the endpoint. This is generally an error in
+    ///   the class implementation.
     pub fn write(&self, data: &[u8]) -> Result<usize> {
         self.bus().write(self.address, data)
     }
@@ -130,22 +130,19 @@ impl<B: UsbBus> Endpoint<'_, B, In> {
 
 impl<B: UsbBus> Endpoint<'_, B, Out> {
     /// Reads a single packet of data from the specified endpoint and returns the actual length of
-    /// the packet.
-    ///
-    /// This should also clear any NAK flags and prepare the endpoint to receive the next packet.
+    /// the packet. The buffer should be large enough to fit at least as many bytes as the
+    /// `max_packet_size` specified when allocating the endpoint.
     ///
     /// # Errors
     ///
     /// Note: USB bus implementation errors are directly passed through, so be prepared to handle
     /// other errors as well.
     ///
-    /// * [`InvalidEndpoint`](crate::UsbError::InvalidEndpoint) - The `ep_addr` does not point to a
-    ///   valid endpoint that was previously allocated with [`UsbBus::alloc_ep`].
     /// * [`WouldBlock`](crate::UsbError::WouldBlock) - There is no packet to be read. Note that
-    ///   this is different from a received zero-length packet, which is valid in USB. A zero-length
-    ///   packet will return `Ok(0)`.
+    ///   this is different from a received zero-length packet, which is valid and significant in
+    ///   USB. A zero-length packet will return `Ok(0)`.
     /// * [`BufferOverflow`](crate::UsbError::BufferOverflow) - The received packet is too long to
-    ///   fix in `buf`. This is generally an error in the class implementation.
+    ///   fit in `data`. This is generally an error in the class implementation.
     pub fn read(&self, data: &mut [u8]) -> Result<usize> {
         self.bus().read(self.address, data)
     }
