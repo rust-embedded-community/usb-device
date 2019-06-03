@@ -157,16 +157,25 @@ impl<B: UsbBus> UsbBusAllocator<B> {
     }
 
     pub(crate) fn freeze(&self) -> &B {
+        // Prevent further allocation by borrowing the allocation state permanently.
         mem::forget(self.state.borrow_mut());
 
+        // Enable the USB bus
         self.bus.borrow_mut().enable();
 
+        // An AtomicPtr is used for the reference from Endpoints to UsbBus, in order to ensure that
+        // Endpoints stay Sync (if the Endpoints had a reference to a RefCell, they would not be
+        // Sync) Set the pointer used by the Endpoints to access the UsbBus to point to the UsbBus
+        // in the RefCell.
         let mut bus_ref = self.bus.borrow_mut();
         let bus_ptr_v = &mut *bus_ref as *mut B;
-
         self.bus_ptr.store(bus_ptr_v, Ordering::SeqCst);
+
+        // And then leave the RefCell borrowed permanently so that it cannot be borrowed mutably
+        // anymore.
         mem::forget(bus_ref);
 
+        // Return the reference to the UsbBus, for use by UsbDevice.
         unsafe { &*bus_ptr_v }
     }
 
