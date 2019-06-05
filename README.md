@@ -24,6 +24,8 @@ Related crates
   for STM32F103 microcontrollers. Also contains runnable examples.
 * [stm32l43x-usbd](https://github.com/nickray/stm32l43x-usbd) - device-driver implementation
   for STM32L43x microcontrollers. Also contains runnable examples.
+* [stm32-usbd](https://github.com/Disasm/stm32-usbd) - device-driver implementation
+  for multiple STM32 microcontroller families. Also contains runnable examples.
 
 TODO
 ----
