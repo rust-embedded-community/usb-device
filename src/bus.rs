@@ -54,6 +54,24 @@ pub trait UsbBus: Sync + Sized {
     /// Sets the device USB address to `addr`.
     fn set_device_address(&self, addr: u8);
 
+    /// Returns true if the endpoint is ready to write another packet, otherwise returns false.
+    ///
+    /// # Errors
+    ///
+    /// * [`InvalidEndpoint`](crate::UsbError::InvalidEndpoint) - The `ep_addr` does not point to a
+    ///   valid endpoint that was previously allocated with [`UsbBus::alloc_ep`] or the endpoint
+    ///   does not support writing data.
+    fn can_write(&self, ep_addr: EndpointAddress) -> Result<bool>;
+
+    /// Returns true if all the endpoint write transfers were finished, otherwise returns false.
+    ///
+    /// # Errors
+    ///
+    /// * [`InvalidEndpoint`](crate::UsbError::InvalidEndpoint) - The `ep_addr` does not point to a
+    ///   valid endpoint that was previously allocated with [`UsbBus::alloc_ep`] or the endpoint
+    ///   does not support writing data.
+    fn write_complete(&self, ep_addr: EndpointAddress) -> Result<bool>;
+
     /// Writes a single packet of data to the specified endpoint and returns number of bytes
     /// actually written.
     ///
@@ -73,6 +91,21 @@ pub trait UsbBus: Sync + Sized {
     ///
     /// Implementations may also return other errors if applicable.
     fn write(&self, ep_addr: EndpointAddress, buf: &[u8]) -> Result<usize>;
+
+    /// Returns the length of the packet available to read.
+    ///
+    /// Note that this function returns only the length of the first packet, not the total length of
+    /// all the pending packets.
+    ///
+    /// # Errors
+    ///
+    /// * [`InvalidEndpoint`](crate::UsbError::InvalidEndpoint) - The `ep_addr` does not point to a
+    ///   valid endpoint that was previously allocated with [`UsbBus::alloc_ep`] or the endpoint
+    ///   does not support reading data.
+    /// * [`WouldBlock`](crate::UsbError::WouldBlock) - There is no packet to be read. Note that
+    ///   this is different from a received zero-length packet, which is valid in USB. A zero-length
+    ///   packet will return `Ok(0)`.
+    fn available_read(&self, ep_addr: EndpointAddress) -> Result<usize>;
 
     /// Reads a single packet of data from the specified endpoint and returns the actual length of
     /// the packet.

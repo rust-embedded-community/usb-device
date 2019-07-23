@@ -108,6 +108,16 @@ impl<B: UsbBus, D: EndpointDirection> Endpoint<'_, B, D> {
 }
 
 impl<B: UsbBus> Endpoint<'_, B, In> {
+    /// Returns true if the endpoint is ready to write another packet, otherwise returns false.
+    pub fn can_write(&self) -> Result<bool> {
+        self.bus().can_write(self.address)
+    }
+
+    /// Returns true if all the endpoint write transfers were finished, otherwise returns false.
+    pub fn write_complete(&self) -> Result<bool> {
+        self.bus().write_complete(self.address)
+    }
+
     /// Writes a single packet of data to the specified endpoint and returns number of bytes
     /// actually written. The buffer must not be longer than the `max_packet_size` specified when
     /// allocating the endpoint.
@@ -129,6 +139,20 @@ impl<B: UsbBus> Endpoint<'_, B, In> {
 }
 
 impl<B: UsbBus> Endpoint<'_, B, Out> {
+    /// Returns the length of the packet available to read, if any.
+    ///
+    /// Note that this function returns only the length of the first packet, not the total length of
+    /// all the pending packets.
+    ///
+    /// # Errors
+    ///
+    /// * [`WouldBlock`](crate::UsbError::WouldBlock) - There is no packet to be read. Note that
+    ///   this is different from a received zero-length packet, which is valid in USB. A zero-length
+    ///   packet will return `Ok(0)`.
+    pub fn available_read(&self) -> Result<usize> {
+        self.bus().available_read(self.address)
+    }
+
     /// Reads a single packet of data from the specified endpoint and returns the actual length of
     /// the packet. The buffer should be large enough to fit at least as many bytes as the
     /// `max_packet_size` specified when allocating the endpoint.

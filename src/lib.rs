@@ -216,7 +216,19 @@ fn _ensure_sync() {
         fn reset(&self) { }
         fn set_device_address(&self, _addr: u8) { }
 
+        fn can_write(&self, _ep_addr: EndpointAddress) -> Result<bool> {
+            Err(UsbError::InvalidEndpoint)
+        }
+
+        fn write_complete(&self, _ep_addr: EndpointAddress) -> Result<bool> {
+            Err(UsbError::InvalidEndpoint)
+        }
+
         fn write(&self, _ep_addr: EndpointAddress, _buf: &[u8]) -> Result<usize> {
+            Err(UsbError::InvalidEndpoint)
+        }
+
+        fn available_read(&self, _ep_addr: EndpointAddress) -> Result<usize> {
             Err(UsbError::InvalidEndpoint)
         }
 
