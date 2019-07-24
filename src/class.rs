@@ -141,6 +141,7 @@ impl<'a, 'p, 'r, B: UsbBus> ControlIn<'a, 'p, 'r,  B> {
     }
 
     /// Accepts the transfer with the supplied static buffer.
+    /// This method is useful when you have a large static descriptor to send as one packet.
     pub fn accept_with_static(self, data: &'static [u8]) -> Result<()> {
         self.pipe.accept_in_static(data)
     }
