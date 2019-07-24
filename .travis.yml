@@ -1,0 +1,11 @@
+language: rust
+
+rust:
+  - nightly
+  - stable
+
+cache: cargo
+
+script:
+  - cargo check --all-targets
+  - cargo check --features control-buffer-256
