@@ -30,6 +30,7 @@ pub struct ControlPipe<'a, B: UsbBus> {
     ep_in: EndpointIn<'a, B>,
     state: ControlState,
     buf: [u8; CONTROL_BUF_LEN],
+    static_in_buf: Option<&'static [u8]>,
     i: usize,
     len: usize,
 }
@@ -41,6 +42,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             ep_in,
             state: ControlState::Idle,
             buf: unsafe { mem::uninitialized() },
+            static_in_buf: None,
             i: 0,
             len: 0,
         }
@@ -189,7 +191,8 @@ impl<B: UsbBus> ControlPipe<'_, B> {
     fn write_in_chunk(&mut self) {
         let count = min(self.len - self.i, self.ep_in.max_packet_size() as usize);
 
-        let count = match self.ep_in.write(&self.buf[self.i..(self.i+count)]) {
+        let buffer = self.static_in_buf.unwrap_or(&self.buf);
+        let count = match self.ep_in.write(&buffer[self.i..(self.i+count)]) {
             Ok(c) => c,
             // There isn't much we can do if the write fails, except to wait for another poll or for
             // the host to resend the request.
@@ -199,6 +202,8 @@ impl<B: UsbBus> ControlPipe<'_, B> {
         self.i += count;
 
         if self.i >= self.len {
+            self.static_in_buf = None;
+
             self.state = if count == self.ep_in.max_packet_size() as usize {
                 ControlState::DataInZlp
             } else {
@@ -231,7 +236,22 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             return Err(UsbError::BufferOverflow);
         }
 
-        self.len = min(len, req.length as usize);
+        self.start_in_transfer(req, len)
+    }
+
+    pub fn accept_in_static(&mut self, data: &'static [u8]) -> Result<()> {
+        let req = match self.state {
+            ControlState::CompleteIn(req) => req,
+            _ => return Err(UsbError::InvalidState),
+        };
+
+        self.static_in_buf = Some(data);
+
+        self.start_in_transfer(req, data.len())
+    }
+
+    fn start_in_transfer(&mut self, req: Request, data_len: usize) -> Result<()> {
+        self.len = min(data_len, req.length as usize);
         self.i = 0;
         self.state = ControlState::DataIn;
         self.write_in_chunk();

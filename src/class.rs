@@ -140,6 +140,11 @@ impl<'a, 'p, 'r, B: UsbBus> ControlIn<'a, 'p, 'r,  B> {
         })
     }
 
+    /// Accepts the transfer with the supplied static buffer.
+    pub fn accept_with_static(self, data: &'static [u8]) -> Result<()> {
+        self.pipe.accept_in_static(data)
+    }
+
     /// Accepts the transfer with a callback that can write to the internal buffer of the control
     /// pipe. Can be used to avoid an extra copy.
     pub fn accept(self, f: impl FnOnce(&mut [u8]) -> Result<usize>) -> Result<()> {
