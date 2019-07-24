@@ -20,9 +20,12 @@ enum ControlState {
     Error,
 }
 
-// Maximum length of control transfer data stage in bytes. It might be necessary to make this
-// non-const in the future.
+// Maximum length of control transfer data stage in bytes. 128 bytes by default. You can define the
+// feature "control-buffer-256" to make it 256 bytes if you have larger control transfers.
+#[cfg(not(feature = "control-buffer-256"))]
 const CONTROL_BUF_LEN: usize = 128;
+#[cfg(feature = "control-buffer-256")]
+const CONTROL_BUF_LEN: usize = 256;
 
 /// Buffers and parses USB control transfers.
 pub struct ControlPipe<'a, B: UsbBus> {
