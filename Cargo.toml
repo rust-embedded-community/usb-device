@@ -13,6 +13,10 @@ repository = "https://github.com/mvirkkunen/usb-device"
 libusb = "0.3.0"
 rand = "0.6.1"
 
+[features]
+# Use a 256 byte buffer for control transfers instead of 128.
+control-buffer-256 = []
+
 [[test]]
 name = "test_class_host"
 path = "tests/test_class_host/main.rs"
