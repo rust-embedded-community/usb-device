@@ -38,7 +38,10 @@ pub const REQ_STORE_REQUEST: u8 = 1;
 pub const REQ_READ_BUFFER: u8 = 2;
 pub const REQ_WRITE_BUFFER: u8 = 3;
 pub const REQ_SET_BENCH_ENABLED: u8 = 4;
+pub const REQ_READ_LONG_DATA: u8 = 5;
 pub const REQ_UNKNOWN: u8 = 42;
+
+pub const LONG_DATA: &'static [u8] = &[0x17; 257];
 
 impl<B: UsbBus> TestClass<'_, B> {
     /// Creates a new TestClass.
@@ -222,6 +225,9 @@ impl<B: UsbBus> UsbClass<B> for TestClass<'_, B> {
             REQ_READ_BUFFER if req.length as usize <= self.control_buf.len()
                 => xfer.accept_with(&self.control_buf[0..req.length as usize])
                     .expect("control_in REQ_READ_BUFFER failed"),
+            REQ_READ_LONG_DATA
+                => xfer.accept_with_static(LONG_DATA)
+                    .expect("control_in REQ_READ_LONG_DATA failed"),
             _ => xfer.reject().expect("control_in reject failed"),
         }
     }
@@ -261,4 +267,3 @@ impl<B: UsbBus> UsbClass<B> for TestClass<'_, B> {
         }
     }
 }
-

@@ -106,6 +106,19 @@ fn control_data(dev, _out) {
     }
 }
 
+fn control_data_static(dev, _out) {
+    let mut response = [0u8; 257];
+
+    assert_eq!(
+        dev.read_control(
+            request_type(Direction::In, RequestType::Vendor, Recipient::Device),
+            test_class::REQ_READ_LONG_DATA, 0, 0,
+            &mut response, TIMEOUT).expect("control read"),
+        response.len());
+
+    assert_eq!(&response[..], test_class::LONG_DATA);
+}
+
 fn control_error(dev, _out) {
     let res = dev.write_control(
         request_type(Direction::Out, RequestType::Vendor, Recipient::Device),
