@@ -71,10 +71,10 @@ impl<B: UsbBus> UsbDevice<'_, B> {
     pub(crate) fn build<'a>(alloc: &'a UsbBusAllocator<B>, config: Config<'a>)
         -> UsbDevice<'a, B>
     {
-        let control_out = alloc.alloc(Some(0.into()), EndpointType::Control,
+        let control_out = alloc.alloc(Some(0x00.into()), EndpointType::Control,
             config.max_packet_size_0 as u16, 0).expect("failed to alloc control endpoint");
 
-        let control_in = alloc.alloc(Some(0.into()), EndpointType::Control,
+        let control_in = alloc.alloc(Some(0x80.into()), EndpointType::Control,
             config.max_packet_size_0 as u16, 0).expect("failed to alloc control endpoint");
 
         let bus = alloc.freeze();
