@@ -116,19 +116,6 @@ pub trait UsbBus: Sync + Sized {
     /// interrupt handler. See the [`PollResult`] struct for more information.
     fn poll(&self) -> PollResult;
 
-    /// Simulates a disconnect from the USB bus, causing the host to reset and re-enumerate the
-    /// device.
-    ///
-    /// The default implementation just returns `Unsupported`.
-    ///
-    /// # Errors
-    ///
-    /// * [`Unsupported`](crate::UsbError::Unsupported) - This UsbBus implementation doesn't support
-    ///   simulating a disconnect or it has not been enabled at creation time.
-    fn force_reset(&self) -> Result<()> {
-        Err(UsbError::Unsupported)
-    }
-
     /// Indicates that `set_device_address` must be called before accepting the corresponding
     /// control transfer, not after.
     ///
