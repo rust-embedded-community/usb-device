@@ -90,6 +90,15 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         }
     }
 
+    /// Gets a reference to the [`UsbBus`] implementation used by this `UsbDevice`. You can use this
+    /// to call platform-specific methods on the `UsbBus`.
+    ///
+    /// While it is also possible to call the standard `UsbBus` trait methods through this
+    /// reference, this is not recommended as it can cause the device to misbehave.
+    pub fn bus(&self) -> &B {
+        self.bus
+    }
+
     /// Gets the current state of the device.
     ///
     /// In general class traffic is only possible in the `Configured` state.
