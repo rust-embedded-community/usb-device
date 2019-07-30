@@ -20,10 +20,8 @@ each device's USB peripheral.
 Hardware driver crates
 ----------------------
 
-* [stm32-usbd](https://github.com/stm32-rs/stm32-usbd) - device-driver implementation for multiple
-  STM32 microcontroller families. Includes examples for correct setup and use on multiple chips.
-* [stm32l43x-usbd](https://github.com/nickray/stm32l43x-usbd) - device-driver implementation for
-  STM32L43x microcontrollers. Also contains runnable examples.
+* [stm32-usbd](https://github.com/stm32-rs/stm32-usbd) - device-driver implementation for multiple STM32 microcontroller families.
+  Examples can be found in [stm32-usbd-examples](https://github.com/stm32-rs/stm32-usbd-examples).
 
 Class crates
 ------------
