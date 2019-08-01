@@ -128,6 +128,12 @@ pub trait UsbBus: Sync + Sized {
     fn force_reset(&self) -> Result<()> {
         Err(UsbError::Unsupported)
     }
+
+    /// Indicates that `set_device_address` must be called before accepting the corresponding
+    /// control transfer, not after.
+    ///
+    /// The default value for this constant is `false`, which corresponds to the USB 2.0 spec, 9.4.6
+    const QUIRK_SET_ADDRESS_BEFORE_STATUS: bool = false;
 }
 
 struct AllocatorState {

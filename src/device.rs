@@ -188,11 +188,13 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     if (ep_in_complete & 1) != 0 {
                         let completed = self.control.handle_in_complete();
 
-                        if completed && self.pending_address != 0 {
-                            self.bus.set_device_address(self.pending_address);
-                            self.pending_address = 0;
+                        if !B::QUIRK_SET_ADDRESS_BEFORE_STATUS {
+                            if completed && self.pending_address != 0 {
+                                self.bus.set_device_address(self.pending_address);
+                                self.pending_address = 0;
 
-                            self.device_state = UsbDeviceState::Addressed;
+                                self.device_state = UsbDeviceState::Addressed;
+                            }
                         }
                     }
 
@@ -354,7 +356,12 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 },
 
                 (Recipient::Device, Request::SET_ADDRESS, 1..=127) => {
-                    self.pending_address = req.value as u8;
+                    if B::QUIRK_SET_ADDRESS_BEFORE_STATUS {
+                        self.bus.set_device_address(req.value as u8);
+                        self.device_state = UsbDeviceState::Addressed;
+                    } else {
+                        self.pending_address = req.value as u8;
+                    }
                     xfer.accept().ok();
                 },
 
