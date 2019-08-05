@@ -1,11 +1,13 @@
 use std::fmt::Write;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use libusb::*;
 use rand::prelude::*;
 use usb_device::test_class;
 use crate::device::*;
 
 pub type TestFn = fn(&mut DeviceHandles, &mut String) -> ();
+
+const BENCH_TIMEOUT: Duration = Duration::from_secs(10);
 
 macro_rules! tests {
     { $(fn $name:ident($dev:ident, $out:ident) $body:expr)* } => {
@@ -185,7 +187,7 @@ fn interrupt_loopback(dev, _out) {
 fn bench_bulk_write(dev, out) {
     run_bench(dev, out, |data| {
         assert_eq!(
-            dev.write_bulk(0x01, data, TIMEOUT)
+            dev.write_bulk(0x01, data, BENCH_TIMEOUT)
                 .expect("bulk write"),
             data.len(),
             "bulk write");
@@ -195,7 +197,7 @@ fn bench_bulk_write(dev, out) {
 fn bench_bulk_read(dev, out) {
     run_bench(dev, out, |data| {
         assert_eq!(
-            dev.read_bulk(0x81, data, TIMEOUT)
+            dev.read_bulk(0x81, data, BENCH_TIMEOUT)
                 .expect("bulk read"),
             data.len(),
             "bulk read");
@@ -205,27 +207,34 @@ fn bench_bulk_read(dev, out) {
 }
 
 fn run_bench(dev: &DeviceHandles, out: &mut String, f: impl Fn(&mut [u8]) -> ()) {
-    const PACKET_LEN: usize = 64;
-    const PACKETS: usize = 1_500_000 / PACKET_LEN;
+    const TRANSFER_BYTES: usize = 64 * 1024;
+    const TRANSFERS: usize = 16;
+    const TOTAL_BYTES: usize = TRANSFER_BYTES * TRANSFERS;
 
     dev.write_control(
         request_type(Direction::Out, RequestType::Vendor, Recipient::Device),
         test_class::REQ_SET_BENCH_ENABLED, 1, 0,
         &[], TIMEOUT).expect("enable bench mode");
 
-    let mut data = random_data(PACKET_LEN);
+    let mut data = random_data(TRANSFER_BYTES);
 
     let start = Instant::now();
-    for _ in 0..PACKETS {
+
+    for _ in 0..TRANSFERS {
         f(&mut data);
     }
 
     let elapsed = start.elapsed();
     let elapsed = elapsed.as_secs() as f64 + (elapsed.subsec_micros() as f64) * 0.000_001;
-    let throughput = (PACKETS * PACKET_LEN * 8) as f64 / 1_000_000.0 / elapsed;
+    let throughput = (TOTAL_BYTES * 8) as f64 / 1_000_000.0 / elapsed;
 
-    writeln!(out, "  {} packets in {:.3}s -> {:.3}Mbit/s", PACKETS, elapsed, throughput)
-        .expect("write failed");
+    writeln!(
+        out,
+        "  {} transfers of {} bytes in {:.3}s -> {:.3}Mbit/s",
+        TRANSFERS,
+        TRANSFER_BYTES,
+        elapsed,
+        throughput).expect("write failed");
 }
 
 fn random_data(len: usize) -> Vec<u8> {
