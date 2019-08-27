@@ -157,6 +157,12 @@ impl EndpointConfig {
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct InterfaceNumber(u8);
 
+impl InterfaceNumber {
+    pub(crate) fn new(index: u8) -> InterfaceNumber {
+        InterfaceNumber(index)
+    }
+}
+
 impl From<InterfaceNumber> for u8 {
     fn from(n: InterfaceNumber) -> u8 { n.0 }
 }

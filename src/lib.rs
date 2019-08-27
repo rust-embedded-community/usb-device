@@ -61,6 +61,12 @@ pub enum UsbError {
     /// The endpoint address is invalid or already used.
     InvalidEndpoint,
 
+    /// The interface requested does not exist.
+    InvalidInterface,
+
+    /// The alternate setting requested for the interface does not exist.
+    InvalidAlternateSetting,
+
     /// Operation is not supported by device or configuration.
     Unsupported,
 

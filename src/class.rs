@@ -1,6 +1,6 @@
 use crate::{Result, UsbError};
 use crate::bus::UsbBus;
-use crate::allocator::StringIndex;
+use crate::allocator::{InterfaceNumber, StringIndex};
 use crate::descriptor::{BosWriter, DescriptorWriter};
 use crate::control;
 use crate::control_pipe::ControlPipe;
@@ -22,7 +22,7 @@ pub trait UsbClass<B: UsbBus> {
     /// using `?`.
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
         let _ = writer;
-        Ok (())
+        Ok(())
     }
 
     /// Called when a GET_DESCRIPTOR request is received for a BOS descriptor.
@@ -46,11 +46,57 @@ pub trait UsbClass<B: UsbBus> {
     /// * `lang_id` - The language ID for the string to retrieve.
     fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&str> {
         let _ = (index, lang_id);
+
         None
     }
 
-    /// Called after a USB reset after the bus reset sequence is complete.
-    fn reset(&mut self) { }
+    /// Called after a USB reset after the bus reset sequence is complete. This must enable all the
+    /// endpoints used by alternate settings 0 of each interface and disable all other endpoints not
+    /// used by them.
+    ///
+    /// If the class does not use interface alternate settings, it can just enable all endpoints
+    /// directly in this method, but if it does, it is recommended to call
+    /// `self.set_alternate_setting(iface, 0);` for each interface instead of enabling endpoints
+    /// directly.
+    fn reset(&mut self);
+
+    /// Activates the specified alternate setting for the specified interface. The method must
+    /// enable all endpoints used by the alternate setting, and disable all other endpoints not used
+    /// by it. Not required if the class does not use any interface alternate settings.
+    ///
+    /// Note: This method may be called for an interface number you didn't allocate, in which case
+    /// you should return the `InvalidInterface` error.
+    ///
+    /// # Errors
+    ///
+    /// * [`InvalidInterface`](crate::UsbError::InvalidInterface) - The interface number is not
+    ///   defined by this class.
+    /// * [`InvalidAlternateSetting`](crate::UsbError::InvalidAlternateSetting) - The `alt_setting`
+    ///   value is not valid for the interface.
+    fn set_alternate_setting(&mut self, interface: InterfaceNumber, alt_setting: u8) -> Result<()>
+    {
+        let _ = interface;
+        let _ = alt_setting;
+
+        Err(UsbError::InvalidInterface)
+    }
+
+    /// Gets the current active alternate setting for the specified interface. The value may be
+    /// returned based on internal class state, or the value set via `reset`/`set_alternate_setting`
+    /// may simply be stored and returned.
+    ///
+    /// Note: This method may be called for an interface number you didn't allocate, in which case
+    /// you should return the `InvalidInterface` error.
+    ///
+    /// # Errors
+    ///
+    /// * [`InvalidInterface`](crate::UsbError::InvalidInterface) - The interface number is not
+    ///   defined by this class.
+    fn get_alternate_setting(&self, interface: InterfaceNumber) -> Result<u8> {
+        let _ = interface;
+
+        Err(UsbError::InvalidInterface)
+    }
 
     /// Called whenever the `UsbDevice` is polled.
     fn poll(&mut self) { }
@@ -96,24 +142,24 @@ pub trait UsbClass<B: UsbBus> {
     /// Called when endpoint with address `addr` has received a SETUP packet. Implementing this
     /// shouldn't be necessary in most cases, but is provided for completeness' sake.
     ///
-    /// Note: This method may be called for an endpoint address you didn't allocate, and in that
-    /// case you should ignore the event.
+    /// Note: This method may be called for an endpoint address you didn't allocate, in which case
+    /// you should ignore the event.
     fn endpoint_setup(&mut self, addr: EndpointAddress) {
         let _ = addr;
     }
 
     /// Called when endpoint with address `addr` has received data (OUT packet).
     ///
-    /// Note: This method may be called for an endpoint address you didn't allocate, and in that
-    /// case you should ignore the event.
+    /// Note: This method may be called for an endpoint address you didn't allocate, in which case
+    /// you should ignore the event.
     fn endpoint_out(&mut self, addr: EndpointAddress) {
         let _ = addr;
     }
 
     /// Called when endpoint with address `addr` has completed transmitting data (IN packet).
     ///
-    /// Note: This method may be called for an endpoint address you didn't allocate, and in that
-    /// case you should ignore the event.
+    /// Note: This method may be called for an endpoint address you didn't allocate, in which case
+    /// you should ignore the event.
     fn endpoint_in_complete(&mut self, addr: EndpointAddress) {
         let _ = addr;
     }

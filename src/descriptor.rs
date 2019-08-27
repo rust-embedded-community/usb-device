@@ -172,7 +172,7 @@ impl DescriptorWriter<'_> {
     ///   that do not conform to any class.
     /// * `interface_sub_class` - Sub-class code. Depends on class.
     /// * `interface_protocol` - Protocol code. Depends on class and sub-class.
-    pub fn interface(&mut self, number: InterfaceNumber,
+    pub fn interface(&mut self, number: InterfaceNumber, alt_setting: u8,
         interface_class: u8, interface_sub_class: u8, interface_protocol: u8) -> Result<()>
     {
         match self.num_interfaces_mark {
@@ -186,7 +186,7 @@ impl DescriptorWriter<'_> {
             descriptor_type::INTERFACE,
             &[
                 number.into(), // bInterfaceNumber
-                device::DEFAULT_ALTERNATE_SETTING, // bAlternateSetting (how to even handle these...)
+                alt_setting, // bAlternateSetting
                 0, // bNumEndpoints
                 interface_class, // bInterfaceClass
                 interface_sub_class, // bInterfaceSubClass

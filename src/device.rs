@@ -1,5 +1,5 @@
-use crate::{Result, UsbDirection};
-use crate::allocator::{UsbAllocator, EndpointConfig, StringIndex};
+use crate::{Result, UsbError, UsbDirection};
+use crate::allocator::{UsbAllocator, EndpointConfig, InterfaceNumber, StringIndex};
 use crate::bus::{UsbBus, PollResult};
 use crate::class::{UsbClass, ControlIn, ControlOut};
 use crate::control;
@@ -63,9 +63,6 @@ pub const CONFIGURATION_NONE: u8 = 0;
 
 /// The bConfiguration value for the single configuration supported by this device.
 pub const CONFIGURATION_VALUE: u8 = 1;
-
-/// The default value for bAlternateSetting for all interfaces.
-pub const DEFAULT_ALTERNATE_SETTING: u8 = 0;
 
 type ClassList<'a, B> = [&'a mut dyn UsbClass<B>];
 
@@ -296,8 +293,14 @@ impl<B: UsbBus> UsbDevice<B> {
                 },
 
                 (Recipient::Interface, Request::GET_INTERFACE) => {
-                    // TODO: change when alternate settings are implemented
-                    xfer.accept_with(&DEFAULT_ALTERNATE_SETTING.to_le_bytes()).ok();
+                    let iface = InterfaceNumber::new(req.index as u8);
+
+                    if let Some(alt_setting) = classes.iter()
+                        .filter_map(|cls| cls.get_alternate_setting(iface).ok())
+                        .next()
+                    {
+                        xfer.accept_with(&alt_setting.to_le_bytes()).ok();
+                    }
                 },
 
                 _ => (),
@@ -312,7 +315,7 @@ impl<B: UsbBus> UsbDevice<B> {
     fn control_out(&mut self, classes: &mut ClassList<'_, B>, req: control::Request) {
         use crate::control::{Request, Recipient};
 
-        for cls in classes {
+        for cls in classes.iter_mut() {
             cls.control_out(ControlOut::new(&mut self.control, &req));
 
             if !self.control.waiting_for_response() {
@@ -325,7 +328,6 @@ impl<B: UsbBus> UsbDevice<B> {
 
             const CONFIGURATION_NONE_U16: u16 = CONFIGURATION_NONE as u16;
             const CONFIGURATION_VALUE_U16: u16 = CONFIGURATION_VALUE as u16;
-            const DEFAULT_ALTERNATE_SETTING_U16: u16 = DEFAULT_ALTERNATE_SETTING as u16;
 
             match (req.recipient, req.request, req.value) {
                 (Recipient::Device, Request::CLEAR_FEATURE, Request::FEATURE_DEVICE_REMOTE_WAKEUP) => {
@@ -375,9 +377,22 @@ impl<B: UsbBus> UsbDevice<B> {
                     }
                 },
 
-                (Recipient::Interface, Request::SET_INTERFACE, DEFAULT_ALTERNATE_SETTING_U16) => {
-                    // TODO: do something when alternate settings are implemented
-                    xfer.accept().ok();
+                (Recipient::Interface, Request::SET_INTERFACE, alt_setting) => {
+                    let iface = InterfaceNumber::new(req.index as u8);
+                    let alt_setting = alt_setting as u8;
+
+                    for class in classes.iter_mut() {
+                        match class.set_alternate_setting(iface, alt_setting) {
+                            Ok(_) => {
+                                xfer.accept().ok();
+                                break;
+                            },
+                            Err(UsbError::InvalidInterface) => continue,
+                            Err(_) => {
+                                break;
+                            }
+                        }
+                    }
                 },
 
                 _ => { xfer.reject().ok(); return; },
@@ -451,7 +466,7 @@ impl<B: UsbBus> UsbDevice<B> {
 
                             classes.iter()
                                 .filter_map(|cls| cls.get_string(index, lang_id))
-                                .nth(0)
+                                .next()
                         },
                     };
 
