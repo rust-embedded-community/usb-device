@@ -1,10 +1,11 @@
 use crate::{Result, UsbDirection};
-use crate::bus::{UsbBusAllocator, UsbBus, PollResult, StringIndex};
+use crate::allocator::{UsbAllocator, EndpointConfig, StringIndex};
+use crate::bus::{UsbBus, PollResult};
 use crate::class::{UsbClass, ControlIn, ControlOut};
 use crate::control;
 use crate::control_pipe::ControlPipe;
 use crate::descriptor::{DescriptorWriter, BosWriter, descriptor_type, lang_id};
-use crate::endpoint::{EndpointType, EndpointAddress};
+use crate::endpoint::EndpointAddress;
 pub use crate::device_builder::{UsbDeviceBuilder, UsbVidPid};
 
 /// The global state of the USB device.
@@ -30,17 +31,17 @@ pub enum UsbDeviceState {
 const MAX_ENDPOINTS: usize = 16;
 
 /// A USB device consisting of one or more device classes.
-pub struct UsbDevice<'a, B: UsbBus> {
-    bus: &'a B,
-    config: Config<'a>,
-    control: ControlPipe<'a, B>,
+pub struct UsbDevice<B: UsbBus> {
+    bus: B,
+    config: Config,
+    control: ControlPipe<B>,
     device_state: UsbDeviceState,
     remote_wakeup_enabled: bool,
     self_powered: bool,
     pending_address: u8,
 }
 
-pub(crate) struct Config<'a> {
+pub(crate) struct Config {
     pub device_class: u8,
     pub device_sub_class: u8,
     pub device_protocol: u8,
@@ -48,9 +49,9 @@ pub(crate) struct Config<'a> {
     pub vendor_id: u16,
     pub product_id: u16,
     pub device_release: u16,
-    pub manufacturer: Option<&'a str>,
-    pub product: Option<&'a str>,
-    pub serial_number: Option<&'a str>,
+    pub manufacturer: Option<&'static str>,
+    pub product: Option<&'static str>,
+    pub serial_number: Option<&'static str>,
     pub self_powered: bool,
     pub supports_remote_wakeup: bool,
     pub composite_with_iads: bool,
@@ -68,20 +69,16 @@ pub const DEFAULT_ALTERNATE_SETTING: u8 = 0;
 
 type ClassList<'a, B> = [&'a mut dyn UsbClass<B>];
 
-impl<B: UsbBus> UsbDevice<'_, B> {
-    pub(crate) fn build<'a>(alloc: &'a UsbBusAllocator<B>, config: Config<'a>)
-        -> UsbDevice<'a, B>
-    {
-        let control_out = alloc.alloc(Some(0x00.into()), EndpointType::Control,
-            config.max_packet_size_0 as u16, 0).expect("failed to alloc control endpoint");
+impl<B: UsbBus> UsbDevice<B> {
+    pub(crate) fn build(mut alloc: UsbAllocator<B>, config: Config) -> UsbDevice<B> {
+        let control_out = alloc.endpoint_out(
+            EndpointConfig::control(config.max_packet_size_0 as u16).number(0));
 
-        let control_in = alloc.alloc(Some(0x80.into()), EndpointType::Control,
-            config.max_packet_size_0 as u16, 0).expect("failed to alloc control endpoint");
-
-        let bus = alloc.freeze();
+        let control_in = alloc.endpoint_in(
+            EndpointConfig::control(config.max_packet_size_0 as u16).number(0));
 
         UsbDevice {
-            bus,
+            bus: alloc.finish(),
             config,
             control: ControlPipe::new(control_out, control_in),
             device_state: UsbDeviceState::Default,
@@ -95,9 +92,9 @@ impl<B: UsbBus> UsbDevice<'_, B> {
     /// to call platform-specific methods on the `UsbBus`.
     ///
     /// While it is also possible to call the standard `UsbBus` trait methods through this
-    /// reference, this is not recommended as it can cause the device to misbehave.
+    /// reference, it is not recommended as it can cause the device to misbehave.
     pub fn bus(&self) -> &B {
-        self.bus
+        &self.bus
     }
 
     /// Gets the current state of the device.
@@ -120,15 +117,6 @@ impl<B: UsbBus> UsbDevice<'_, B> {
     /// Sets whether the device is currently self powered.
     pub fn set_self_powered(&mut self, is_self_powered: bool) {
         self.self_powered = is_self_powered;
-    }
-
-    /// Simulates a disconnect from the USB bus, causing the host to reset and re-enumerate the
-    /// device.
-    ///
-    /// Mostly useful for development. Calling this at the start of your program ensures that the
-    /// host re-enumerates your device after a new program has been flashed.
-    pub fn force_reset(&mut self) -> Result<()> {
-        self.bus.force_reset()
     }
 
     /// Polls the [`UsbBus`] for new events and dispatches them to the provided classes. Returns

@@ -1,7 +1,7 @@
 use crate::{Result, UsbError};
-use crate::bus::{UsbBus, InterfaceNumber};
+use crate::allocator::InterfaceNumber;
 use crate::device;
-use crate::endpoint::{Endpoint, EndpointDirection};
+use crate::endpoint::Endpoint;
 
 /// Standard descriptor types
 #[allow(missing_docs)]
@@ -167,7 +167,7 @@ impl DescriptorWriter<'_> {
     /// # Arguments
     ///
     /// * `number` - Interface number previously allocated with
-    ///   [`UsbBusAllocator::interface`](crate::bus::UsbBusAllocator::interface).
+    ///   [`UsbAllocator::interface`](crate::bus::UsbAllocator::interface).
     /// * `interface_class` - Class code assigned by USB.org. Use `0xff` for vendor-specific devices
     ///   that do not conform to any class.
     /// * `interface_sub_class` - Sub-class code. Depends on class.
@@ -202,10 +202,8 @@ impl DescriptorWriter<'_> {
     /// # Arguments
     ///
     /// * `endpoint` - Endpoint previously allocated with
-    ///   [`UsbBusAllocator`](crate::bus::UsbBusAllocator).
-    pub fn endpoint<'e, B: UsbBus, D: EndpointDirection>(&mut self, endpoint: &Endpoint<'e, B, D>)
-        -> Result<()>
-    {
+    ///   [`UsbAllocator`](crate::bus::UsbAllocator).
+    pub fn endpoint<E: Endpoint>(&mut self, endpoint: &E) -> Result<()> {
         match self.num_endpoints_mark {
             Some(mark) => self.buf[mark] += 1,
             None => return Err(UsbError::InvalidState),

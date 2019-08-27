@@ -105,13 +105,6 @@ pub mod bus;
 /// and you only need to override the ones that your specific class needs to function. See the trait
 /// documentation for more information on the callback methods.
 ///
-/// Your class should *not* hold a direct reference to the [`UsbBus`](bus::UsbBus) object. Rather it
-/// should take a temporary reference to the [`UsbBusAllocator`](bus::UsbBusAllocator) object
-/// exposed by the bus in its constructor, and use that to allocate endpoints, as well as interface
-/// and string handles. Using the [`Endpoint`](endpoint::Endpoint) handles which wrap a reference to
-/// the `UsbBus` instance ensures that classes cannot inadvertently access an endpoint owned by
-/// another class.
-///
 /// In addition to implementing the trait, add struct methods for the end-user to send and receive
 /// data via your class. For example, a serial port class might have class-specific methods `read`
 /// and `write` to read and write data.
@@ -172,6 +165,9 @@ pub mod descriptor;
 /// driver to be tested with the test_class_host example in this crate.
 pub mod test_class;
 
+/// Contains the `UsbAllocator` type which is used for allocating USB resources.
+pub mod allocator;
+
 mod control_pipe;
 
 mod device_builder;
@@ -185,14 +181,16 @@ pub mod prelude {
 /// Prelude for class implementors.
 pub mod class_prelude {
     pub use crate::UsbError;
-    pub use crate::bus::{UsbBus, UsbBusAllocator, InterfaceNumber, StringIndex};
+    pub use crate::allocator::{UsbAllocator, EndpointConfig, InterfaceNumber, StringIndex};
+    pub use crate::bus::UsbBus;
     pub use crate::descriptor::{DescriptorWriter, BosWriter};
     pub use crate::endpoint::{EndpointType, EndpointIn, EndpointOut, EndpointAddress};
     pub use crate::class::{UsbClass, ControlIn, ControlOut};
     pub use crate::control;
 }
 
-fn _ensure_sync() {
+// FIXME maybe remove?
+/*fn _ensure_sync() {
     use crate::bus::{UsbBus, UsbBusAllocator, PollResult};
     use crate::class_prelude::*;
 
@@ -254,4 +252,4 @@ fn _ensure_sync() {
     ensure_sync::<crate::endpoint::EndpointIn<DummyBus>>();
     ensure_sync::<crate::endpoint::EndpointOut<DummyBus>>();
     ensure_sync::<DummyClass<'_, DummyBus>>();
-}
+}*/

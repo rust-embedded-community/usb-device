@@ -2,7 +2,7 @@ use core::cmp::min;
 use crate::{Result, UsbDirection, UsbError};
 use crate::bus::UsbBus;
 use crate::control::Request;
-use crate::endpoint::{EndpointIn, EndpointOut};
+use crate::endpoint::{Endpoint, EndpointIn, EndpointOut};
 
 #[derive(Debug)]
 #[allow(unused)]
@@ -27,9 +27,9 @@ const CONTROL_BUF_LEN: usize = 128;
 const CONTROL_BUF_LEN: usize = 256;
 
 /// Buffers and parses USB control transfers.
-pub struct ControlPipe<'a, B: UsbBus> {
-    ep_out: EndpointOut<'a, B>,
-    ep_in: EndpointIn<'a, B>,
+pub struct ControlPipe<B: UsbBus> {
+    ep_out: B::EndpointOut,
+    ep_in: B::EndpointIn,
     state: ControlState,
     buf: [u8; CONTROL_BUF_LEN],
     static_in_buf: Option<&'static [u8]>,
@@ -37,8 +37,8 @@ pub struct ControlPipe<'a, B: UsbBus> {
     len: usize,
 }
 
-impl<B: UsbBus> ControlPipe<'_, B> {
-    pub fn new<'a>(ep_out: EndpointOut<'a, B>, ep_in: EndpointIn<'a, B>) -> ControlPipe<'a, B> {
+impl<B: UsbBus> ControlPipe<B> {
+    pub fn new<'a>(ep_out: B::EndpointOut, ep_in: B::EndpointIn) -> ControlPipe<B> {
         ControlPipe {
             ep_out,
             ep_in,
@@ -178,7 +178,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                 self.state = ControlState::DataInLast;
             },
             ControlState::DataInLast => {
-                self.ep_out.unstall();
+                self.ep_out.set_stalled(false);
                 self.state = ControlState::StatusOut;
             },
             ControlState::StatusIn => {
@@ -198,11 +198,10 @@ impl<B: UsbBus> ControlPipe<'_, B> {
         let count = min(self.len - self.i, self.ep_in.max_packet_size() as usize);
 
         let buffer = self.static_in_buf.unwrap_or(&self.buf);
-        let count = match self.ep_in.write(&buffer[self.i..(self.i+count)]) {
-            Ok(c) => c,
+        if self.ep_in.write(&buffer[self.i..(self.i+count)]).is_err() {
             // There isn't much we can do if the write fails, except to wait for another poll or for
             // the host to resend the request.
-            Err(_) => return,
+            return;
         };
 
         self.i += count;
@@ -276,7 +275,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
 
     fn set_error(&mut self) {
         self.state = ControlState::Error;
-        self.ep_out.stall();
-        self.ep_in.stall();
+        self.ep_out.set_stalled(true);
+        self.ep_in.set_stalled(false);
     }
 }

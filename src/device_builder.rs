@@ -1,13 +1,14 @@
-use crate::bus::{UsbBusAllocator, UsbBus};
+use crate::allocator::UsbAllocator;
+use crate::bus::UsbBus;
 use crate::device::{UsbDevice, Config};
 
 /// A USB vendor ID and product ID pair.
 pub struct UsbVidPid(pub u16, pub u16);
 
 /// Used to build new [`UsbDevice`]s.
-pub struct UsbDeviceBuilder<'a, B: UsbBus> {
-    alloc: &'a UsbBusAllocator<B>,
-    config: Config<'a>,
+pub struct UsbDeviceBuilder<B: UsbBus> {
+    alloc: UsbAllocator<B>,
+    config: Config,
 }
 
 macro_rules! builder_fields {
@@ -22,11 +23,11 @@ macro_rules! builder_fields {
     }
 }
 
-impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
+impl<B: UsbBus> UsbDeviceBuilder<B> {
     /// Creates a builder for constructing a new [`UsbDevice`].
     pub fn new(
-        alloc: &'a UsbBusAllocator<B>,
-        vid_pid: UsbVidPid) -> UsbDeviceBuilder<'a, B>
+        alloc: UsbAllocator<B>,
+        vid_pid: UsbVidPid) -> UsbDeviceBuilder<B>
     {
         UsbDeviceBuilder {
             alloc,
@@ -50,7 +51,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
     }
 
     /// Creates the [`UsbDevice`] instance with the configuration in this builder.
-    pub fn build(self) -> UsbDevice<'a, B> {
+    pub fn build(self) -> UsbDevice<B> {
         UsbDevice::build(self.alloc, self.config)
     }
 
@@ -106,7 +107,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
     /// Sets the manufacturer name string descriptor.
     ///
     /// Default: (none)
-    pub fn manufacturer(mut self, manufacturer: &'a str) -> Self {
+    pub fn manufacturer(mut self, manufacturer: &'static str) -> Self {
         self.config.manufacturer = Some(manufacturer);
         self
     }
@@ -114,7 +115,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
     /// Sets the product name string descriptor.
     ///
     /// Default: (none)
-    pub fn product(mut self, product: &'a str) -> Self {
+    pub fn product(mut self, product: &'static str) -> Self {
         self.config.product = Some(product);
         self
     }
@@ -122,7 +123,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
     /// Sets the serial number string descriptor.
     ///
     /// Default: (none)
-    pub fn serial_number(mut self, serial_number: &'a str) -> Self {
+    pub fn serial_number(mut self, serial_number: &'static str) -> Self {
         self.config.serial_number = Some(serial_number);
         self
     }

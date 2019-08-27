@@ -1,6 +1,7 @@
 use crate::{Result, UsbError};
-use crate::bus::{UsbBus, StringIndex};
-use crate::descriptor::{DescriptorWriter, BosWriter};
+use crate::bus::UsbBus;
+use crate::allocator::StringIndex;
+use crate::descriptor::{BosWriter, DescriptorWriter};
 use crate::control;
 use crate::control_pipe::ControlPipe;
 use crate::endpoint::EndpointAddress;
@@ -41,7 +42,7 @@ pub trait UsbClass<B: UsbBus> {
     /// # Arguments
     ///
     /// * `index` - A string index allocated earlier with
-    ///   [`UsbAllocator`](crate::bus::UsbBusAllocator).
+    ///   [`UsbAllocator`](crate::bus::UsbAllocator).
     /// * `lang_id` - The language ID for the string to retrieve.
     fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&str> {
         let _ = (index, lang_id);
@@ -121,13 +122,13 @@ pub trait UsbClass<B: UsbBus> {
 /// Handle for a control IN transfer. When implementing a class, use the methods of this object to
 /// response to the transfer with either data or an error (STALL condition). To ignore the request
 /// and pass it on to the next class, simply don't call any method.
-pub struct ControlIn<'a, 'p, 'r, B: UsbBus> {
-    pipe: &'p mut ControlPipe<'a, B>,
+pub struct ControlIn<'p, 'r, B: UsbBus> {
+    pipe: &'p mut ControlPipe<B>,
     req: &'r control::Request,
 }
 
-impl<'a, 'p, 'r, B: UsbBus> ControlIn<'a, 'p, 'r,  B> {
-    pub(crate) fn new(pipe: &'p mut ControlPipe<'a, B>, req: &'r control::Request) -> Self {
+impl<'p, 'r, B: UsbBus> ControlIn<'p, 'r,  B> {
+    pub(crate) fn new(pipe: &'p mut ControlPipe<B>, req: &'r control::Request) -> Self {
         ControlIn { pipe, req }
     }
 
@@ -170,13 +171,13 @@ impl<'a, 'p, 'r, B: UsbBus> ControlIn<'a, 'p, 'r,  B> {
 /// Handle for a control OUT transfer. When implementing a class, use the methods of this object to
 /// response to the transfer with an ACT or an error (STALL condition). To ignore the request and
 /// pass it on to the next class, simply don't call any method.
-pub struct ControlOut<'a, 'p, 'r, B: UsbBus> {
-    pipe: &'p mut ControlPipe<'a, B>,
+pub struct ControlOut<'p, 'r, B: UsbBus> {
+    pipe: &'p mut ControlPipe<B>,
     req: &'r control::Request,
 }
 
-impl<'a, 'p, 'r, B: UsbBus> ControlOut<'a, 'p, 'r, B> {
-    pub(crate) fn new(pipe: &'p mut ControlPipe<'a, B>, req: &'r control::Request) -> Self {
+impl<'p, 'r, B: UsbBus> ControlOut<'p, 'r, B> {
+    pub(crate) fn new(pipe: &'p mut ControlPipe<B>, req: &'r control::Request) -> Self {
         ControlOut { pipe, req }
     }
 
