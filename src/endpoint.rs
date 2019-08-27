@@ -67,7 +67,7 @@ pub trait EndpointIn: Endpoint {
     fn write(&mut self, data: &[u8]) -> Result<()>;
 }
 
-/// USB endpoint address that contains a direction and index.
+/// USB endpoint address that contains a direction and number.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct EndpointAddress(u8);
 
@@ -88,10 +88,10 @@ impl From<EndpointAddress> for u8 {
 impl EndpointAddress {
     const INBITS: u8 = UsbDirection::In as u8;
 
-    /// Constructs a new EndpointAddress with the given index and direction.
+    /// Constructs a new EndpointAddress with the given number and direction.
     #[inline]
-    pub fn from_parts(index: usize, dir: UsbDirection) -> Self {
-        EndpointAddress(index as u8 | dir as u8)
+    pub fn from_parts(number: usize, dir: UsbDirection) -> Self {
+        EndpointAddress(number as u8 | dir as u8)
     }
 
     /// Gets the direction part of the address.
@@ -104,9 +104,9 @@ impl EndpointAddress {
         }
     }
 
-    /// Gets the index part of the endpoint address.
+    /// Gets the number part of the endpoint address.
     #[inline]
-    pub fn index(&self) -> usize {
+    pub fn number(&self) -> usize {
         (self.0 & !Self::INBITS) as usize
     }
 }
