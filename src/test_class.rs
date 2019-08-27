@@ -3,7 +3,6 @@
 use core::cmp;
 use crate::Result;
 use crate::class_prelude::*;
-use crate::endpoint::{Endpoint, EndpointOut, EndpointIn};
 use crate::device::{UsbDevice, UsbDeviceBuilder, UsbVidPid};
 use crate::descriptor;
 
