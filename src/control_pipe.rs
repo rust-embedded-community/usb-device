@@ -88,9 +88,9 @@ impl<B: UsbBus> ControlPipe<B> {
 
         // Now that we have properly parsed the setup packet, ensure the end-point is no longer in
         // a stalled state.
-        self.ep_out.unstall();
+        self.ep_out.set_stalled(false);
 
-        /*sprintln!("SETUP {:?} {:?} {:?} req:{} val:{} idx:{} len:{} {:?}",
+        /*crate::println!("SETUP {:?} {:?} {:?} req:{} val:{} idx:{} len:{} {:?}",
             req.direction, req.request_type, req.recipient,
             req.request, req.value, req.index, req.length,
             self.state);*/

@@ -34,7 +34,7 @@ pub trait UsbBus: Sized {
     fn set_stalled(&mut self, ep_addr: EndpointAddress, stalled: bool);
 
     /// Gets whether the STALL condition is set for an endpoint. Only used during control transfers.
-    fn is_stalled(&mut self, ep_addr: EndpointAddress) -> bool;
+    fn is_stalled(&self, ep_addr: EndpointAddress) -> bool;
 
     /// Causes the USB peripheral to enter USB suspend mode, lowering power consumption and
     /// preparing to detect a USB wakeup event. This will be called after
@@ -96,8 +96,8 @@ pub trait EndpointAllocator<B: UsbBus> {
     fn new() -> Self;
 
     /// Allocates an OUT endpoint with the provided configuration
-    fn alloc_out(&mut self, config: EndpointConfig) -> Result<B::EndpointOut>;
+    fn alloc_out(&mut self, config: &EndpointConfig) -> Result<B::EndpointOut>;
     
     /// Allocates an IN endpoint with the provided configuration
-    fn alloc_in(&mut self, config: EndpointConfig) -> Result<B::EndpointIn>;
+    fn alloc_in(&mut self, config: &EndpointConfig) -> Result<B::EndpointIn>;
 }

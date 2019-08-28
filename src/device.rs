@@ -74,8 +74,12 @@ impl<B: UsbBus> UsbDevice<B> {
         let control_in = alloc.endpoint_in(
             EndpointConfig::control(config.max_packet_size_0 as u16).number(0));
 
+        let mut bus = alloc.finish();
+
+        bus.enable();
+
         UsbDevice {
-            bus: alloc.finish(),
+            bus,
             config,
             control: ControlPipe::new(control_out, control_in),
             device_state: UsbDeviceState::Default,
@@ -199,19 +203,19 @@ impl<B: UsbBus> UsbDevice<B> {
                         if (ep_setup & bit) != 0 {
                             for cls in classes.iter_mut() {
                                 cls.endpoint_setup(
-                                    EndpointAddress::from_parts(i, UsbDirection::Out));
+                                    EndpointAddress::from_parts(i as u8, UsbDirection::Out));
                             }
                         } else if (ep_out & bit) != 0 {
                             for cls in classes.iter_mut() {
                                 cls.endpoint_out(
-                                    EndpointAddress::from_parts(i, UsbDirection::Out));
+                                    EndpointAddress::from_parts(i as u8, UsbDirection::Out));
                             }
                         }
 
                         if (ep_in_complete & bit) != 0 {
                             for cls in classes.iter_mut() {
                                 cls.endpoint_in_complete(
-                                    EndpointAddress::from_parts(i, UsbDirection::In));
+                                    EndpointAddress::from_parts(i as u8, UsbDirection::In));
                             }
                         }
 
@@ -361,11 +365,13 @@ impl<B: UsbBus> UsbDevice<B> {
                 },
 
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_VALUE_U16) => {
-                    for class in classes.iter_mut() {
-                        class.configure();
-                    }
+                    if self.device_state != UsbDeviceState::Configured {
+                        for cls in classes.iter_mut() {
+                            cls.configure();
+                        }
 
-                    self.device_state = UsbDeviceState::Configured;
+                        self.device_state = UsbDeviceState::Configured;
+                    }
 
                     xfer.accept().ok();
                 },
@@ -386,8 +392,8 @@ impl<B: UsbBus> UsbDevice<B> {
                     let iface = InterfaceNumber::new(req.index as u8);
                     let alt_setting = alt_setting as u8;
 
-                    for class in classes.iter_mut() {
-                        match class.set_alternate_setting(iface, alt_setting) {
+                    for cls in classes.iter_mut() {
+                        match cls.set_alternate_setting(iface, alt_setting) {
                             Ok(_) => {
                                 xfer.accept().ok();
                                 break;

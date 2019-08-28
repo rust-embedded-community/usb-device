@@ -17,7 +17,7 @@ impl<B: UsbBus> UsbAllocator<B> {
             bus,
             ep_allocator: B::EndpointAllocator::new(),
             next_interface_number: 0,
-            next_string_index: 3,
+            next_string_index: 4,
         }
     }
 
@@ -39,12 +39,12 @@ impl<B: UsbBus> UsbAllocator<B> {
 
     /// Allocates an OUT endpoint with the provided configuration
     pub fn endpoint_out(&mut self, config: EndpointConfig) -> B::EndpointOut {
-        self.ep_allocator.alloc_out(config).expect("USB endpoint allocation failed")
+        self.ep_allocator.alloc_out(&config).expect("USB endpoint allocation failed")
     }
 
     /// Allocates an IN endpoint with the provided configuration
     pub fn endpoint_in(&mut self, config: EndpointConfig) -> B::EndpointIn {
-        self.ep_allocator.alloc_in(config).expect("USB endpoint allocation failed")
+        self.ep_allocator.alloc_in(&config).expect("USB endpoint allocation failed")
     }
 
     pub(crate) fn finish(self) -> B {
@@ -119,7 +119,7 @@ impl EndpointConfig {
     /// * `interval` - The requested polling interval in milliseconds.
     #[inline]
     pub fn interrupt(max_packet_size: u16, interval: u8) -> EndpointConfig {
-        Self::new(EndpointType::Bulk, max_packet_size, interval)
+        Self::new(EndpointType::Interrupt, max_packet_size, interval)
     } 
 
     /// Requests a specific endpoint number. The endpoint number is the low 4 bits of the endpoint

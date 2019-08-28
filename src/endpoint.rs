@@ -1,19 +1,36 @@
 use crate::{Result, UsbDirection};
 
-/// Handle for a USB endpoint. The endpoint direction is constrained by the `D` type argument, which
-/// must be either `In` or `Out`.
+/// USB endpoint descriptor information.
+pub struct EndpointDescriptor {
+    /// Endpoint address.
+    pub address: EndpointAddress,
+
+    /// Endpoint transfer type.
+    pub ep_type: EndpointType,
+
+    /// Maximum packet size.
+    pub max_packet_size: u16,
+
+    /// Poll interval for interrupt endpoints. 
+    pub interval: u8,
+}
+
+/// Handle for a USB endpoint.
 pub trait Endpoint {
-    /// Gets the current endpoint address.
-    fn address(&self) -> EndpointAddress;
+    /// Gets the descriptor information for this endpoint.
+    fn descriptor(&self) -> &EndpointDescriptor;
 
-    /// Gets the current endpoint transfer type.
-    fn ep_type(&self) -> EndpointType;
+    /// Gets the endpoint address.
+    fn address(&self) -> EndpointAddress { self.descriptor().address }
 
-    /// Gets the current maximum packet size for the endpoint.
-    fn max_packet_size(&self) -> u16;
+    /// Gets the endpoint transfer type.
+    fn ep_type(&self) -> EndpointType { self.descriptor().ep_type }
 
-    /// Gets the current poll interval for interrupt endpoints.
-    fn interval(&self) -> u8;
+    /// Gets the maximum packet size for the endpoint.
+    fn max_packet_size(&self) -> u16 { self.descriptor().max_packet_size }
+
+    /// Gets the poll interval for interrupt endpoints.
+    fn interval(&self) -> u8 { self.descriptor().interval }
 
     /// Enables the endpoint with the specified configuration.
     fn enable(&mut self);
@@ -90,8 +107,8 @@ impl EndpointAddress {
 
     /// Constructs a new EndpointAddress with the given number and direction.
     #[inline]
-    pub fn from_parts(number: usize, dir: UsbDirection) -> Self {
-        EndpointAddress(number as u8 | dir as u8)
+    pub fn from_parts(number: u8, dir: UsbDirection) -> Self {
+        EndpointAddress(number | dir as u8)
     }
 
     /// Gets the direction part of the address.
@@ -106,8 +123,8 @@ impl EndpointAddress {
 
     /// Gets the number part of the endpoint address.
     #[inline]
-    pub fn number(&self) -> usize {
-        (self.0 & !Self::INBITS) as usize
+    pub fn number(&self) -> u8 {
+        (self.0 & !Self::INBITS) as u8
     }
 }
 
