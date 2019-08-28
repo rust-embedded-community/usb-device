@@ -62,6 +62,8 @@ impl<B: UsbBus> ControlPipe<B> {
     }
 
     pub fn reset(&mut self) {
+        self.ep_out.enable();
+        self.ep_in.enable();
         self.state = ControlState::Idle;
     }
 
