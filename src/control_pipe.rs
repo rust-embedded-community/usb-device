@@ -278,6 +278,6 @@ impl<B: UsbBus> ControlPipe<B> {
     fn set_error(&mut self) {
         self.state = ControlState::Error;
         self.ep_out.set_stalled(true);
-        self.ep_in.set_stalled(false);
+        self.ep_in.set_stalled(true);
     }
 }
