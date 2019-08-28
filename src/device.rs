@@ -361,7 +361,12 @@ impl<B: UsbBus> UsbDevice<B> {
                 },
 
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_VALUE_U16) => {
+                    for class in classes.iter_mut() {
+                        class.configure();
+                    }
+
                     self.device_state = UsbDeviceState::Configured;
+
                     xfer.accept().ok();
                 },
 

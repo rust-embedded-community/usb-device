@@ -50,15 +50,18 @@ pub trait UsbClass<B: UsbBus> {
         None
     }
 
-    /// Called after a USB reset after the bus reset sequence is complete. This must enable all the
-    /// endpoints used by alternate settings 0 of each interface and disable all other endpoints not
-    /// used by them.
+    /// Called after a USB reset after the bus reset sequence is complete.
+    fn reset(&mut self) { }
+
+    /// Called when the device enters the Configured state. This method must enable the endpoints
+    /// associated with the default alternate setting of each interface, thereby activating the
+    /// default alternate setting.
     ///
-    /// If the class does not use interface alternate settings, it can just enable all endpoints
-    /// directly in this method, but if it does, it is recommended to call
+    /// If the class does not use interface alternate settings, it can just enable all of its
+    /// endpoints directly in this method, but if it does, it is recommended to delegate to
     /// `self.set_alternate_setting(iface, 0);` for each interface instead of enabling endpoints
     /// directly.
-    fn reset(&mut self);
+    fn configure(&mut self);
 
     /// Activates the specified alternate setting for the specified interface. The method must
     /// enable all endpoints used by the alternate setting, and disable all other endpoints not used

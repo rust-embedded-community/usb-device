@@ -168,11 +168,6 @@ impl<B: UsbBus> TestClass<B> {
 
 impl<B: UsbBus> UsbClass<B> for TestClass<B> {
     fn reset(&mut self) {
-        self.ep_bulk_in.enable();
-        self.ep_bulk_out.enable();
-        self.ep_interrupt_in.enable();
-        self.ep_interrupt_out.enable();
-        
         self.len = 0;
         self.i = 0;
         self.bench = false;
@@ -198,6 +193,13 @@ impl<B: UsbBus> UsbClass<B> for TestClass<B> {
         } else {
             None
         }
+    }
+
+    fn configure(&mut self) {
+        self.ep_bulk_in.enable();
+        self.ep_bulk_out.enable();
+        self.ep_interrupt_in.enable();
+        self.ep_interrupt_out.enable();
     }
 
     fn endpoint_in_complete(&mut self, addr: EndpointAddress) {
