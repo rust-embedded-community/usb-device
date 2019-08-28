@@ -138,14 +138,14 @@ fn bulk_loopback(dev, _out) {
         let data = random_data(*len);
 
         assert_eq!(
-            dev.write_bulk(0x01, &data, TIMEOUT)
+            dev.write_bulk(dev.ep_bulk_out, &data, TIMEOUT)
                 .expect(&format!("bulk write len {}", len)),
             data.len(),
             "bulk write len {}", len);
 
         if *len > 0 && *len % 64 == 0 {
             assert_eq!(
-                dev.write_bulk(0x01, &[], TIMEOUT)
+                dev.write_bulk(dev.ep_bulk_out, &[], TIMEOUT)
                     .expect(&format!("bulk write zero-length packet")),
                 0,
                 "bulk write zero-length packet");
@@ -156,7 +156,7 @@ fn bulk_loopback(dev, _out) {
         let mut response = vec![0u8; max(*len, 1)];
 
         assert_eq!(
-            dev.read_bulk(0x81, &mut response, TIMEOUT)
+            dev.read_bulk(dev.ep_bulk_in, &mut response, TIMEOUT)
                 .expect(&format!("bulk read len {}", len)),
             data.len(),
             "bulk read len {}", len);
@@ -170,7 +170,7 @@ fn interrupt_loopback(dev, _out) {
         let data = random_data(*len);
 
         assert_eq!(
-            dev.write_interrupt(0x02, &data, TIMEOUT)
+            dev.write_interrupt(dev.ep_interrupt_out, &data, TIMEOUT)
                 .expect(&format!("interrupt write len {}", len)),
             data.len(),
             "interrupt write len {}", len);
@@ -180,7 +180,7 @@ fn interrupt_loopback(dev, _out) {
         let mut response = vec![0u8; max(*len, 1)];
 
         assert_eq!(
-            dev.read_interrupt(0x82, &mut response, TIMEOUT)
+            dev.read_interrupt(dev.ep_interrupt_in, &mut response, TIMEOUT)
                 .expect(&format!("interrupt read len {}", len)),
             data.len(),
             "interrupt read len {}", len);
@@ -192,7 +192,7 @@ fn interrupt_loopback(dev, _out) {
 fn bench_bulk_write(dev, out) {
     run_bench(dev, out, |data| {
         assert_eq!(
-            dev.write_bulk(0x01, data, BENCH_TIMEOUT)
+            dev.write_bulk(dev.ep_bulk_out, data, BENCH_TIMEOUT)
                 .expect("bulk write"),
             data.len(),
             "bulk write");
@@ -202,7 +202,7 @@ fn bench_bulk_write(dev, out) {
 fn bench_bulk_read(dev, out) {
     run_bench(dev, out, |data| {
         assert_eq!(
-            dev.read_bulk(0x81, data, BENCH_TIMEOUT)
+            dev.read_bulk(dev.ep_bulk_in, data, BENCH_TIMEOUT)
                 .expect("bulk read"),
             data.len(),
             "bulk read");
