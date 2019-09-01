@@ -12,10 +12,10 @@ pub struct UsbAllocator<B: UsbBus> {
 impl<B: UsbBus> UsbAllocator<B> {
     /// Creates a new [`UsbAllocator`] that wraps the provided [`UsbBus`]. Usually only called by
     /// USB driver implementations.
-    pub fn new(bus: B) -> UsbAllocator<B> {
+    pub fn new(mut bus: B) -> UsbAllocator<B> {
         UsbAllocator {
+            ep_allocator: bus.create_allocator(),
             bus,
-            ep_allocator: B::EndpointAllocator::new(),
             next_interface_number: 0,
             next_string_index: 4,
         }

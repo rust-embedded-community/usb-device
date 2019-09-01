@@ -14,6 +14,9 @@ pub trait UsbBus: Sized {
     /// The endpoint allocator type for this USB driver.
     type EndpointAllocator: crate::bus::EndpointAllocator<Self>;
 
+    /// Creates an EndpointAllocator for this UsbBus.
+    fn create_allocator(&mut self) -> Self::EndpointAllocator;
+
     /// Enables and initializes the USB peripheral. Soon after enabling the device will be reset, so
     /// there is no need to perform a USB reset in this method.
     fn enable(&mut self);
@@ -92,9 +95,6 @@ pub enum PollResult {
 
 /// Allocates endpoint indexes and memory.
 pub trait EndpointAllocator<B: UsbBus> {
-    /// Creates a new endpoint allocator.
-    fn new() -> Self;
-
     /// Allocates an OUT endpoint with the provided configuration
     fn alloc_out(&mut self, config: &EndpointConfig) -> Result<B::EndpointOut>;
     
