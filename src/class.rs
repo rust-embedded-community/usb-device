@@ -1,6 +1,6 @@
 use crate::{Result, UsbError};
 use crate::bus::{UsbBus, StringIndex};
-use crate::descriptor::DescriptorWriter;
+use crate::descriptor::{DescriptorWriter, BosWriter};
 use crate::control;
 use crate::control_pipe::ControlPipe;
 use crate::endpoint::EndpointAddress;
@@ -20,6 +20,15 @@ pub trait UsbClass<B: UsbBus> {
     /// Generally errors returned by `DescriptorWriter`. Implementors should propagate any errors
     /// using `?`.
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
+        let _ = writer;
+        Ok (())
+    }
+
+    /// Called when a GET_DESCRIPTOR request is received for a BOS descriptor.
+    /// When called, the implementation should write its blobs such as capability
+    /// descriptors into `writer`. The BOS descriptor itself will be written by
+    /// [UsbDevice](crate::device::UsbDevice) and shouldn't be written by classes.
+    fn get_bos_descriptors(&self, writer: &mut BosWriter) -> Result<()> {
         let _ = writer;
         Ok (())
     }

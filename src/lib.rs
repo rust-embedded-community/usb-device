@@ -185,7 +185,7 @@ pub mod prelude {
 pub mod class_prelude {
     pub use crate::UsbError;
     pub use crate::bus::{UsbBus, UsbBusAllocator, InterfaceNumber, StringIndex};
-    pub use crate::descriptor::DescriptorWriter;
+    pub use crate::descriptor::{DescriptorWriter, BosWriter};
     pub use crate::endpoint::{EndpointType, EndpointIn, EndpointOut, EndpointAddress};
     pub use crate::class::{UsbClass, ControlIn, ControlOut};
     pub use crate::control;
