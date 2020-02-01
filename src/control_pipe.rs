@@ -1,5 +1,4 @@
 use core::cmp::min;
-use core::mem;
 use crate::{Result, UsbDirection, UsbError};
 use crate::bus::UsbBus;
 use crate::control::Request;
@@ -44,7 +43,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             ep_out,
             ep_in,
             state: ControlState::Idle,
-            buf: unsafe { mem::uninitialized() },
+            buf: [0; CONTROL_BUF_LEN],
             static_in_buf: None,
             i: 0,
             len: 0,
