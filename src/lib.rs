@@ -45,7 +45,8 @@ pub enum UsbError {
     /// Parsing failed due to invalid input.
     ParseError,
 
-    /// A buffer too short for the data to read was passed.
+    /// A buffer too short for the data to read was passed, or provided data cannot fit within
+    /// length constraints.
     BufferOverflow,
 
     /// Classes attempted to allocate more endpoints than the peripheral supports.

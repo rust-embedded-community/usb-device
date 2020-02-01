@@ -60,7 +60,7 @@ impl DescriptorWriter<'_> {
     pub fn write(&mut self, descriptor_type: u8, descriptor: &[u8]) -> Result<()> {
         let length = descriptor.len();
 
-        if self.position + 2 + length > self.buf.len() {
+        if (self.position + 2 + length) > self.buf.len() || (length + 2) > 255 {
             return Err(UsbError::BufferOverflow);
         }
 
