@@ -134,6 +134,12 @@ pub trait UsbBus: Sync + Sized {
     ///
     /// The default value for this constant is `false`, which corresponds to the USB 2.0 spec, 9.4.6
     const QUIRK_SET_ADDRESS_BEFORE_STATUS: bool = false;
+
+    /// Indicates that the `UsbDevice` should not send a response to `SetAddress` control transfers.
+    ///
+    /// This defaults to `false`, meaning that `UsbDevice` will handle `SetAddress` transfers. It
+    /// needs to be set to `true` when the device hardware handles `SetAddress`.
+    const INHIBIT_SET_ADDRESS_RESPONSE: bool = false;
 }
 
 struct AllocatorState {
