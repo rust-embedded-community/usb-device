@@ -16,6 +16,8 @@ rand = "0.6.1"
 [features]
 # Use a 256 byte buffer for control transfers instead of 128.
 control-buffer-256 = []
+# Use larger endpoint buffers for highspeed operation (default fullspeed)
+test-class-high-speed = []
 
 [[test]]
 name = "test_class_host"

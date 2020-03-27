@@ -6,6 +6,20 @@ use crate::class_prelude::*;
 use crate::device::{UsbDevice, UsbDeviceBuilder, UsbVidPid};
 use crate::descriptor;
 
+#[cfg(feature = "test-class-highspeed")]
+mod sizes {
+    pub const BUFFER: usize = 1024;
+    pub const BULK_ENDPOINT: u16 = 512;
+    pub const INTERRUPT_ENDPOINT: u16 = 1024;
+}
+
+#[cfg(not(feature = "test-class-highspeed"))]
+mod sizes {
+    pub const BUFFER: usize = 256;
+    pub const BULK_ENDPOINT: u16 = 64;
+    pub const INTERRUPT_ENDPOINT: u16 = 31;
+}
+
 /// Test USB class for testing USB driver implementations. Supports various endpoint types and
 /// requests for testing USB peripheral drivers on actual hardware.
 pub struct TestClass<'a, B: UsbBus> {
@@ -15,9 +29,9 @@ pub struct TestClass<'a, B: UsbBus> {
     ep_bulk_out: EndpointOut<'a, B>,
     ep_interrupt_in: EndpointIn<'a, B>,
     ep_interrupt_out: EndpointOut<'a, B>,
-    control_buf: [u8; 256],
-    bulk_buf: [u8; 256],
-    interrupt_buf: [u8; 256],
+    control_buf: [u8; sizes::BUFFER],
+    bulk_buf: [u8; sizes::BUFFER],
+    interrupt_buf: [u8; sizes::BUFFER],
     len: usize,
     i: usize,
     bench: bool,
@@ -43,19 +57,20 @@ pub const REQ_UNKNOWN: u8 = 42;
 
 pub const LONG_DATA: &'static [u8] = &[0x17; 257];
 
+
 impl<B: UsbBus> TestClass<'_, B> {
     /// Creates a new TestClass.
     pub fn new(alloc: &UsbBusAllocator<B>) -> TestClass<'_, B> {
         TestClass {
             custom_string: alloc.string(),
             iface: alloc.interface(),
-            ep_bulk_in: alloc.bulk(64),
-            ep_bulk_out: alloc.bulk(64),
-            ep_interrupt_in: alloc.interrupt(31, 1),
-            ep_interrupt_out: alloc.interrupt(31, 1),
-            control_buf: [0; 256],
-            bulk_buf: [0; 256],
-            interrupt_buf: [0; 256],
+            ep_bulk_in: alloc.bulk(sizes::BULK_ENDPOINT),
+            ep_bulk_out: alloc.bulk(sizes::BULK_ENDPOINT),
+            ep_interrupt_in: alloc.interrupt(sizes::INTERRUPT_ENDPOINT, 1),
+            ep_interrupt_out: alloc.interrupt(sizes::INTERRUPT_ENDPOINT, 1),
+            control_buf: [0; sizes::BUFFER],
+            bulk_buf: [0; sizes::BUFFER],
+            interrupt_buf: [0; sizes::BUFFER],
             len: 0,
             i: 0,
             bench: false,
