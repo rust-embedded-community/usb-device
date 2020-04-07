@@ -92,12 +92,12 @@ impl<B: UsbBus> TestClass<B> {
     /// Must be called after polling the UsbDevice.
     pub fn poll(&mut self) {
         if self.bench {
-            match self.ep_bulk_out.read(&mut self.bulk_buf) {
+            match self.ep_bulk_out.read_packet(&mut self.bulk_buf) {
                 Ok(_) | Err(UsbError::WouldBlock) => { },
                 Err(err) => panic!("bulk bench read {:?}", err),
             };
 
-            match self.ep_bulk_in.write(&self.bulk_buf[0..self.ep_bulk_in.max_packet_size() as usize]) {
+            match self.ep_bulk_in.write_packet(&self.bulk_buf[0..self.ep_bulk_in.max_packet_size() as usize]) {
                 Ok(_) | Err(UsbError::WouldBlock) => { },
                 Err(err) => panic!("bulk bench write {:?}", err),
             };
@@ -106,7 +106,7 @@ impl<B: UsbBus> TestClass<B> {
         }
 
         let temp_i = self.i;
-        match self.ep_bulk_out.read(&mut self.bulk_buf[temp_i..]) {
+        match self.ep_bulk_out.read_packet(&mut self.bulk_buf[temp_i..]) {
             Ok(count) => {
                 if self.expect_bulk_out {
                     self.expect_bulk_out = false;
@@ -127,7 +127,7 @@ impl<B: UsbBus> TestClass<B> {
             Err(err) => panic!("bulk read {:?}", err),
         };
 
-        match self.ep_interrupt_out.read(&mut self.interrupt_buf) {
+        match self.ep_interrupt_out.read_packet(&mut self.interrupt_buf) {
             Ok(count) => {
                 if self.expect_interrupt_out {
                     self.expect_interrupt_out = false;
@@ -135,7 +135,7 @@ impl<B: UsbBus> TestClass<B> {
                     panic!("unexpectedly read data from interrupt out endpoint");
                 }
 
-                self.ep_interrupt_in.write(&self.interrupt_buf[0..count])
+                self.ep_interrupt_in.write_packet(&self.interrupt_buf[0..count])
                     .expect("interrupt write");
 
                 self.expect_interrupt_in_complete = true;
@@ -155,7 +155,7 @@ impl<B: UsbBus> TestClass<B> {
             return;
         }
 
-        match self.ep_bulk_in.write(&self.bulk_buf[self.i..self.i+count]) {
+        match self.ep_bulk_in.write_packet(&self.bulk_buf[self.i..self.i+count]) {
             Ok(()) => {
                 self.expect_bulk_in_complete = true;
                 self.i += count;

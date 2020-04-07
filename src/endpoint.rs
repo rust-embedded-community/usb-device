@@ -11,7 +11,7 @@ pub struct EndpointDescriptor {
     /// Maximum packet size.
     pub max_packet_size: u16,
 
-    /// Poll interval for interrupt endpoints. 
+    /// Poll interval for interrupt endpoints.
     pub interval: u8,
 }
 
@@ -62,7 +62,7 @@ pub trait EndpointOut: Endpoint {
     ///   USB. A zero-length packet will return `Ok(0)`.
     /// * [`BufferOverflow`](crate::UsbError::BufferOverflow) - The received packet is too long to
     ///   fit in `data`. This is generally an error in the class implementation.
-    fn read(&mut self, data: &mut [u8]) -> Result<usize>;
+    fn read_packet(&mut self, data: &mut [u8]) -> Result<usize>;
 }
 
 /// Handle for IN endpoints.
@@ -81,7 +81,7 @@ pub trait EndpointIn: Endpoint {
     /// * [`BufferOverflow`](crate::UsbError::BufferOverflow) - The data is longer than the
     ///   `max_packet_size` specified when allocating the endpoint. This is generally an error in
     ///   the class implementation.
-    fn write(&mut self, data: &[u8]) -> Result<()>;
+    fn write_packet(&mut self, data: &[u8]) -> Result<()>;
 }
 
 /// USB endpoint address that contains a direction and number.

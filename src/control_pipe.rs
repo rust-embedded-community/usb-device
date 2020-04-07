@@ -68,7 +68,7 @@ impl<B: UsbBus> ControlPipe<B> {
     }
 
     pub fn handle_setup<'p>(&'p mut self) -> Option<Request> {
-        let count = match self.ep_out.read(&mut self.buf[..]) {
+        let count = match self.ep_out.read_packet(&mut self.buf[..]) {
             Ok(count) => count,
             Err(UsbError::WouldBlock) => return None,
             Err(_) => {
@@ -131,7 +131,7 @@ impl<B: UsbBus> ControlPipe<B> {
         match self.state {
             ControlState::DataOut(req) => {
                 let i = self.i;
-                let count = match self.ep_out.read(&mut self.buf[i..]) {
+                let count = match self.ep_out.read_packet(&mut self.buf[i..]) {
                     Ok(count) => count,
                     Err(UsbError::WouldBlock) => return None,
                     Err(_) => {
@@ -150,12 +150,12 @@ impl<B: UsbBus> ControlPipe<B> {
                 }
             },
             ControlState::StatusOut => {
-                self.ep_out.read(&mut []).ok();
+                self.ep_out.read_packet(&mut []).ok();
                 self.state = ControlState::Idle;
             },
             _ => {
                 // Discard the packet
-                self.ep_out.read(&mut []).ok();
+                self.ep_out.read_packet(&mut []).ok();
 
                 // Unexpected OUT packet
                 self.set_error()
@@ -171,7 +171,7 @@ impl<B: UsbBus> ControlPipe<B> {
                 self.write_in_chunk();
             },
             ControlState::DataInZlp => {
-                if self.ep_in.write(&[]).is_err() {
+                if self.ep_in.write_packet(&[]).is_err() {
                     // There isn't much we can do if the write fails, except to wait for another
                     // poll or for the host to resend the request.
                     return false;
@@ -200,7 +200,7 @@ impl<B: UsbBus> ControlPipe<B> {
         let count = min(self.len - self.i, self.ep_in.max_packet_size() as usize);
 
         let buffer = self.static_in_buf.unwrap_or(&self.buf);
-        if self.ep_in.write(&buffer[self.i..(self.i+count)]).is_err() {
+        if self.ep_in.write_packet(&buffer[self.i..(self.i+count)]).is_err() {
             // There isn't much we can do if the write fails, except to wait for another poll or for
             // the host to resend the request.
             return;
@@ -225,7 +225,7 @@ impl<B: UsbBus> ControlPipe<B> {
             _ => return Err(UsbError::InvalidState),
         };
 
-        self.ep_in.write(&[]).ok();
+        self.ep_in.write_packet(&[]).ok();
         self.state = ControlState::StatusIn;
         Ok(())
     }
