@@ -286,13 +286,9 @@ impl<U: UsbCore> UsbDevice<U> {
                 (Recipient::Interface, Request::GET_INTERFACE) => {
                     let iface = InterfaceHandle(Some(req.index as u8));
 
-                    /*if let Some(alt_setting) = classes.iter()
-                        .filter_map(|cls| cls.get_alternate_setting(iface).ok())
-                        .next()
-                    {
-                        xfer.accept_with(&alt_setting.to_le_bytes()).ok();
-                    }*/
-                    // FIXME
+                    // FIXME: Unimplemented
+
+                    xfer.reject().ok();
                 },
 
                 _ => (),
@@ -354,16 +350,19 @@ impl<U: UsbCore> UsbDevice<U> {
 
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_VALUE_U16) => {
                     if self.device_state != UsbDeviceState::Configured {
-                        /*for cls in classes.iter_mut() {
-                            cls.configure();
-                        }*/
+                        // TODO: report to classes?
 
-                        // FIXME
+                        if Config::visit(
+                            classes,
+                            &mut EnableEndpointVisitor::new(None, Some(0))).is_ok()
+                        {
+                            self.device_state = UsbDeviceState::Configured;
 
-                        self.device_state = UsbDeviceState::Configured;
+                            xfer.accept().ok();
+                        } else {
+                            xfer.reject().ok();
+                        }
                     }
-
-                    xfer.accept().ok();
                 },
 
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_NONE_U16) => {
@@ -372,30 +371,39 @@ impl<U: UsbCore> UsbDevice<U> {
                             xfer.reject().ok();
                         },
                         _ => {
-                            self.device_state = UsbDeviceState::Addressed;
-                            xfer.accept().ok();
+                            // TODO: report to classes?
+
+                            if Config::visit(
+                                classes,
+                                &mut EnableEndpointVisitor::new(None, None)).is_ok()
+                            {
+                                self.device_state = UsbDeviceState::Addressed;
+                                xfer.accept().ok();
+                            } else {
+                                xfer.reject().ok();
+                            }
                         },
                     }
                 },
 
                 (Recipient::Interface, Request::SET_INTERFACE, alt_setting) => {
-                    let iface = InterfaceHandle(Some(req.index as u8));
+                    let iface = Some(req.index as u8);
                     let alt_setting = alt_setting as u8;
 
-                    /*for cls in classes.iter_mut() {
-                        match cls.set_alternate_setting(iface, alt_setting) {
-                            Ok(_) => {
-                                xfer.accept().ok();
-                                break;
-                            },
-                            Err(UsbError::InvalidInterface) => continue,
-                            Err(_) => {
-                                break;
-                            }
+                    if Config::visit(
+                        classes,
+                        &mut EnableEndpointVisitor::new(
+                            iface,
+                            Some(alt_setting))).is_ok()
+                    {
+                        for cls in classes.iter_mut() {
+                            cls.alt_setting_activated(InterfaceHandle(iface), alt_setting);
                         }
-                    }*/
 
-                    // FIXME
+                        xfer.accept().ok();
+                    } else {
+                        xfer.reject().ok();
+                    }
                 },
 
                 _ => { xfer.reject().ok(); return; },
