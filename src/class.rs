@@ -1,11 +1,11 @@
-use crate::{Result, UsbError};
-use crate::usbcore::UsbCore;
 use crate::allocator::{InterfaceHandle, StringHandle};
-use crate::control;
 use crate::config::Config;
+use crate::control;
 use crate::control_pipe::ControlPipe;
 use crate::descriptor::BosWriter;
 use crate::endpoint::EndpointAddress;
+use crate::usbcore::UsbCore;
+use crate::{Result, UsbError};
 
 /// A trait for implementing USB classes.
 ///
@@ -25,7 +25,7 @@ pub trait UsbClass<U: UsbCore> {
     /// [UsbDevice](crate::device::UsbDevice) and shouldn't be written by classes.
     fn get_bos_descriptors(&self, writer: &mut BosWriter) -> Result<()> {
         let _ = writer;
-        Ok (())
+        Ok(())
     }
 
     /// Gets a class-specific string descriptor.
@@ -45,7 +45,7 @@ pub trait UsbClass<U: UsbCore> {
     }
 
     /// Called after a USB reset after the bus reset sequence is complete.
-    fn reset(&mut self) { }
+    fn reset(&mut self) {}
 
     /// Called to inform the class that an interface alternate setting has been activated by the
     /// host.
@@ -54,7 +54,7 @@ pub trait UsbClass<U: UsbCore> {
     }
 
     /// Called whenever the `UsbDevice` is polled.
-    fn poll(&mut self) { }
+    fn poll(&mut self) {}
 
     /// Called when a control request is received with direction HostToDevice.
     ///
@@ -119,7 +119,7 @@ pub struct ControlIn<'p, 'r, U: UsbCore> {
     req: &'r control::Request,
 }
 
-impl<'p, 'r, U: UsbCore> ControlIn<'p, 'r,  U> {
+impl<'p, 'r, U: UsbCore> ControlIn<'p, 'r, U> {
     pub(crate) fn new(pipe: &'p mut ControlPipe<U>, req: &'r control::Request) -> Self {
         ControlIn { pipe, req }
     }

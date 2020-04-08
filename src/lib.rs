@@ -190,18 +190,20 @@ mod device_builder;
 
 /// Prelude for device implementors.
 pub mod prelude {
-    pub use crate::UsbError;
     pub use crate::device::{UsbDevice, UsbDeviceBuilder, UsbDeviceState, UsbVidPid};
+    pub use crate::UsbError;
 }
 
 /// Prelude for class implementors.
 pub mod class_prelude {
-    pub use crate::UsbError;
     pub use crate::allocator::{InterfaceHandle, StringHandle};
-    pub use crate::class::{UsbClass, ControlIn, ControlOut};
+    pub use crate::class::{ControlIn, ControlOut, UsbClass};
     pub use crate::config::{Config, InterfaceDescriptor};
     pub use crate::control;
-    pub use crate::endpoint::{EndpointType, EndpointConfig, EndpointIn, EndpointOut, EndpointAddress};
     pub use crate::descriptor::BosWriter;
+    pub use crate::endpoint::{
+        EndpointAddress, EndpointConfig, EndpointIn, EndpointOut, EndpointType,
+    };
     pub use crate::usbcore::UsbCore;
+    pub use crate::UsbError;
 }

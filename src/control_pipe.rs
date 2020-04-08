@@ -1,9 +1,9 @@
-use core::cmp::min;
-use core::convert::TryInto;
-use crate::{Result, UsbDirection, UsbError};
 use crate::control::Request;
 use crate::endpoint::{EndpointAddress, EndpointConfig, OutPacketType};
-use crate::usbcore::{UsbCore, UsbEndpointAllocator, UsbEndpoint, UsbEndpointOut, UsbEndpointIn};
+use crate::usbcore::{UsbCore, UsbEndpoint, UsbEndpointAllocator, UsbEndpointIn, UsbEndpointOut};
+use crate::{Result, UsbDirection, UsbError};
+use core::cmp::min;
+use core::convert::TryInto;
 
 #[derive(Debug)]
 #[allow(unused)]
@@ -50,9 +50,12 @@ const fn ep_config(max_packet_size_0: u8, dir: UsbDirection) -> EndpointConfig {
 
 impl<U: UsbCore> ControlPipe<U> {
     pub fn new<'a>(alloc: &mut U::EndpointAllocator, max_packet_size_0: u8) -> ControlPipe<U> {
-
-        let ep_in = alloc.alloc_in(&ep_config(max_packet_size_0, UsbDirection::In)).unwrap();
-        let ep_out = alloc.alloc_out(&ep_config(max_packet_size_0, UsbDirection::Out)).unwrap();
+        let ep_in = alloc
+            .alloc_in(&ep_config(max_packet_size_0, UsbDirection::In))
+            .unwrap();
+        let ep_out = alloc
+            .alloc_out(&ep_config(max_packet_size_0, UsbDirection::Out))
+            .unwrap();
 
         ControlPipe {
             max_packet_size_0,
@@ -79,8 +82,10 @@ impl<U: UsbCore> ControlPipe<U> {
 
     pub fn reset(&mut self) {
         unsafe {
-            self.ep_out.enable(&ep_config(self.max_packet_size_0, UsbDirection::Out));
-            self.ep_in.enable(&ep_config(self.max_packet_size_0, UsbDirection::In));
+            self.ep_out
+                .enable(&ep_config(self.max_packet_size_0, UsbDirection::Out));
+            self.ep_in
+                .enable(&ep_config(self.max_packet_size_0, UsbDirection::In));
         }
 
         self.state = ControlState::Idle;
@@ -114,17 +119,17 @@ impl<U: UsbCore> ControlPipe<U> {
                 // sends more data than it indicated in the SETUP request)
                 self.set_error();
                 return None;
-            },
+            }
         };
 
         if packet_type == OutPacketType::Setup {
-            match (&self.buf[self.i..self.i+count]).try_into() {
+            match (&self.buf[self.i..self.i + count]).try_into() {
                 Ok(request) => self.handle_out_setup(request),
                 Err(_) => {
                     // SETUP packet length is incorrect
                     self.set_error();
                     None
-                },
+                }
             }
         } else if buffer_reset_for_setup {
             // Buffer was reset to reserve space for a potential SETUP, and this transfer has now
@@ -143,7 +148,7 @@ impl<U: UsbCore> ControlPipe<U> {
                 // Failed to parse SETUP packet
                 self.set_error();
                 return None;
-            },
+            }
         };
 
         // Now that we have properly parsed the setup packet, ensure the end-point is no longer in
@@ -151,9 +156,9 @@ impl<U: UsbCore> ControlPipe<U> {
         self.ep_out.set_stalled(false);
 
         /*crate::println!("SETUP {:?} {:?} {:?} req:{} val:{} idx:{} len:{} {:?}",
-            req.direction, req.request_type, req.recipient,
-            req.request, req.value, req.index, req.length,
-            self.state);*/
+        req.direction, req.request_type, req.recipient,
+        req.request, req.value, req.index, req.length,
+        self.state);*/
 
         if req.direction == UsbDirection::Out {
             // OUT transfer
@@ -196,14 +201,14 @@ impl<U: UsbCore> ControlPipe<U> {
                     self.state = ControlState::CompleteOut;
                     return Some(req);
                 }
-            },
+            }
             ControlState::StatusOut => {
                 self.state = ControlState::Idle;
-            },
+            }
             _ => {
                 // Unexpected OUT packet
                 self.set_error()
-            },
+            }
         }
 
         return None;
@@ -213,7 +218,7 @@ impl<U: UsbCore> ControlPipe<U> {
         match self.state {
             ControlState::DataIn => {
                 self.write_in_chunk();
-            },
+            }
             ControlState::DataInZlp => {
                 if self.ep_in.write_packet(&[]).is_err() {
                     // There isn't much we can do if the write fails, except to wait for another
@@ -222,15 +227,15 @@ impl<U: UsbCore> ControlPipe<U> {
                 }
 
                 self.state = ControlState::DataInLast;
-            },
+            }
             ControlState::DataInLast => {
                 self.ep_out.set_stalled(false);
                 self.state = ControlState::StatusOut;
-            },
+            }
             ControlState::StatusIn => {
                 self.state = ControlState::Idle;
                 return true;
-            },
+            }
             _ => {
                 // Unexpected IN packet
                 self.set_error();
@@ -244,7 +249,11 @@ impl<U: UsbCore> ControlPipe<U> {
         let count = min(self.len - self.i, self.max_packet_size_0 as usize);
 
         let buffer = self.static_in_buf.unwrap_or(&self.buf);
-        if self.ep_in.write_packet(&buffer[self.i..(self.i+count)]).is_err() {
+        if self
+            .ep_in
+            .write_packet(&buffer[self.i..(self.i + count)])
+            .is_err()
+        {
             // There isn't much we can do if the write fails, except to wait for another poll or for
             // the host to resend the request.
             return;
@@ -265,7 +274,7 @@ impl<U: UsbCore> ControlPipe<U> {
 
     pub fn accept_out(&mut self) -> Result<()> {
         match self.state {
-            ControlState::CompleteOut => {},
+            ControlState::CompleteOut => {}
             _ => return Err(UsbError::InvalidState),
         };
 

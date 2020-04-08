@@ -1,10 +1,10 @@
 #![allow(missing_docs)]
 
-use core::cmp;
-use crate::Result;
 use crate::class_prelude::*;
-use crate::device::{UsbDevice, UsbDeviceBuilder, UsbVidPid};
 use crate::descriptor;
+use crate::device::{UsbDevice, UsbDeviceBuilder, UsbVidPid};
+use crate::Result;
+use core::cmp;
 
 #[cfg(feature = "test-class-highspeed")]
 mod sizes {
@@ -93,12 +93,15 @@ impl<U: UsbCore> TestClass<U> {
     pub fn poll(&mut self) {
         if self.bench {
             match self.ep_bulk_out.read_packet(&mut self.bulk_buf) {
-                Ok(_) | Err(UsbError::WouldBlock) => { },
+                Ok(_) | Err(UsbError::WouldBlock) => {}
                 Err(err) => panic!("bulk bench read {:?}", err),
             };
 
-            match self.ep_bulk_in.write_packet(&self.bulk_buf[0..self.ep_bulk_in.max_packet_size() as usize]) {
-                Ok(_) | Err(UsbError::WouldBlock) => { },
+            match self
+                .ep_bulk_in
+                .write_packet(&self.bulk_buf[0..self.ep_bulk_in.max_packet_size() as usize])
+            {
+                Ok(_) | Err(UsbError::WouldBlock) => {}
                 Err(err) => panic!("bulk bench write {:?}", err),
             };
 
@@ -122,8 +125,8 @@ impl<U: UsbCore> TestClass<U> {
 
                     self.write_bulk_in(count == 0);
                 }
-            },
-            Err(UsbError::WouldBlock) => { },
+            }
+            Err(UsbError::WouldBlock) => {}
             Err(err) => panic!("bulk read {:?}", err),
         };
 
@@ -135,18 +138,22 @@ impl<U: UsbCore> TestClass<U> {
                     panic!("unexpectedly read data from interrupt out endpoint");
                 }
 
-                self.ep_interrupt_in.write_packet(&self.interrupt_buf[0..count])
+                self.ep_interrupt_in
+                    .write_packet(&self.interrupt_buf[0..count])
                     .expect("interrupt write");
 
                 self.expect_interrupt_in_complete = true;
-            },
-            Err(UsbError::WouldBlock) => { },
+            }
+            Err(UsbError::WouldBlock) => {}
             Err(err) => panic!("interrupt read {:?}", err),
         };
     }
 
     fn write_bulk_in(&mut self, write_empty: bool) {
-        let count = cmp::min(self.len - self.i, self.ep_bulk_in.max_packet_size() as usize);
+        let count = cmp::min(
+            self.len - self.i,
+            self.ep_bulk_in.max_packet_size() as usize,
+        );
 
         if count == 0 && !write_empty {
             self.len = 0;
@@ -155,12 +162,15 @@ impl<U: UsbCore> TestClass<U> {
             return;
         }
 
-        match self.ep_bulk_in.write_packet(&self.bulk_buf[self.i..self.i+count]) {
+        match self
+            .ep_bulk_in
+            .write_packet(&self.bulk_buf[self.i..self.i + count])
+        {
             Ok(()) => {
                 self.expect_bulk_in_complete = true;
                 self.i += count;
-            },
-            Err(UsbError::WouldBlock) => { },
+            }
+            Err(UsbError::WouldBlock) => {}
             Err(err) => panic!("bulk write {:?}", err),
         };
     }
@@ -168,13 +178,15 @@ impl<U: UsbCore> TestClass<U> {
 
 impl<U: UsbCore> UsbClass<U> for TestClass<U> {
     fn configure(&mut self, mut config: Config<U>) -> Result<()> {
-        config.interface(
+        config
+            .interface(
                 &mut self.iface,
                 InterfaceDescriptor {
-                class: 0xff,
-                sub_class: 0x00,
-                protocol: 0x00,
-            })?
+                    class: 0xff,
+                    sub_class: 0x00,
+                    protocol: 0x00,
+                },
+            )?
             .endpoint_in(&mut self.ep_bulk_in)?
             .endpoint_out(&mut self.ep_bulk_out)?
             .endpoint_in(&mut self.ep_interrupt_in)?
@@ -241,12 +253,12 @@ impl<U: UsbCore> UsbClass<U> for TestClass<U> {
         }
 
         match req.request {
-            REQ_READ_BUFFER if req.length as usize <= self.control_buf.len()
-                => xfer.accept_with(&self.control_buf[0..req.length as usize])
-                    .expect("control_in REQ_READ_BUFFER failed"),
-            REQ_READ_LONG_DATA
-                => xfer.accept_with_static(LONG_DATA)
-                    .expect("control_in REQ_READ_LONG_DATA failed"),
+            REQ_READ_BUFFER if req.length as usize <= self.control_buf.len() => xfer
+                .accept_with(&self.control_buf[0..req.length as usize])
+                .expect("control_in REQ_READ_BUFFER failed"),
+            REQ_READ_LONG_DATA => xfer
+                .accept_with_static(LONG_DATA)
+                .expect("control_in REQ_READ_LONG_DATA failed"),
             _ => xfer.reject().expect("control_in reject failed"),
         }
     }
@@ -262,26 +274,32 @@ impl<U: UsbCore> UsbClass<U> for TestClass<U> {
 
         match req.request {
             REQ_STORE_REQUEST => {
-                self.control_buf[0] = (req.direction as u8) | (req.request_type as u8) << 5 | (req.recipient as u8);
+                self.control_buf[0] =
+                    (req.direction as u8) | (req.request_type as u8) << 5 | (req.recipient as u8);
                 self.control_buf[1] = req.request;
                 self.control_buf[2..4].copy_from_slice(&req.value.to_le_bytes());
                 self.control_buf[4..6].copy_from_slice(&req.index.to_le_bytes());
                 self.control_buf[6..8].copy_from_slice(&req.length.to_le_bytes());
 
                 xfer.accept().expect("control_out REQ_STORE_REQUEST failed");
-            },
+            }
             REQ_WRITE_BUFFER if xfer.data().len() as usize <= self.control_buf.len() => {
-                assert_eq!(xfer.data().len(), req.length as usize, "xfer data len == req.length");
+                assert_eq!(
+                    xfer.data().len(),
+                    req.length as usize,
+                    "xfer data len == req.length"
+                );
 
                 self.control_buf[0..xfer.data().len()].copy_from_slice(xfer.data());
 
                 xfer.accept().expect("control_out REQ_WRITE_BUFFER failed");
-            },
+            }
             REQ_SET_BENCH_ENABLED => {
                 self.bench = req.value != 0;
 
-                xfer.accept().expect("control_out REQ_SET_BENCH_ENABLED failed");
-            },
+                xfer.accept()
+                    .expect("control_out REQ_SET_BENCH_ENABLED failed");
+            }
             _ => xfer.reject().expect("control_out reject failed"),
         }
     }

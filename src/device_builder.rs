@@ -1,5 +1,5 @@
-use crate::usbcore::UsbCore;
 use crate::device::{ClassList, DeviceConfig, UsbDevice};
+use crate::usbcore::UsbCore;
 
 /// A USB vendor ID and product ID pair.
 pub struct UsbVidPid(pub u16, pub u16);
@@ -42,7 +42,7 @@ impl<U: UsbCore> UsbDeviceBuilder<U> {
                 supports_remote_wakeup: false,
                 composite_with_iads: false,
                 max_power: 50,
-            }
+            },
         }
     }
 
@@ -133,8 +133,8 @@ impl<U: UsbCore> UsbDeviceBuilder<U> {
     /// Default: 8 bytes
     pub fn max_packet_size_0(mut self, max_packet_size_0: u8) -> Self {
         match max_packet_size_0 {
-            8 | 16 | 32 | 64 => { }
-            _ => panic!("invalid max_packet_size_0")
+            8 | 16 | 32 | 64 => {}
+            _ => panic!("invalid max_packet_size_0"),
         }
 
         self.config.max_packet_size_0 = max_packet_size_0;

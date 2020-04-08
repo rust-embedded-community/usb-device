@@ -1,15 +1,18 @@
-use crate::Result;
-use crate::allocator::{StringHandle, InterfaceHandle};
+use crate::allocator::{InterfaceHandle, StringHandle};
 use crate::class::UsbClass;
 use crate::endpoint::{EndpointIn, EndpointOut};
 use crate::usbcore::UsbCore;
+use crate::Result;
 
 // Dynamic dispatch is used to keep the `UsbClass::configure` method object safe and to avoid
 // monomorphization.
 pub struct Config<'v, U: UsbCore>(&'v mut dyn ConfigVisitor<U>);
 
 impl<'v, U: UsbCore> Config<'v, U> {
-    pub(crate) fn visit(classes: &mut [&mut dyn UsbClass<U>], visitor: &mut impl ConfigVisitor<U>) -> Result<()> {
+    pub(crate) fn visit(
+        classes: &mut [&mut dyn UsbClass<U>],
+        visitor: &mut impl ConfigVisitor<U>,
+    ) -> Result<()> {
         for cls in classes.iter_mut() {
             cls.configure(Config(visitor))?;
         }
@@ -24,7 +27,11 @@ impl<'v, U: UsbCore> Config<'v, U> {
     }
 
     #[inline(always)]
-    pub fn interface<'c>(&'c mut self, interface: &mut InterfaceHandle, descriptor: InterfaceDescriptor) -> Result<InterfaceConfig<'v, 'c, U>> {
+    pub fn interface<'c>(
+        &'c mut self,
+        interface: &mut InterfaceHandle,
+        descriptor: InterfaceDescriptor,
+    ) -> Result<InterfaceConfig<'v, 'c, U>> {
         self.0.begin_interface(interface, &descriptor)?;
 
         Ok(InterfaceConfig {
@@ -50,7 +57,9 @@ pub struct InterfaceConfig<'v, 'c, U: UsbCore> {
 
 impl<U: UsbCore> InterfaceConfig<'_, '_, U> {
     pub fn alt_setting(&mut self) -> Result<&mut Self> {
-        self.parent.0.next_alt_setting(&mut self.interface, &self.descriptor)?;
+        self.parent
+            .0
+            .next_alt_setting(&mut self.interface, &self.descriptor)?;
         Ok(self)
     }
 
@@ -61,7 +70,11 @@ impl<U: UsbCore> InterfaceConfig<'_, '_, U> {
     }
 
     #[inline(always)]
-    pub fn endpoint_out_ex(&mut self, endpoint: &mut EndpointOut<U>, extra: &[u8]) -> Result<&mut Self> {
+    pub fn endpoint_out_ex(
+        &mut self,
+        endpoint: &mut EndpointOut<U>,
+        extra: &[u8],
+    ) -> Result<&mut Self> {
         self.parent.0.endpoint_out(endpoint, Some(extra))?;
         Ok(self)
     }
@@ -73,7 +86,11 @@ impl<U: UsbCore> InterfaceConfig<'_, '_, U> {
     }
 
     #[inline(always)]
-    pub fn endpoint_in_ex(&mut self, endpoint: &mut EndpointIn<U>, extra: &[u8]) -> Result<&mut Self> {
+    pub fn endpoint_in_ex(
+        &mut self,
+        endpoint: &mut EndpointIn<U>,
+        extra: &[u8],
+    ) -> Result<&mut Self> {
         self.parent.0.endpoint_in(endpoint, Some(extra))?;
         Ok(self)
     }
@@ -97,17 +114,25 @@ pub(crate) trait ConfigVisitor<U: UsbCore> {
         Ok(())
     }
 
-    fn begin_interface(&mut self, interface: &mut InterfaceHandle, desc: &InterfaceDescriptor) -> Result<()> {
+    fn begin_interface(
+        &mut self,
+        interface: &mut InterfaceHandle,
+        desc: &InterfaceDescriptor,
+    ) -> Result<()> {
         let _ = (interface, desc);
         Ok(())
     }
 
-    fn next_alt_setting(&mut self, interface: &mut InterfaceHandle, desc: &InterfaceDescriptor) -> Result<()> {
+    fn next_alt_setting(
+        &mut self,
+        interface: &mut InterfaceHandle,
+        desc: &InterfaceDescriptor,
+    ) -> Result<()> {
         let _ = (interface, desc);
         Ok(())
     }
 
-    fn end_interface(&mut self) -> () { }
+    fn end_interface(&mut self) -> () {}
 
     fn endpoint_out(&mut self, endpoint: &mut EndpointOut<U>, extra: Option<&[u8]>) -> Result<()> {
         let _ = (endpoint, extra);

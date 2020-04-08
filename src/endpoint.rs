@@ -1,5 +1,5 @@
-use crate::{Result, UsbError, UsbDirection};
-use crate::usbcore::{UsbCore, UsbEndpoint, UsbEndpointOut, UsbEndpointIn};
+use crate::usbcore::{UsbCore, UsbEndpoint, UsbEndpointIn, UsbEndpointOut};
+use crate::{Result, UsbDirection, UsbError};
 
 /// USB endpoint transfer type. The values of this enum can be directly cast into `u8` to get the
 /// transfer bmAttributes transfer type bits.
@@ -84,19 +84,13 @@ impl EndpointConfig {
 
 impl<U: UsbCore> From<EndpointConfig> for EndpointOut<U> {
     fn from(config: EndpointConfig) -> Self {
-        EndpointOut {
-            config,
-            core: None,
-        }
+        EndpointOut { config, core: None }
     }
 }
 
 impl<U: UsbCore> From<EndpointConfig> for EndpointIn<U> {
     fn from(config: EndpointConfig) -> Self {
-        EndpointIn {
-            config,
-            core: None,
-        }
+        EndpointIn { config, core: None }
     }
 }
 
@@ -107,7 +101,7 @@ pub(crate) struct EndpointCore<EP> {
 
 pub struct EndpointOut<U: UsbCore> {
     pub(crate) config: EndpointConfig,
-    pub(crate) core: Option<EndpointCore<U::EndpointOut>>
+    pub(crate) core: Option<EndpointCore<U::EndpointOut>>,
 }
 
 impl<U: UsbCore> EndpointOut<U> {
@@ -124,7 +118,10 @@ impl<U: UsbCore> EndpointOut<U> {
     }
 
     pub fn address(&self) -> EndpointAddress {
-        self.core.as_ref().map(|c| c.ep.address()).unwrap_or(EndpointAddress(0))
+        self.core
+            .as_ref()
+            .map(|c| c.ep.address())
+            .unwrap_or(EndpointAddress(0))
     }
 
     /// Reads a single packet of data from the specified endpoint and returns the actual length of
@@ -178,17 +175,19 @@ impl<U: UsbCore> EndpointOut<U> {
         self.core
             .as_mut()
             .ok_or(UsbError::EndpointDisabled)
-            .and_then(|c| if c.enabled {
-                c.ep.read_packet(data)
-            } else {
-                Err(UsbError::EndpointDisabled)
+            .and_then(|c| {
+                if c.enabled {
+                    c.ep.read_packet(data)
+                } else {
+                    Err(UsbError::EndpointDisabled)
+                }
             })
     }
 }
 
 pub struct EndpointIn<U: UsbCore> {
     pub(crate) config: EndpointConfig,
-    pub(crate) core: Option<EndpointCore<U::EndpointIn>>
+    pub(crate) core: Option<EndpointCore<U::EndpointIn>>,
 }
 
 impl<U: UsbCore> EndpointIn<U> {
@@ -205,7 +204,10 @@ impl<U: UsbCore> EndpointIn<U> {
     }
 
     pub fn address(&self) -> EndpointAddress {
-        self.core.as_ref().map(|c| c.ep.address()).unwrap_or(EndpointAddress(0))
+        self.core
+            .as_ref()
+            .map(|c| c.ep.address())
+            .unwrap_or(EndpointAddress(0))
     }
 
     /// Writes a single packet of data to the specified endpoint. The buffer must not be longer than
@@ -229,10 +231,12 @@ impl<U: UsbCore> EndpointIn<U> {
         self.core
             .as_mut()
             .ok_or(UsbError::EndpointDisabled)
-            .and_then(|c| if c.enabled {
-                c.ep.write_packet(data)
-            } else {
-                Err(UsbError::EndpointDisabled)
+            .and_then(|c| {
+                if c.enabled {
+                    c.ep.write_packet(data)
+                } else {
+                    Err(UsbError::EndpointDisabled)
+                }
             })
     }
 }

@@ -1,13 +1,15 @@
-use crate::{Result, UsbDirection};
-use crate::allocator::{UsbAllocator, InterfaceHandle, StringHandle, self};
-use crate::usbcore::{UsbCore, UsbEndpoint, PollResult};
-use crate::class::{UsbClass, ControlIn, ControlOut};
+use crate::allocator::{self, InterfaceHandle, StringHandle, UsbAllocator};
+use crate::class::{ControlIn, ControlOut, UsbClass};
 use crate::config::{Config, ConfigVisitor, InterfaceDescriptor};
 use crate::control;
 use crate::control_pipe::ControlPipe;
-use crate::descriptor::{DescriptorWriter, ConfigurationDescriptorWriter, BosWriter, descriptor_type, lang_id};
-use crate::endpoint::{EndpointAddress, EndpointConfig, EndpointOut, EndpointIn};
+use crate::descriptor::{
+    descriptor_type, lang_id, BosWriter, ConfigurationDescriptorWriter, DescriptorWriter,
+};
 pub use crate::device_builder::{UsbDeviceBuilder, UsbVidPid};
+use crate::endpoint::{EndpointAddress, EndpointConfig, EndpointIn, EndpointOut};
+use crate::usbcore::{PollResult, UsbCore, UsbEndpoint};
+use crate::{Result, UsbDirection};
 
 /// The global state of the USB device.
 ///
@@ -68,12 +70,17 @@ pub const CONFIGURATION_VALUE: u8 = 1;
 pub(crate) type ClassList<'a, U> = [&'a mut dyn UsbClass<U>];
 
 impl<U: UsbCore> UsbDevice<U> {
-    pub(crate) fn build(mut bus: U, config: DeviceConfig, classes: &mut ClassList<U>) -> UsbDevice<U> {
+    pub(crate) fn build(
+        mut bus: U,
+        config: DeviceConfig,
+        classes: &mut ClassList<U>,
+    ) -> UsbDevice<U> {
         let mut ep_alloc = bus.create_allocator();
 
         let control = ControlPipe::new(&mut ep_alloc, config.max_packet_size_0);
 
-        Config::visit(classes, &mut UsbAllocator::new(bus.create_allocator())).expect("Configuration failed");
+        Config::visit(classes, &mut UsbAllocator::new(bus.create_allocator()))
+            .expect("Configuration failed");
 
         bus.enable();
 
@@ -141,18 +148,23 @@ impl<U: UsbCore> UsbDevice<U> {
 
         if self.device_state == UsbDeviceState::Suspend {
             match pr {
-                PollResult::Suspend | PollResult::None => { return false; },
+                PollResult::Suspend | PollResult::None => {
+                    return false;
+                }
                 _ => {
                     self.bus.resume();
                     self.device_state = UsbDeviceState::Default;
-                },
+                }
             }
         }
 
         match pr {
-            PollResult::None => { }
+            PollResult::None => {}
             PollResult::Reset => self.reset(classes),
-            PollResult::Data { mut ep_out, mut ep_in_complete } => {
+            PollResult::Data {
+                mut ep_out,
+                mut ep_in_complete,
+            } => {
                 // Handle EP0-IN conditions first. When both EP0-IN and EP0-OUT have completed,
                 // it is possible that EP0-OUT is a zero-sized out packet to complete the STATUS
                 // phase of the control transfer. We have to process EP0-IN first to update our
@@ -170,6 +182,22 @@ impl<U: UsbCore> UsbDevice<U> {
                     }
 
                     ep_in_complete &= !1;
+                }
+
+                if (ep_out & 1) != 0 {
+                    let req = self.control.handle_out();
+
+                    match req {
+                        Some(req) if req.direction == UsbDirection::In => {
+                            self.control_in(classes, req)
+                        }
+                        Some(req) if req.direction == UsbDirection::Out => {
+                            self.control_out(classes, req)
+                        }
+                        _ => (),
+                    };
+
+                    ep_out &= !1;
                 }
 
                 // Handle EP0-OUT second.
@@ -194,15 +222,19 @@ impl<U: UsbCore> UsbDevice<U> {
                 for i in 1..MAX_ENDPOINTS {
                     if (ep_out & bit) != 0 {
                         for cls in classes.iter_mut() {
-                            cls.endpoint_out(
-                                EndpointAddress::from_parts(i as u8, UsbDirection::Out));
+                            cls.endpoint_out(EndpointAddress::from_parts(
+                                i as u8,
+                                UsbDirection::Out,
+                            ));
                         }
                     }
 
                     if (ep_in_complete & bit) != 0 {
                         for cls in classes.iter_mut() {
-                            cls.endpoint_in_complete(
-                                EndpointAddress::from_parts(i as u8, UsbDirection::In));
+                            cls.endpoint_in_complete(EndpointAddress::from_parts(
+                                i as u8,
+                                UsbDirection::In,
+                            ));
                         }
                     }
 
@@ -222,8 +254,8 @@ impl<U: UsbCore> UsbDevice<U> {
                 }
 
                 return true;
-            },
-            PollResult::Resume => { }
+            }
+            PollResult::Resume => {}
             PollResult::Suspend => {
                 self.bus.suspend();
                 self.device_state = UsbDeviceState::Suspend;
@@ -234,7 +266,7 @@ impl<U: UsbCore> UsbDevice<U> {
     }
 
     fn control_in(&mut self, classes: &mut ClassList<'_, U>, req: control::Request) {
-        use crate::control::{Request, Recipient};
+        use crate::control::{Recipient, Request};
 
         for cls in classes.iter_mut() {
             cls.control_in(ControlIn::new(&mut self.control, &req));
@@ -251,28 +283,37 @@ impl<U: UsbCore> UsbDevice<U> {
                 (Recipient::Device, Request::GET_STATUS) => {
                     let status: u16 = 0x0000
                         | if self.self_powered { 0x0001 } else { 0x0000 }
-                        | if self.remote_wakeup_enabled { 0x0002 } else { 0x0000 };
+                        | if self.remote_wakeup_enabled {
+                            0x0002
+                        } else {
+                            0x0000
+                        };
 
                     xfer.accept_with(&status.to_le_bytes()).ok();
-                },
+                }
 
                 (Recipient::Interface, Request::GET_STATUS) => {
                     let status: u16 = 0x0000;
 
                     xfer.accept_with(&status.to_le_bytes()).ok();
-                },
+                }
 
                 (Recipient::Endpoint, Request::GET_STATUS) => {
                     let ep_addr = ((req.index as u8) & 0x8f).into();
 
                     let status: u16 = 0x0000
-                        | if self.bus.is_stalled(ep_addr) { 0x0001 } else { 0x0000 };
+                        | if self.bus.is_stalled(ep_addr) {
+                            0x0001
+                        } else {
+                            0x0000
+                        };
 
                     xfer.accept_with(&status.to_le_bytes()).ok();
-                },
+                }
 
-                (Recipient::Device, Request::GET_DESCRIPTOR)
-                    => UsbDevice::get_descriptor(&self.config, classes, xfer),
+                (Recipient::Device, Request::GET_DESCRIPTOR) => {
+                    UsbDevice::get_descriptor(&self.config, classes, xfer)
+                }
 
                 (Recipient::Device, Request::GET_CONFIGURATION) => {
                     let config = match self.device_state {
@@ -281,7 +322,7 @@ impl<U: UsbCore> UsbDevice<U> {
                     };
 
                     xfer.accept_with(&config.to_le_bytes()).ok();
-                },
+                }
 
                 (Recipient::Interface, Request::GET_INTERFACE) => {
                     let iface = InterfaceHandle(Some(req.index as u8));
@@ -289,7 +330,7 @@ impl<U: UsbCore> UsbDevice<U> {
                     // FIXME: Unimplemented
 
                     xfer.reject().ok();
-                },
+                }
 
                 _ => (),
             };
@@ -301,7 +342,7 @@ impl<U: UsbCore> UsbDevice<U> {
     }
 
     fn control_out(&mut self, classes: &mut ClassList<'_, U>, req: control::Request) {
-        use crate::control::{Request, Recipient};
+        use crate::control::{Recipient, Request};
 
         for cls in classes.iter_mut() {
             cls.control_out(ControlOut::new(&mut self.control, &req));
@@ -318,25 +359,35 @@ impl<U: UsbCore> UsbDevice<U> {
             const CONFIGURATION_VALUE_U16: u16 = CONFIGURATION_VALUE as u16;
 
             match (req.recipient, req.request, req.value) {
-                (Recipient::Device, Request::CLEAR_FEATURE, Request::FEATURE_DEVICE_REMOTE_WAKEUP) => {
+                (
+                    Recipient::Device,
+                    Request::CLEAR_FEATURE,
+                    Request::FEATURE_DEVICE_REMOTE_WAKEUP,
+                ) => {
                     self.remote_wakeup_enabled = false;
                     xfer.accept().ok();
-                },
+                }
 
                 (Recipient::Endpoint, Request::CLEAR_FEATURE, Request::FEATURE_ENDPOINT_HALT) => {
-                    self.bus.set_stalled(((req.index as u8) & 0x8f).into(), false);
+                    self.bus
+                        .set_stalled(((req.index as u8) & 0x8f).into(), false);
                     xfer.accept().ok();
-                },
+                }
 
-                (Recipient::Device, Request::SET_FEATURE, Request::FEATURE_DEVICE_REMOTE_WAKEUP) => {
+                (
+                    Recipient::Device,
+                    Request::SET_FEATURE,
+                    Request::FEATURE_DEVICE_REMOTE_WAKEUP,
+                ) => {
                     self.remote_wakeup_enabled = true;
                     xfer.accept().ok();
-                },
+                }
 
                 (Recipient::Endpoint, Request::SET_FEATURE, Request::FEATURE_ENDPOINT_HALT) => {
-                    self.bus.set_stalled(((req.index as u8) & 0x8f).into(), true);
+                    self.bus
+                        .set_stalled(((req.index as u8) & 0x8f).into(), true);
                     xfer.accept().ok();
-                },
+                }
 
                 (Recipient::Device, Request::SET_ADDRESS, 1..=127) => {
                     if U::QUIRK_SET_ADDRESS_BEFORE_STATUS {
@@ -346,15 +397,14 @@ impl<U: UsbCore> UsbDevice<U> {
                         self.pending_address = req.value as u8;
                     }
                     xfer.accept().ok();
-                },
+                }
 
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_VALUE_U16) => {
                     if self.device_state != UsbDeviceState::Configured {
                         // TODO: report to classes?
 
-                        if Config::visit(
-                            classes,
-                            &mut EnableEndpointVisitor::new(None, Some(0))).is_ok()
+                        if Config::visit(classes, &mut EnableEndpointVisitor::new(None, Some(0)))
+                            .is_ok()
                         {
                             self.device_state = UsbDeviceState::Configured;
 
@@ -363,28 +413,27 @@ impl<U: UsbCore> UsbDevice<U> {
                             xfer.reject().ok();
                         }
                     }
-                },
+                }
 
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_NONE_U16) => {
                     match self.device_state {
                         UsbDeviceState::Default => {
                             xfer.reject().ok();
-                        },
+                        }
                         _ => {
                             // TODO: report to classes?
 
-                            if Config::visit(
-                                classes,
-                                &mut EnableEndpointVisitor::new(None, None)).is_ok()
+                            if Config::visit(classes, &mut EnableEndpointVisitor::new(None, None))
+                                .is_ok()
                             {
                                 self.device_state = UsbDeviceState::Addressed;
                                 xfer.accept().ok();
                             } else {
                                 xfer.reject().ok();
                             }
-                        },
+                        }
                     }
-                },
+                }
 
                 (Recipient::Interface, Request::SET_INTERFACE, alt_setting) => {
                     let iface = Some(req.index as u8);
@@ -392,9 +441,9 @@ impl<U: UsbCore> UsbDevice<U> {
 
                     if Config::visit(
                         classes,
-                        &mut EnableEndpointVisitor::new(
-                            iface,
-                            Some(alt_setting))).is_ok()
+                        &mut EnableEndpointVisitor::new(iface, Some(alt_setting)),
+                    )
+                    .is_ok()
                     {
                         for cls in classes.iter_mut() {
                             cls.alt_setting_activated(InterfaceHandle(iface), alt_setting);
@@ -404,9 +453,12 @@ impl<U: UsbCore> UsbDevice<U> {
                     } else {
                         xfer.reject().ok();
                     }
-                },
+                }
 
-                _ => { xfer.reject().ok(); return; },
+                _ => {
+                    xfer.reject().ok();
+                    return;
+                }
             }
         }
 
@@ -422,11 +474,9 @@ impl<U: UsbCore> UsbDevice<U> {
 
         fn accept_writer<U: UsbCore>(
             xfer: ControlIn<U>,
-            f: impl FnOnce(DescriptorWriter) -> Result<usize>)
-        {
-            xfer.accept(|buf| {
-                f(DescriptorWriter::new(buf))
-            }).ok();
+            f: impl FnOnce(DescriptorWriter) -> Result<usize>,
+        ) {
+            xfer.accept(|buf| f(DescriptorWriter::new(buf))).ok();
         }
 
         match dtype {
@@ -456,9 +506,7 @@ impl<U: UsbCore> UsbDevice<U> {
             descriptor_type::STRING => {
                 if index == 0 {
                     accept_writer(xfer, |mut w| {
-                        w.write(
-                            descriptor_type::STRING,
-                            &lang_id::ENGLISH_US.to_le_bytes())?;
+                        w.write(descriptor_type::STRING, &lang_id::ENGLISH_US.to_le_bytes())?;
 
                         w.finish()
                     });
@@ -470,10 +518,13 @@ impl<U: UsbCore> UsbDevice<U> {
                         _ => {
                             let lang_id = req.index;
 
-                            classes.iter()
-                                .filter_map(|cls| cls.get_string(StringHandle(Some(index)), lang_id))
+                            classes
+                                .iter()
+                                .filter_map(|cls| {
+                                    cls.get_string(StringHandle(Some(index)), lang_id)
+                                })
                                 .next()
-                        },
+                        }
                     };
 
                     if let Some(s) = s {
@@ -485,9 +536,11 @@ impl<U: UsbCore> UsbDevice<U> {
                         xfer.reject().ok();
                     }
                 }
-            },
+            }
 
-            _ => { xfer.reject().ok(); },
+            _ => {
+                xfer.reject().ok();
+            }
         }
     }
 
@@ -523,13 +576,22 @@ impl EnableEndpointVisitor {
         }
     }
 
-    fn visit_endpoint(&mut self, endpoint: Option<&mut impl UsbEndpoint>, config: &EndpointConfig) -> Result<()> {
+    fn visit_endpoint(
+        &mut self,
+        endpoint: Option<&mut impl UsbEndpoint>,
+        config: &EndpointConfig,
+    ) -> Result<()> {
         if let Some(endpoint) = endpoint {
             if self.interface_match
-                && self.alt_setting.map(|a| a == self.current_alt).unwrap_or(true)
+                && self
+                    .alt_setting
+                    .map(|a| a == self.current_alt)
+                    .unwrap_or(true)
             {
                 if self.alt_setting.is_some() {
-                    unsafe { endpoint.enable(config); }
+                    unsafe {
+                        endpoint.enable(config);
+                    }
                 } else {
                     endpoint.disable();
                 }
@@ -542,14 +604,25 @@ impl EnableEndpointVisitor {
 
 // TODO: Clean up the Option mess
 impl<U: UsbCore> ConfigVisitor<U> for EnableEndpointVisitor {
-    fn begin_interface(&mut self, interface: &mut InterfaceHandle, _descriptor: &InterfaceDescriptor) -> Result<()> {
-        self.interface_match = self.interface.map(|i| i == interface.into()).unwrap_or(true);
+    fn begin_interface(
+        &mut self,
+        interface: &mut InterfaceHandle,
+        _descriptor: &InterfaceDescriptor,
+    ) -> Result<()> {
+        self.interface_match = self
+            .interface
+            .map(|i| i == interface.into())
+            .unwrap_or(true);
         self.current_alt = 0;
 
         Ok(())
     }
 
-    fn next_alt_setting(&mut self, _interface: &mut InterfaceHandle, _descriptor: &InterfaceDescriptor) -> Result<()>{
+    fn next_alt_setting(
+        &mut self,
+        _interface: &mut InterfaceHandle,
+        _descriptor: &InterfaceDescriptor,
+    ) -> Result<()> {
         self.current_alt += 1;
 
         Ok(())

@@ -1,5 +1,5 @@
-use std::time::Duration;
 use libusb::*;
+use std::time::Duration;
 use usb_device::test_class;
 
 pub const TIMEOUT: Duration = Duration::from_secs(1);
@@ -35,7 +35,8 @@ pub fn open_device(ctx: &Context) -> libusb::Result<DeviceHandles<'_>> {
         let device_descriptor = device.device_descriptor()?;
 
         if !(device_descriptor.vendor_id() == test_class::VID
-            && device_descriptor.product_id() == test_class::PID) {
+            && device_descriptor.product_id() == test_class::PID)
+        {
             continue;
         }
 
@@ -63,12 +64,13 @@ pub fn open_device(ctx: &Context) -> libusb::Result<DeviceHandles<'_>> {
             }
 
             /*let endpoints = config_descriptor.interfaces()
-                .flat_map(|i| i.descriptors())
-                .flat_map(|d| d.endpoint_descriptors())
-                .collect::<Vec<_>>();*/
+            .flat_map(|i| i.descriptors())
+            .flat_map(|d| d.endpoint_descriptors())
+            .collect::<Vec<_>>();*/
 
             let get_ep = |dir: Direction, ep_type: TransferType| {
-                endpoints.iter()
+                endpoints
+                    .iter()
                     .find(|ep| ep.0 == dir && ep.1 == ep_type)
                     .unwrap()
                     .2

@@ -1,21 +1,20 @@
+mod device;
 /// Runs tests against a TestClass device running on actual hardware using libusb.
 ///
 /// This is implemented as an example as opposed to a test because the Rust test runner system is
 /// not well suited for running tests that must depend on outside resources such as hardware and
 /// cannot be run in parallel.
-
 mod tests;
-mod device;
 
-use std::io::stdout;
+use crate::device::open_device;
+use crate::tests::{get_tests, TestFn};
+use libusb::*;
 use std::io::prelude::*;
+use std::io::stdout;
+use std::panic;
 use std::thread;
 use std::time::Duration;
-use std::panic;
-use libusb::*;
 use usb_device::device::CONFIGURATION_VALUE;
-use crate::device::open_device;
-use crate::tests::{TestFn, get_tests};
 
 fn main() {
     let tests = get_tests();
@@ -75,7 +74,7 @@ fn run_tests(tests: &[(&str, TestFn)]) {
 
         let res = {
             let hook = panic::take_hook();
-            panic::set_hook(Box::new(|_| { }));
+            panic::set_hook(Box::new(|_| {}));
             let res = panic::catch_unwind(panic::AssertUnwindSafe(|| {
                 test(&mut dev, &mut out);
             }));
@@ -84,7 +83,8 @@ fn run_tests(tests: &[(&str, TestFn)]) {
             res
         };
 
-        dev.release_interface(INTERFACE).expect("failed to release interface");
+        dev.release_interface(INTERFACE)
+            .expect("failed to release interface");
 
         if let Err(err) = res {
             let err = if let Some(err) = err.downcast_ref::<&'static str>() {

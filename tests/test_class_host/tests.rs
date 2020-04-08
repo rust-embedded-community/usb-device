@@ -3,8 +3,9 @@ use std::fmt::Write;
 use std::time::{Duration, Instant};
 use libusb::*;
 use rand::prelude::*;
+use std::fmt::Write;
+use std::time::{Duration, Instant};
 use usb_device::test_class;
-use crate::device::*;
 
 pub type TestFn = fn(&mut DeviceHandles, &mut String) -> ();
 
@@ -218,8 +219,13 @@ fn run_bench(dev: &DeviceHandles, out: &mut String, f: impl Fn(&mut [u8]) -> ())
 
     dev.write_control(
         request_type(Direction::Out, RequestType::Vendor, Recipient::Device),
-        test_class::REQ_SET_BENCH_ENABLED, 1, 0,
-        &[], TIMEOUT).expect("enable bench mode");
+        test_class::REQ_SET_BENCH_ENABLED,
+        1,
+        0,
+        &[],
+        TIMEOUT,
+    )
+    .expect("enable bench mode");
 
     let mut data = random_data(TRANSFER_BYTES);
 
@@ -236,10 +242,9 @@ fn run_bench(dev: &DeviceHandles, out: &mut String, f: impl Fn(&mut [u8]) -> ())
     writeln!(
         out,
         "  {} transfers of {} bytes in {:.3}s -> {:.3}Mbit/s",
-        TRANSFERS,
-        TRANSFER_BYTES,
-        elapsed,
-        throughput).expect("write failed");
+        TRANSFERS, TRANSFER_BYTES, elapsed, throughput
+    )
+    .expect("write failed");
 }
 
 fn random_data(len: usize) -> Vec<u8> {
