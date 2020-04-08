@@ -450,11 +450,15 @@ impl<U: UsbCore> UsbDevice<U> {
                     let iface = Some(req.index as u8);
                     let alt_setting = alt_setting as u8;
 
+                    // Disable endpoints first, then enable correct alt setting
                     if Config::visit(
-                        classes,
-                        &mut EnableEndpointVisitor::new(iface, Some(alt_setting)),
-                    )
-                    .is_ok()
+                            classes,
+                            &mut EnableEndpointVisitor::new(iface, None),
+                        ).is_ok()
+                        && Config::visit(
+                            classes,
+                            &mut EnableEndpointVisitor::new(iface, Some(alt_setting)),
+                        ).is_ok()
                     {
                         for cls in classes.iter_mut() {
                             cls.alt_setting_activated(InterfaceHandle(iface), alt_setting);
