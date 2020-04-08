@@ -49,6 +49,10 @@ pub enum UsbError {
     /// length constraints.
     BufferOverflow,
 
+    /// The endpoint is not currently enabled, due to the device not being configured, or the
+    /// endpoint belonging to an inactive interface alternate setting.
+    EndpointDisabled,
+
     /// Classes attempted to allocate more endpoints than the peripheral supports.
     EndpointOverflow,
 

@@ -52,6 +52,10 @@ pub trait EndpointOut: Endpoint {
     /// the packet. The buffer should be large enough to fit at least as many bytes as the
     /// `max_packet_size` specified when allocating the endpoint.
     ///
+    /// Packets are read in the order they arrive. Peripheral implementations may have a receive
+    /// buffer that fits multiple packets per endpoint. This method is only valid for non-control
+    /// endpoints, but normal class implementations do not have control endpoints.
+    ///
     /// # Errors
     ///
     /// Note: USB bus implementation errors are directly passed through, so be prepared to handle
@@ -62,7 +66,44 @@ pub trait EndpointOut: Endpoint {
     ///   USB. A zero-length packet will return `Ok(0)`.
     /// * [`BufferOverflow`](crate::UsbError::BufferOverflow) - The received packet is too long to
     ///   fit in `data`. This is generally an error in the class implementation.
+    /// * [`EndpointDisabled`](crate::UsbError::EndpointDisabled) - The endpoint is not currently
+    ///   enabled, due to the device not being configured, or the endpoint belonging to an inactive
+    ///   interface alternate setting.
+    /// * [`Unsupported`](crate::UsbError::Unsupported) - The endpoint is a control endpoint.
+    ///   Control endpoints must use [`control_read_packet`].
     fn read_packet(&mut self, data: &mut [u8]) -> Result<usize>;
+
+    /// Reads a single packet of data from the specified endpoint and returns the actual length of
+    /// the packet and whether it was a DATA or SETUP packet. The buffer should be large enough to
+    /// fit at least as many bytes as the `max_packet_size` specified when allocating the endpoint
+    /// (at least 8 for SETUP). This method is only valid for control endpoints, but normal class
+    /// implementations do not have control endpoints.
+    ///
+    /// # Errors
+    ///
+    /// Note: USB bus implementation errors are directly passed through, so be prepared to handle
+    /// other errors as well.
+    ///
+    /// * [`WouldBlock`](crate::UsbError::WouldBlock) - There is no packet to be read. Note that
+    ///   this is different from a received zero-length packet, which is valid and significant in
+    ///   USB. A zero-length packet will return `Ok(0)`.
+    /// * [`BufferOverflow`](crate::UsbError::BufferOverflow) - The received packet is too long to
+    ///   fit in `data`. This is generally an error in the class implementation.
+    /// * [`EndpointDisabled`](crate::UsbError::EndpointDisabled) - The endpoint is not currently
+    ///   enabled, due to the device not being configured, or the endpoint belonging to an inactive
+    ///   interface alternate setting.
+    /// * [`Unsupported`](crate::UsbError::Unsupported) - The endpoint is not a control endpoint.
+    fn control_read_packet(&mut self, data: &mut [u8]) -> Result<(usize, OutPacketType)>;
+}
+
+/// Specific the type of packet received via [`EndpointOut::control_read_packet`].
+#[derive(Eq, PartialEq)]
+pub enum OutPacketType {
+    /// A DATA packet
+    Data = 0,
+
+    /// A SETUP packet
+    Setup = 1,
 }
 
 /// Handle for IN endpoints.

@@ -1,8 +1,9 @@
 use core::cmp::min;
+use core::convert::TryInto;
 use crate::{Result, UsbDirection, UsbError};
 use crate::bus::UsbBus;
 use crate::control::Request;
-use crate::endpoint::{Endpoint, EndpointIn, EndpointOut};
+use crate::endpoint::{Endpoint, EndpointIn, EndpointOut, OutPacketType};
 
 #[derive(Debug)]
 #[allow(unused)]
@@ -21,6 +22,10 @@ enum ControlState {
 
 // Maximum length of control transfer data stage in bytes. 128 bytes by default. You can define the
 // feature "control-buffer-256" to make it 256 bytes if you have larger control transfers.
+//
+// ControlPipe always reserves at least 8 bytes of space at the end of the buffer for a possible
+// SETUP packet, so in some rare combinations of max_packet_size_0 and CONTROL_BUF_LEN, a transfer
+// that would barely fit in the buffer can be rejected as too large.
 #[cfg(not(feature = "control-buffer-256"))]
 const CONTROL_BUF_LEN: usize = 128;
 #[cfg(feature = "control-buffer-256")]
@@ -67,17 +72,58 @@ impl<B: UsbBus> ControlPipe<B> {
         self.state = ControlState::Idle;
     }
 
-    pub fn handle_setup<'p>(&'p mut self) -> Option<Request> {
-        let count = match self.ep_out.read_packet(&mut self.buf[..]) {
-            Ok(count) => count,
-            Err(UsbError::WouldBlock) => return None,
-            Err(_) => {
-                self.set_error();
-                return None;
-            }
+    pub fn handle_out(&mut self) -> Option<Request> {
+        // When reading a packet the buffer must always have at least 8 bytes of space for a SETUP
+        // packet. If there is not enough space, make note of it and reset the buffer pointer to the
+        // start to make space.
+        let buffer_reset_for_setup = if self.buf.len() - self.i < 8 {
+            self.i = 0;
+            true
+        } else {
+            false
         };
 
-        let req = match Request::parse(&self.buf[0..count]) {
+        let (count, packet_type) = match self.ep_out.control_read_packet(&mut self.buf[self.i..]) {
+            Ok(res) => res,
+            Err(UsbError::WouldBlock) => {
+                // This read should not block because this method is usually called when a packet is
+                // known to be waiting to be read, but if the read somehow still blocked, and the
+                // buffer was reset, this transfer has now failed.
+                if buffer_reset_for_setup {
+                    self.set_error();
+                }
+
+                return None;
+            }
+            Err(_) => {
+                // Failed to read or buffer overflow (overflow is only possible if the host
+                // sends more data than it indicated in the SETUP request)
+                self.set_error();
+                return None;
+            },
+        };
+
+        if packet_type == OutPacketType::Setup {
+            match (&self.buf[self.i..self.i+count]).try_into() {
+                Ok(request) => self.handle_out_setup(request),
+                Err(_) => {
+                    // SETUP packet length is incorrect
+                    self.set_error();
+                    None
+                },
+            }
+        } else if buffer_reset_for_setup {
+            // Buffer was reset to reserve space for a potential SETUP, and this transfer has now
+            // failed due to the buffer being too small.
+            self.set_error();
+            None
+        } else {
+            self.handle_out_data(count)
+        }
+    }
+
+    fn handle_out_setup(&mut self, request: [u8; 8]) -> Option<Request> {
+        let req = match Request::parse(&request) {
             Ok(req) => req,
             Err(_) => {
                 // Failed to parse SETUP packet
@@ -127,21 +173,9 @@ impl<B: UsbBus> ControlPipe<B> {
         return None;
     }
 
-    pub fn handle_out<'p>(&'p mut self) -> Option<Request> {
+    fn handle_out_data(&mut self, count: usize) -> Option<Request> {
         match self.state {
             ControlState::DataOut(req) => {
-                let i = self.i;
-                let count = match self.ep_out.read_packet(&mut self.buf[i..]) {
-                    Ok(count) => count,
-                    Err(UsbError::WouldBlock) => return None,
-                    Err(_) => {
-                        // Failed to read or buffer overflow (overflow is only possible if the host
-                        // sends more data than it indicated in the SETUP request)
-                        self.set_error();
-                        return None;
-                    },
-                };
-
                 self.i += count;
 
                 if self.i >= self.len {
@@ -150,13 +184,9 @@ impl<B: UsbBus> ControlPipe<B> {
                 }
             },
             ControlState::StatusOut => {
-                self.ep_out.read_packet(&mut []).ok();
                 self.state = ControlState::Idle;
             },
             _ => {
-                // Discard the packet
-                self.ep_out.read_packet(&mut []).ok();
-
                 // Unexpected OUT packet
                 self.set_error()
             },

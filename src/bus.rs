@@ -49,9 +49,9 @@ pub trait UsbBus: Sized {
     /// Resumes from suspend mode. This may only be called after the peripheral has been previously
     /// suspended.
     fn resume(&mut self);
-    
+
     /// Indicates that `set_device_address` must be called before accepting the corresponding
-    /// control transfer. 
+    /// control transfer.
     ///
     /// The default value for this constant is `false`, which corresponds to the USB 2.0 spec,
     /// 9.4.6. However some platforms take care of delaying the address change in hardware, and
@@ -78,10 +78,6 @@ pub enum PollResult {
         /// An IN packet has finished transmitting. This event should only be reported once for each
         /// completed transfer.
         ep_in_complete: u16,
-
-        /// A SETUP packet has been received. This event should continue to be reported until the
-        /// packet is read. The corresponding bit in `ep_out` may also be set but is ignored.
-        ep_setup: u16
     },
 
     /// A USB suspend request has been detected or, in the case of self-powered devices, the device
@@ -97,7 +93,7 @@ pub enum PollResult {
 pub trait EndpointAllocator<B: UsbBus> {
     /// Allocates an OUT endpoint with the provided configuration
     fn alloc_out(&mut self, config: &EndpointConfig) -> Result<B::EndpointOut>;
-    
+
     /// Allocates an IN endpoint with the provided configuration
     fn alloc_in(&mut self, config: &EndpointConfig) -> Result<B::EndpointIn>;
 }

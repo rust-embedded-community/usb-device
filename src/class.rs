@@ -139,15 +139,6 @@ pub trait UsbClass<B: UsbBus> {
         let _ = xfer;
     }
 
-    /// Called when endpoint with address `addr` has received a SETUP packet. Implementing this
-    /// shouldn't be necessary in most cases, but is provided for completeness' sake.
-    ///
-    /// Note: This method may be called for an endpoint address you didn't allocate, in which case
-    /// you should ignore the event.
-    fn endpoint_setup(&mut self, addr: EndpointAddress) {
-        let _ = addr;
-    }
-
     /// Called when endpoint with address `addr` has received data (OUT packet).
     ///
     /// Note: This method may be called for an endpoint address you didn't allocate, in which case

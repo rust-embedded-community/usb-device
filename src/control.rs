@@ -1,4 +1,4 @@
-use crate::{Result, UsbDirection, UsbError};
+use crate::{Result, UsbDirection};
 use core::mem;
 
 /// Control request type.
@@ -94,11 +94,7 @@ impl Request {
     /// Standard USB feature Device Remote Wakeup for Set/Clear Feature
     pub const FEATURE_DEVICE_REMOTE_WAKEUP: u16 = 1;
 
-    pub(crate) fn parse(buf: &[u8]) -> Result<Request> {
-        if buf.len() != 8 {
-            return Err(UsbError::ParseError);
-        }
-
+    pub(crate) fn parse(buf: &[u8; 8]) -> Result<Request> {
         let rt = buf[0];
         let recipient = rt & 0b11111;
 
