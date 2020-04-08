@@ -80,9 +80,10 @@ impl<U: UsbCore> UsbDevice<U> {
         let control = ControlPipe::new(&mut ep_alloc, config.max_packet_size_0);
 
         Config::visit(classes, &mut UsbAllocator::new(bus.create_allocator()))
-            .expect("Configuration failed");
+            .expect("configuration failed");
 
-        bus.enable();
+        bus.enable(ep_alloc)
+            .expect("enable failed");
 
         UsbDevice {
             bus,

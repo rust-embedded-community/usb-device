@@ -21,7 +21,7 @@ pub trait UsbCore: Sized {
 
     /// Enables and initializes the USB peripheral. `reset` is called soon after enabling the
     /// peripheral, so there's no need to call it yourself.
-    fn enable(&mut self);
+    fn enable(&mut self, allocator: Self::EndpointAllocator) -> Result<()>;
 
     /// Handles a USB protocol reset signaled from the host. This method should reset the state of
     /// all endpoints and peripheral flags back to a state compatible with host enumeration, as well
