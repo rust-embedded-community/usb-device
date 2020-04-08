@@ -90,7 +90,11 @@ impl<U: UsbCore> TestClass<U> {
     }
 
     /// Must be called after polling the UsbDevice.
-    pub fn poll(&mut self) {
+    pub fn poll(&mut self, state: UsbDeviceState) {
+        if state != UsbDeviceState::Configured {
+            return;
+        }
+
         if self.bench {
             match self.ep_bulk_out.read_packet(&mut self.bulk_buf) {
                 Ok(_) | Err(UsbError::WouldBlock) => {}

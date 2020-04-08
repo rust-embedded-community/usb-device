@@ -167,9 +167,12 @@ impl<U: UsbCore> UsbDevice<U> {
             }
         }
 
-        match pr {
-            PollResult::None => {}
-            PollResult::Reset => self.reset(classes),
+        let data_available = match pr {
+            PollResult::None => false,
+            PollResult::Reset => {
+                self.reset(classes);
+                false
+            },
             PollResult::Data {
                 mut ep_out,
                 mut ep_in_complete,
@@ -258,20 +261,22 @@ impl<U: UsbCore> UsbDevice<U> {
                     bit <<= 1;
                 }
 
-                for cls in classes.iter_mut() {
-                    cls.poll();
-                }
-
-                return true;
+                true
             }
-            PollResult::Resume => {}
+            PollResult::Resume => false,
             PollResult::Suspend => {
                 self.bus.suspend();
                 self.device_state = UsbDeviceState::Suspend;
-            }
+
+                false
+            },
+        };
+
+        for cls in classes.iter_mut() {
+            cls.poll(self.device_state);
         }
 
-        return false;
+        data_available
     }
 
     fn control_in(&mut self, classes: &mut ClassList<'_, U>, req: control::Request) {

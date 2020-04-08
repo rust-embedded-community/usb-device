@@ -3,6 +3,7 @@ use crate::config::Config;
 use crate::control;
 use crate::control_pipe::ControlPipe;
 use crate::descriptor::BosWriter;
+use crate::device::UsbDeviceState;
 use crate::endpoint::EndpointAddress;
 use crate::usbcore::UsbCore;
 use crate::{Result, UsbError};
@@ -54,7 +55,9 @@ pub trait UsbClass<U: UsbCore> {
     }
 
     /// Called whenever the `UsbDevice` is polled.
-    fn poll(&mut self) {}
+    fn poll(&mut self, state: UsbDeviceState) {
+        let _ = state;
+    }
 
     /// Called when a control request is received with direction HostToDevice.
     ///
