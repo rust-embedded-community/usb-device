@@ -150,7 +150,7 @@ pub(crate) trait ConfigVisitor<U: UsbCore> {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct InterfaceDescriptor {
     pub class: u8,
     pub sub_class: u8,

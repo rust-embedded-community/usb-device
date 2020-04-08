@@ -187,8 +187,7 @@ impl<U: UsbCore> UsbClass<U> for TestClass<U> {
                 &mut self.iface,
                 InterfaceDescriptor {
                     class: 0xff,
-                    sub_class: 0x00,
-                    protocol: 0x00,
+                    ..Default::default()
                 },
             )?
             .endpoint_in(&mut self.ep_bulk_in)?
