@@ -10,15 +10,15 @@ pub(crate) const SERIAL_NUMBER_STRING: u8 = 3;
 const FIRST_ALLOCATED_STRING: u8 = 4;
 
 /// Allocates resources for USB classes.
-pub(crate) struct UsbAllocator<U: UsbCore> {
-    ep_alloc: U::EndpointAllocator,
+pub(crate) struct UsbAllocator<'a, U: UsbCore> {
+    ep_alloc: &'a mut U::EndpointAllocator,
     next_string: u8,
     next_interface: u8,
 }
 
-impl<U: UsbCore> UsbAllocator<U> {
-    pub(crate) fn new(ep_alloc: U::EndpointAllocator) -> Self {
-        Self {
+impl<U: UsbCore> UsbAllocator<'_, U> {
+    pub(crate) fn new(ep_alloc: &mut U::EndpointAllocator) -> UsbAllocator<U> {
+        UsbAllocator {
             ep_alloc,
             next_string: FIRST_ALLOCATED_STRING,
             next_interface: 0,
@@ -26,7 +26,7 @@ impl<U: UsbCore> UsbAllocator<U> {
     }
 }
 
-impl<U: UsbCore> ConfigVisitor<U> for UsbAllocator<U> {
+impl<U: UsbCore> ConfigVisitor<U> for UsbAllocator<'_, U> {
     fn string(&mut self, string: &mut StringHandle) -> Result<()> {
         if cfg!(debug_assertions) && string.0.is_some() {
             return Err(UsbError::DuplicateConfig);
