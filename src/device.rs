@@ -1,6 +1,6 @@
 use crate::{Result, UsbError, UsbDirection};
 use crate::allocator::{UsbAllocator, EndpointConfig, InterfaceNumber, StringIndex};
-use crate::bus::{UsbBus, PollResult};
+use crate::bus::{UsbCore, PollResult};
 use crate::class::{UsbClass, ControlIn, ControlOut};
 use crate::control;
 use crate::control_pipe::ControlPipe;
@@ -31,10 +31,10 @@ pub enum UsbDeviceState {
 const MAX_ENDPOINTS: usize = 16;
 
 /// A USB device consisting of one or more device classes.
-pub struct UsbDevice<B: UsbBus> {
-    bus: B,
+pub struct UsbDevice<U: UsbCore> {
+    bus: U,
     config: Config,
-    control: ControlPipe<B>,
+    control: ControlPipe<U>,
     device_state: UsbDeviceState,
     remote_wakeup_enabled: bool,
     self_powered: bool,
@@ -64,10 +64,10 @@ pub const CONFIGURATION_NONE: u8 = 0;
 /// The bConfiguration value for the single configuration supported by this device.
 pub const CONFIGURATION_VALUE: u8 = 1;
 
-type ClassList<'a, B> = [&'a mut dyn UsbClass<B>];
+type ClassList<'a, U> = [&'a mut dyn UsbClass<U>];
 
-impl<B: UsbBus> UsbDevice<B> {
-    pub(crate) fn build(mut alloc: UsbAllocator<B>, config: Config) -> UsbDevice<B> {
+impl<U: UsbCore> UsbDevice<U> {
+    pub(crate) fn build(mut alloc: UsbAllocator<U>, config: Config) -> UsbDevice<U> {
         let control_out = alloc.endpoint_out(
             EndpointConfig::control(config.max_packet_size_0 as u16).number(0));
 
@@ -89,12 +89,12 @@ impl<B: UsbBus> UsbDevice<B> {
         }
     }
 
-    /// Gets a reference to the [`UsbBus`] implementation used by this `UsbDevice`. You can use this
-    /// to call platform-specific methods on the `UsbBus`.
+    /// Gets a reference to the [`UsbCore`] implementation used by this `UsbDevice`. You can use this
+    /// to call platform-specific methods on the `UsbCore`.
     ///
-    /// While it is also possible to call the standard `UsbBus` trait methods through this
+    /// While it is also possible to call the standard `UsbCore` trait methods through this
     /// reference, it is not recommended as it can cause the device to misbehave.
-    pub fn bus(&self) -> &B {
+    pub fn bus(&self) -> &U {
         &self.bus
     }
 
@@ -120,7 +120,7 @@ impl<B: UsbBus> UsbDevice<B> {
         self.self_powered = is_self_powered;
     }
 
-    /// Polls the [`UsbBus`] for new events and dispatches them to the provided classes. Returns
+    /// Polls the [`UsbCore`] for new events and dispatches them to the provided classes. Returns
     /// true if one of the classes may have data available for reading or be ready for writing,
     /// false otherwise. This should be called periodically as often as possible for the best data
     /// rate, or preferably from an interrupt handler. Must be called at least once every 10
@@ -137,7 +137,7 @@ impl<B: UsbBus> UsbDevice<B> {
     ///
     /// Strictly speaking the list of classes is allowed to change between polls if the device has
     /// been reset, which is indicated by `state` being equal to [`UsbDeviceState::Default`].
-    pub fn poll(&mut self, classes: &mut ClassList<'_, B>) -> bool {
+    pub fn poll(&mut self, classes: &mut ClassList<'_, U>) -> bool {
         let pr = self.bus.poll();
 
         if self.device_state == UsbDeviceState::Suspend {
@@ -161,7 +161,7 @@ impl<B: UsbBus> UsbDevice<B> {
                 if (ep_in_complete & 1) != 0 {
                     let completed = self.control.handle_in_complete();
 
-                    if !B::QUIRK_SET_ADDRESS_BEFORE_STATUS {
+                    if !U::QUIRK_SET_ADDRESS_BEFORE_STATUS {
                         if completed && self.pending_address != 0 {
                             self.bus.set_device_address(self.pending_address);
                             self.pending_address = 0;
@@ -234,7 +234,7 @@ impl<B: UsbBus> UsbDevice<B> {
         return false;
     }
 
-    fn control_in(&mut self, classes: &mut ClassList<'_, B>, req: control::Request) {
+    fn control_in(&mut self, classes: &mut ClassList<'_, U>, req: control::Request) {
         use crate::control::{Request, Recipient};
 
         for cls in classes.iter_mut() {
@@ -304,7 +304,7 @@ impl<B: UsbBus> UsbDevice<B> {
         }
     }
 
-    fn control_out(&mut self, classes: &mut ClassList<'_, B>, req: control::Request) {
+    fn control_out(&mut self, classes: &mut ClassList<'_, U>, req: control::Request) {
         use crate::control::{Request, Recipient};
 
         for cls in classes.iter_mut() {
@@ -343,7 +343,7 @@ impl<B: UsbBus> UsbDevice<B> {
                 },
 
                 (Recipient::Device, Request::SET_ADDRESS, 1..=127) => {
-                    if B::QUIRK_SET_ADDRESS_BEFORE_STATUS {
+                    if U::QUIRK_SET_ADDRESS_BEFORE_STATUS {
                         self.bus.set_device_address(req.value as u8);
                         self.device_state = UsbDeviceState::Addressed;
                     } else {
@@ -403,13 +403,13 @@ impl<B: UsbBus> UsbDevice<B> {
         }
     }
 
-    fn get_descriptor(config: &Config, classes: &mut ClassList<'_, B>, xfer: ControlIn<B>) {
+    fn get_descriptor(config: &Config, classes: &mut ClassList<'_, U>, xfer: ControlIn<U>) {
         let req = *xfer.request();
 
         let (dtype, index) = req.descriptor_type_index();
 
-        fn accept_writer<B: UsbBus>(
-            xfer: ControlIn<B>,
+        fn accept_writer<U: UsbCore>(
+            xfer: ControlIn<U>,
             f: impl FnOnce(&mut DescriptorWriter) -> Result<()>)
         {
             xfer.accept(|buf| {
@@ -481,7 +481,7 @@ impl<B: UsbBus> UsbDevice<B> {
         }
     }
 
-    fn reset(&mut self, classes: &mut ClassList<'_, B>) {
+    fn reset(&mut self, classes: &mut ClassList<'_, U>) {
         self.bus.reset();
 
         self.device_state = UsbDeviceState::Default;

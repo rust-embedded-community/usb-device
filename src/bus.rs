@@ -4,7 +4,7 @@ use crate::endpoint::{EndpointOut, EndpointIn, EndpointAddress};
 
 /// A trait for accessing device-specific USB peripherals. Implement this to add support for a new
 /// hardware platform.
-pub trait UsbBus: Sized {
+pub trait UsbCore: Sized {
     /// The OUT endpoint type for this USB driver.
     type EndpointOut: EndpointOut;
 
@@ -14,7 +14,7 @@ pub trait UsbBus: Sized {
     /// The endpoint allocator type for this USB driver.
     type EndpointAllocator: crate::bus::EndpointAllocator<Self>;
 
-    /// Creates an EndpointAllocator for this UsbBus.
+    /// Creates an EndpointAllocator for this UsbCore.
     fn create_allocator(&mut self) -> Self::EndpointAllocator;
 
     /// Enables and initializes the USB peripheral. Soon after enabling the device will be reset, so
@@ -59,7 +59,7 @@ pub trait UsbBus: Sized {
     const QUIRK_SET_ADDRESS_BEFORE_STATUS: bool = false;
 }
 
-/// Event and incoming packet information returned by [`UsbBus::poll`].
+/// Event and incoming packet information returned by [`UsbCore::poll`].
 pub enum PollResult {
     /// No events or packets to report.
     None,
@@ -90,10 +90,10 @@ pub enum PollResult {
 }
 
 /// Allocates endpoint indexes and memory.
-pub trait EndpointAllocator<B: UsbBus> {
+pub trait EndpointAllocator<U> {
     /// Allocates an OUT endpoint with the provided configuration
-    fn alloc_out(&mut self, config: &EndpointConfig) -> Result<B::EndpointOut>;
+    fn alloc_out(&mut self, config: &EndpointConfig) -> Result<U::EndpointOut>;
 
     /// Allocates an IN endpoint with the provided configuration
-    fn alloc_in(&mut self, config: &EndpointConfig) -> Result<B::EndpointIn>;
+    fn alloc_in(&mut self, config: &EndpointConfig) -> Result<U::EndpointIn>;
 }

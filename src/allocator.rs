@@ -1,18 +1,18 @@
-use crate::bus::{UsbBus, EndpointAllocator};
+use crate::bus::{UsbCore, EndpointAllocator};
 use crate::endpoint::{EndpointAddress, Endpoint, EndpointType};
 
 /// Allocates resources for USB classes.
-pub struct UsbAllocator<B: UsbBus> {
-    bus: B,
-    ep_allocator: B::EndpointAllocator,
+pub struct UsbAllocator<U: UsbCore> {
+    bus: U,
+    ep_allocator: U::EndpointAllocator,
     next_interface_number: u8,
     next_string_index: u8,
 }
 
-impl<B: UsbBus> UsbAllocator<B> {
-    /// Creates a new [`UsbAllocator`] that wraps the provided [`UsbBus`]. Usually only called by
+impl<U: UsbCore> UsbAllocator<U> {
+    /// Creates a new [`UsbAllocator`] that wraps the provided [`UsbCore`]. Usually only called by
     /// USB driver implementations.
-    pub fn new(mut bus: B) -> UsbAllocator<B> {
+    pub fn new(mut bus: U) -> UsbAllocator<U> {
         UsbAllocator {
             ep_allocator: bus.create_allocator(),
             bus,
@@ -38,16 +38,16 @@ impl<B: UsbBus> UsbAllocator<B> {
     }
 
     /// Allocates an OUT endpoint with the provided configuration
-    pub fn endpoint_out(&mut self, config: EndpointConfig) -> B::EndpointOut {
+    pub fn endpoint_out(&mut self, config: EndpointConfig) -> U::EndpointOut {
         self.ep_allocator.alloc_out(&config).expect("USB endpoint allocation failed")
     }
 
     /// Allocates an IN endpoint with the provided configuration
-    pub fn endpoint_in(&mut self, config: EndpointConfig) -> B::EndpointIn {
+    pub fn endpoint_in(&mut self, config: EndpointConfig) -> U::EndpointIn {
         self.ep_allocator.alloc_in(&config).expect("USB endpoint allocation failed")
     }
 
-    pub(crate) fn finish(self) -> B {
+    pub(crate) fn finish(self) -> U {
         self.bus
     }
 }
@@ -120,7 +120,7 @@ impl EndpointConfig {
     #[inline]
     pub fn interrupt(max_packet_size: u16, interval: u8) -> EndpointConfig {
         Self::new(EndpointType::Interrupt, max_packet_size, interval)
-    } 
+    }
 
     /// Requests a specific endpoint number. The endpoint number is the low 4 bits of the endpoint
     /// address. In general this should not be necessary, but it can be used to write devices that

@@ -3,7 +3,7 @@
 //! ## Implementing a USB device
 //!
 //! A USB device consists of a [`UsbDevice`](device::UsbDevice) instance, one or more
-//! [`UsbClass`](crate::class::UsbClass)es, and a platform-specific [`UsbBus`](bus::UsbBus)
+//! [`UsbClass`](crate::class::UsbClass)es, and a platform-specific [`UsbCore`](bus::UsbCore)
 //! implementation which together form a USB composite device.
 //!
 //! In the future USB device implementors will be able to use pre-existing peripheral driver crates
@@ -24,7 +24,7 @@
 //!
 //! ## USB peripheral drivers
 //!
-//! New peripheral driver crates can be created by implementing the [`UsbBus`](bus::UsbBus) trait.
+//! New peripheral driver crates can be created by implementing the [`UsbCore`](bus::UsbCore) trait.
 //!
 //! # Note about terminology
 //!
@@ -137,7 +137,7 @@ pub mod endpoint;
 ///
 /// // Create the device-specific USB peripheral driver. The exact name and arguments are device
 /// // specific, so check the documentation for your device driver crate.
-/// let usb_bus = device_specific_usb::UsbBus::new(...);
+/// let usb_bus = device_specific_usb::UsbCore::new(...);
 ///
 /// // Create one or more USB class implementation. The name and arguments depend on the class,
 /// // however most classes require the UsbAllocator as the first argument in order to allocate
@@ -192,7 +192,7 @@ pub mod prelude {
 pub mod class_prelude {
     pub use crate::UsbError;
     pub use crate::allocator::{UsbAllocator, EndpointConfig, InterfaceNumber, StringIndex};
-    pub use crate::bus::UsbBus;
+    pub use crate::bus::UsbCore;
     pub use crate::descriptor::{DescriptorWriter, BosWriter};
     pub use crate::endpoint::{EndpointType, Endpoint, EndpointIn, EndpointOut, EndpointAddress};
     pub use crate::class::{UsbClass, ControlIn, ControlOut};
@@ -201,14 +201,14 @@ pub mod class_prelude {
 
 // FIXME maybe remove?
 /*fn _ensure_sync() {
-    use crate::bus::{UsbBus, UsbBusAllocator, PollResult};
+    use crate::bus::{UsbCore, UsbCoreAllocator, PollResult};
     use crate::class_prelude::*;
 
     struct DummyBus<'a> {
         a: &'a str,
     }
 
-    impl UsbBus for DummyBus<'_> {
+    impl UsbCore for DummyBus<'_> {
         fn alloc_ep(
             &mut self,
             _ep_dir: UsbDirection,
@@ -240,19 +240,19 @@ pub mod class_prelude {
         fn poll(&self) -> PollResult { PollResult::None }
     }
 
-    struct DummyClass<'a, B: UsbBus> {
-        ep: crate::endpoint::EndpointIn<'a, B>,
+    struct DummyClass<'a, U: UsbCore> {
+        ep: crate::endpoint::EndpointIn<'a, U>,
     }
 
-    impl<B: UsbBus> DummyClass<'_, B> {
-        fn new(alloc: &UsbBusAllocator<B>) -> DummyClass<'_, B> {
+    impl<U: UsbCore> DummyClass<'_, U> {
+        fn new(alloc: &UsbCoreAllocator<U>) -> DummyClass<'_, U> {
             DummyClass {
                 ep: alloc.bulk(64),
             }
         }
     }
 
-    impl<B: UsbBus> UsbClass<B> for DummyClass<'_, B> {
+    impl<U: UsbCore> UsbClass<U> for DummyClass<'_, U> {
 
     }
 

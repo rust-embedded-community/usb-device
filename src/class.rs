@@ -1,5 +1,5 @@
 use crate::{Result, UsbError};
-use crate::bus::UsbBus;
+use crate::bus::UsbCore;
 use crate::allocator::{InterfaceNumber, StringIndex};
 use crate::descriptor::{BosWriter, DescriptorWriter};
 use crate::control;
@@ -9,8 +9,8 @@ use crate::endpoint::EndpointAddress;
 /// A trait for implementing USB classes.
 ///
 /// All methods are optional callbacks that will be called by
-/// [UsbBus::poll](crate::bus::UsbBus::poll)
-pub trait UsbClass<B: UsbBus> {
+/// [UsbCore::poll](crate::bus::UsbCore::poll)
+pub trait UsbClass<U: UsbCore> {
     /// Called when a GET_DESCRIPTOR request is received for a configuration descriptor. When
     /// called, the implementation should write its interface, endpoint and any extra class
     /// descriptors into `writer`. The configuration descriptor itself will be written by
@@ -116,7 +116,7 @@ pub trait UsbClass<B: UsbBus> {
     ///
     /// * `req` - The request from the SETUP packet.
     /// * `xfer` - A handle to the transfer.
-    fn control_out(&mut self, xfer: ControlOut<B>) {
+    fn control_out(&mut self, xfer: ControlOut<U>) {
         let _ = xfer;
     }
 
@@ -135,7 +135,7 @@ pub trait UsbClass<B: UsbBus> {
     ///
     /// * `req` - The request from the SETUP packet.
     /// * `data` - Data to send in the DATA stage of the control transfer.
-    fn control_in(&mut self, xfer: ControlIn<B>) {
+    fn control_in(&mut self, xfer: ControlIn<U>) {
         let _ = xfer;
     }
 
@@ -159,13 +159,13 @@ pub trait UsbClass<B: UsbBus> {
 /// Handle for a control IN transfer. When implementing a class, use the methods of this object to
 /// response to the transfer with either data or an error (STALL condition). To ignore the request
 /// and pass it on to the next class, simply don't call any method.
-pub struct ControlIn<'p, 'r, B: UsbBus> {
-    pipe: &'p mut ControlPipe<B>,
+pub struct ControlIn<'p, 'r, U: UsbCore> {
+    pipe: &'p mut ControlPipe<U>,
     req: &'r control::Request,
 }
 
-impl<'p, 'r, B: UsbBus> ControlIn<'p, 'r,  B> {
-    pub(crate) fn new(pipe: &'p mut ControlPipe<B>, req: &'r control::Request) -> Self {
+impl<'p, 'r, U: UsbCore> ControlIn<'p, 'r,  U> {
+    pub(crate) fn new(pipe: &'p mut ControlPipe<U>, req: &'r control::Request) -> Self {
         ControlIn { pipe, req }
     }
 
@@ -208,13 +208,13 @@ impl<'p, 'r, B: UsbBus> ControlIn<'p, 'r,  B> {
 /// Handle for a control OUT transfer. When implementing a class, use the methods of this object to
 /// response to the transfer with an ACT or an error (STALL condition). To ignore the request and
 /// pass it on to the next class, simply don't call any method.
-pub struct ControlOut<'p, 'r, B: UsbBus> {
-    pipe: &'p mut ControlPipe<B>,
+pub struct ControlOut<'p, 'r, U: UsbCore> {
+    pipe: &'p mut ControlPipe<U>,
     req: &'r control::Request,
 }
 
-impl<'p, 'r, B: UsbBus> ControlOut<'p, 'r, B> {
-    pub(crate) fn new(pipe: &'p mut ControlPipe<B>, req: &'r control::Request) -> Self {
+impl<'p, 'r, U: UsbCore> ControlOut<'p, 'r, U> {
+    pub(crate) fn new(pipe: &'p mut ControlPipe<U>, req: &'r control::Request) -> Self {
         ControlOut { pipe, req }
     }
 

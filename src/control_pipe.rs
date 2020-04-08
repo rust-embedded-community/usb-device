@@ -1,7 +1,7 @@
 use core::cmp::min;
 use core::convert::TryInto;
 use crate::{Result, UsbDirection, UsbError};
-use crate::bus::UsbBus;
+use crate::bus::UsbCore;
 use crate::control::Request;
 use crate::endpoint::{Endpoint, EndpointIn, EndpointOut, OutPacketType};
 
@@ -32,9 +32,9 @@ const CONTROL_BUF_LEN: usize = 128;
 const CONTROL_BUF_LEN: usize = 256;
 
 /// Buffers and parses USB control transfers.
-pub struct ControlPipe<B: UsbBus> {
-    ep_out: B::EndpointOut,
-    ep_in: B::EndpointIn,
+pub struct ControlPipe<U: UsbCore> {
+    ep_out: U::EndpointOut,
+    ep_in: U::EndpointIn,
     state: ControlState,
     buf: [u8; CONTROL_BUF_LEN],
     static_in_buf: Option<&'static [u8]>,
@@ -42,8 +42,8 @@ pub struct ControlPipe<B: UsbBus> {
     len: usize,
 }
 
-impl<B: UsbBus> ControlPipe<B> {
-    pub fn new<'a>(ep_out: B::EndpointOut, ep_in: B::EndpointIn) -> ControlPipe<B> {
+impl<U: UsbCore> ControlPipe<U> {
+    pub fn new<'a>(ep_out: U::EndpointOut, ep_in: U::EndpointIn) -> ControlPipe<U> {
         ControlPipe {
             ep_out,
             ep_in,

@@ -1,13 +1,13 @@
 use crate::allocator::UsbAllocator;
-use crate::bus::UsbBus;
+use crate::bus::UsbCore;
 use crate::device::{UsbDevice, Config};
 
 /// A USB vendor ID and product ID pair.
 pub struct UsbVidPid(pub u16, pub u16);
 
 /// Used to build new [`UsbDevice`]s.
-pub struct UsbDeviceBuilder<B: UsbBus> {
-    alloc: UsbAllocator<B>,
+pub struct UsbDeviceBuilder<U: UsbCore> {
+    alloc: UsbAllocator<U>,
     config: Config,
 }
 
@@ -23,11 +23,11 @@ macro_rules! builder_fields {
     }
 }
 
-impl<B: UsbBus> UsbDeviceBuilder<B> {
+impl<U: UsbCore> UsbDeviceBuilder<U> {
     /// Creates a builder for constructing a new [`UsbDevice`].
     pub fn new(
-        alloc: UsbAllocator<B>,
-        vid_pid: UsbVidPid) -> UsbDeviceBuilder<B>
+        alloc: UsbAllocator<U>,
+        vid_pid: UsbVidPid) -> UsbDeviceBuilder<U>
     {
         UsbDeviceBuilder {
             alloc,
@@ -51,7 +51,7 @@ impl<B: UsbBus> UsbDeviceBuilder<B> {
     }
 
     /// Creates the [`UsbDevice`] instance with the configuration in this builder.
-    pub fn build(self) -> UsbDevice<B> {
+    pub fn build(self) -> UsbDevice<U> {
         UsbDevice::build(self.alloc, self.config)
     }
 
