@@ -53,6 +53,7 @@ impl<U: UsbCore> ControlPipe<U> {
         let ep_in = alloc
             .alloc_in(&ep_config(max_packet_size_0, UsbDirection::In))
             .unwrap();
+
         let ep_out = alloc
             .alloc_out(&ep_config(max_packet_size_0, UsbDirection::Out))
             .unwrap();
@@ -95,7 +96,7 @@ impl<U: UsbCore> ControlPipe<U> {
         // When reading a packet the buffer must always have at least 8 bytes of space for a SETUP
         // packet. If there is not enough space, make note of it and reset the buffer pointer to the
         // start to make space.
-        let buffer_reset_for_setup = if self.buf.len() - self.i < 8 {
+        let buffer_reset_for_setup = if self.i >= self.buf.len() - 8 {
             self.i = 0;
             true
         } else {
@@ -155,10 +156,10 @@ impl<U: UsbCore> ControlPipe<U> {
         // a stalled state.
         self.ep_out.set_stalled(false);
 
-        /*crate::println!("SETUP {:?} {:?} {:?} req:{} val:{} idx:{} len:{} {:?}",
-        req.direction, req.request_type, req.recipient,
-        req.request, req.value, req.index, req.length,
-        self.state);*/
+        /*rtt_target::rprintln!("SETUP {:?} {:?} {:?} req:{} val:{} idx:{} len:{} {:?}",
+            req.direction, req.request_type, req.recipient,
+            req.request, req.value, req.index, req.length,
+            self.state);*/
 
         if req.direction == UsbDirection::Out {
             // OUT transfer
