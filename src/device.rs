@@ -7,7 +7,7 @@ use crate::descriptor::{
     descriptor_type, lang_id, BosWriter, ConfigurationDescriptorWriter, DescriptorWriter,
 };
 pub use crate::device_builder::{UsbDeviceBuilder, UsbVidPid};
-use crate::endpoint::{EndpointAddress, EndpointConfig, EndpointIn, EndpointOut};
+use crate::endpoint::{EndpointAddress, EndpointConfig, EndpointIn, EndpointOut, EndpointCore};
 use crate::usbcore::{PollResult, UsbCore, UsbEndpoint};
 use crate::{Result, UsbDirection};
 
@@ -416,8 +416,6 @@ impl<U: UsbCore> UsbDevice<U> {
 
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_VALUE_U16) => {
                     if self.device_state != UsbDeviceState::Configured {
-                        // TODO: report to classes?
-
                         if Config::visit(classes, &mut EnableEndpointVisitor::new(None, Some(0)))
                             .is_ok()
                         {
@@ -436,8 +434,6 @@ impl<U: UsbCore> UsbDevice<U> {
                             xfer.reject().ok();
                         }
                         _ => {
-                            // TODO: report to classes?
-
                             if Config::visit(classes, &mut EnableEndpointVisitor::new(None, None))
                                 .is_ok()
                             {
@@ -593,7 +589,7 @@ impl EnableEndpointVisitor {
 
     fn visit_endpoint(
         &mut self,
-        endpoint: Option<&mut impl UsbEndpoint>,
+        endpoint: Option<&mut EndpointCore<impl UsbEndpoint>>,
         config: &EndpointConfig,
     ) -> Result<()> {
         if let Some(endpoint) = endpoint {
@@ -604,11 +600,13 @@ impl EnableEndpointVisitor {
                     .unwrap_or(true)
             {
                 if self.alt_setting.is_some() {
+                    endpoint.enabled = true;
                     unsafe {
-                        endpoint.enable(config);
+                        endpoint.ep.enable(config);
                     }
                 } else {
-                    endpoint.disable();
+                    endpoint.ep.disable();
+                    endpoint.enabled = false;
                 }
             }
         }
@@ -628,6 +626,7 @@ impl<U: UsbCore> ConfigVisitor<U> for EnableEndpointVisitor {
             .interface
             .map(|i| i == interface.into())
             .unwrap_or(true);
+
         self.current_alt = 0;
 
         Ok(())
@@ -644,10 +643,10 @@ impl<U: UsbCore> ConfigVisitor<U> for EnableEndpointVisitor {
     }
 
     fn endpoint_out(&mut self, endpoint: &mut EndpointOut<U>, _extra: Option<&[u8]>) -> Result<()> {
-        self.visit_endpoint(endpoint.core.as_mut().map(|c| &mut c.ep), &endpoint.config)
+        self.visit_endpoint(endpoint.core.as_mut(), &endpoint.config)
     }
 
     fn endpoint_in(&mut self, endpoint: &mut EndpointIn<U>, _extra: Option<&[u8]>) -> Result<()> {
-        self.visit_endpoint(endpoint.core.as_mut().map(|c| &mut c.ep), &endpoint.config)
+        self.visit_endpoint(endpoint.core.as_mut(), &endpoint.config)
     }
 }

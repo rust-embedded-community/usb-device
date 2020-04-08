@@ -242,7 +242,7 @@ impl<U: UsbCore> EndpointIn<U> {
 }
 
 /// Specific the type of packet received via [`EndpointOut::control_read_packet`].
-#[derive(Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum OutPacketType {
     /// A DATA packet
     Data = 0,
