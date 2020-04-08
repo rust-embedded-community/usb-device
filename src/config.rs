@@ -11,7 +11,7 @@ pub struct Config<'v, U: UsbCore>(&'v mut dyn ConfigVisitor<U>);
 impl<'v, U: UsbCore> Config<'v, U> {
     pub(crate) fn visit(
         classes: &mut [&mut dyn UsbClass<U>],
-        visitor: &mut impl ConfigVisitor<U>,
+        visitor: &mut dyn ConfigVisitor<U>,
     ) -> Result<()> {
         for cls in classes.iter_mut() {
             cls.configure(Config(visitor))?;
