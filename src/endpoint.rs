@@ -40,7 +40,7 @@ impl EndpointConfig {
 
     pub const fn bulk(max_packet_size: u16) -> Self {
         Self {
-            ep_type: EndpointType::Control,
+            ep_type: EndpointType::Bulk,
             max_packet_size,
             interval: 0,
             fixed_address: None,
@@ -49,7 +49,7 @@ impl EndpointConfig {
 
     pub const fn interrupt(max_packet_size: u16, interval: u8) -> Self {
         Self {
-            ep_type: EndpointType::Control,
+            ep_type: EndpointType::Interrupt,
             max_packet_size,
             interval,
             fixed_address: None,
