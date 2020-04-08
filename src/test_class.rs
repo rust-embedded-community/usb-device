@@ -182,6 +182,8 @@ impl<U: UsbCore> TestClass<U> {
 
 impl<U: UsbCore> UsbClass<U> for TestClass<U> {
     fn configure(&mut self, mut config: Config<U>) -> Result<()> {
+        config.string(&mut self.custom_string)?;
+
         config
             .interface(
                 &mut self.iface,
