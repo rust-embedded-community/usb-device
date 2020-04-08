@@ -23,12 +23,12 @@ mod sizes {
 /// Test USB class for testing USB driver implementations. Supports various endpoint types and
 /// requests for testing USB peripheral drivers on actual hardware.
 pub struct TestClass<U: UsbCore> {
-    custom_string: StringIndex,
-    iface: InterfaceNumber,
-    ep_bulk_in: U::EndpointIn,
-    ep_bulk_out: U::EndpointOut,
-    ep_interrupt_in: U::EndpointIn,
-    ep_interrupt_out: U::EndpointOut,
+    custom_string: StringHandle,
+    iface: InterfaceHandle,
+    ep_bulk_in: EndpointIn<U>,
+    ep_bulk_out: EndpointOut<U>,
+    ep_interrupt_in: EndpointIn<U>,
+    ep_interrupt_out: EndpointOut<U>,
     control_buf: [u8; sizes::BUFFER],
     bulk_buf: [u8; sizes::BUFFER],
     interrupt_buf: [u8; sizes::BUFFER],
@@ -59,14 +59,14 @@ pub const LONG_DATA: &'static [u8] = &[0x17; 257];
 
 impl<U: UsbCore> TestClass<U> {
     /// Creates a new TestClass.
-    pub fn new(alloc: &mut UsbAllocator<U>) -> TestClass<U> {
+    pub fn new() -> TestClass<U> {
         TestClass {
-            custom_string: alloc.string(),
-            iface: alloc.interface(),
-            ep_bulk_in: alloc.endpoint_in(EndpointConfig::bulk(sizes::BULK_ENDPOINT)),
-            ep_bulk_out: alloc.endpoint_out(EndpointConfig::bulk(sizes::BULK_ENDPOINT)),
-            ep_interrupt_in: alloc.endpoint_in(EndpointConfig::interrupt(sizes::INTERRUPT_ENDPOINT, 1)),
-            ep_interrupt_out: alloc.endpoint_out(EndpointConfig::interrupt(sizes::INTERRUPT_ENDPOINT, 1)),
+            custom_string: StringHandle::new(),
+            iface: InterfaceHandle::new(),
+            ep_bulk_in: EndpointConfig::bulk(sizes::BULK_ENDPOINT).into(),
+            ep_bulk_out: EndpointConfig::bulk(sizes::BULK_ENDPOINT).into(),
+            ep_interrupt_in: EndpointConfig::interrupt(sizes::INTERRUPT_ENDPOINT, 1).into(),
+            ep_interrupt_out: EndpointConfig::interrupt(sizes::INTERRUPT_ENDPOINT, 1).into(),
             control_buf: [0; sizes::BUFFER],
             bulk_buf: [0; sizes::BUFFER],
             interrupt_buf: [0; sizes::BUFFER],
@@ -81,12 +81,12 @@ impl<U: UsbCore> TestClass<U> {
     }
 
     /// Convenience method to create a UsbDevice that is configured correctly for TestClass.
-    pub fn make_device(&self, usb_bus: UsbAllocator<U>) -> UsbDevice<U> {
-        UsbDeviceBuilder::new(usb_bus, UsbVidPid(VID, PID))
+    pub fn make_device(&mut self, usb: U) -> UsbDevice<U> {
+        UsbDeviceBuilder::new(usb, UsbVidPid(VID, PID))
             .manufacturer(MANUFACTURER)
             .product(PRODUCT)
             .serial_number(SERIAL_NUMBER)
-            .build()
+            .build(&mut [self])
     }
 
     /// Must be called after polling the UsbDevice.
@@ -167,6 +167,22 @@ impl<U: UsbCore> TestClass<U> {
 }
 
 impl<U: UsbCore> UsbClass<U> for TestClass<U> {
+    fn configure(&mut self, mut config: Config<U>) -> Result<()> {
+        config.interface(
+                &mut self.iface,
+                InterfaceDescriptor {
+                class: 0xff,
+                sub_class: 0x00,
+                protocol: 0x00,
+            })?
+            .endpoint_in(&mut self.ep_bulk_in)?
+            .endpoint_out(&mut self.ep_bulk_out)?
+            .endpoint_in(&mut self.ep_interrupt_in)?
+            .endpoint_out(&mut self.ep_interrupt_out)?;
+
+        Ok(())
+    }
+
     fn reset(&mut self) {
         self.len = 0;
         self.i = 0;
@@ -177,29 +193,12 @@ impl<U: UsbCore> UsbClass<U> for TestClass<U> {
         self.expect_interrupt_out = false;
     }
 
-    fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
-        writer.interface(self.iface, 0, 0xff, 0x00, 0x00)?;
-        writer.endpoint(&self.ep_bulk_in)?;
-        writer.endpoint(&self.ep_bulk_out)?;
-        writer.endpoint(&self.ep_interrupt_in)?;
-        writer.endpoint(&self.ep_interrupt_out)?;
-
-        Ok(())
-    }
-
-    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&str> {
+    fn get_string(&self, index: StringHandle, lang_id: u16) -> Option<&str> {
         if index == self.custom_string && lang_id == descriptor::lang_id::ENGLISH_US {
             Some(CUSTOM_STRING)
         } else {
             None
         }
-    }
-
-    fn configure(&mut self) {
-        self.ep_bulk_in.enable();
-        self.ep_bulk_out.enable();
-        self.ep_interrupt_in.enable();
-        self.ep_interrupt_out.enable();
     }
 
     fn endpoint_in_complete(&mut self, addr: EndpointAddress) {

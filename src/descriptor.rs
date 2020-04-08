@@ -1,7 +1,9 @@
 use crate::{Result, UsbError};
-use crate::allocator::InterfaceNumber;
+use crate::allocator::InterfaceHandle;
+use crate::config::{ConfigVisitor, InterfaceDescriptor};
 use crate::device;
-use crate::endpoint::Endpoint;
+use crate::endpoint::{EndpointAddress, EndpointOut, EndpointIn, EndpointConfig};
+use crate::usbcore::UsbCore;
 
 /// Standard descriptor types
 #[allow(missing_docs)]
@@ -35,51 +37,56 @@ pub mod capability_type {
 }
 
 /// A writer for USB descriptors.
-pub struct DescriptorWriter<'a> {
-    buf: &'a mut [u8],
-    position: usize,
-    num_interfaces_mark: Option<usize>,
-    num_endpoints_mark: Option<usize>,
-    write_iads: bool,
+pub(crate) struct DescriptorWriter<'b> {
+    buf: &'b mut [u8],
+    pos: usize,
 }
 
+/// A mark that can be used to write data into the middle of a descriptor buffer.
+//struct Mark(usize);
+
 impl DescriptorWriter<'_> {
-    pub(crate) fn new(buf: &mut [u8]) -> DescriptorWriter<'_> {
+    pub fn new(buf: &mut [u8]) -> DescriptorWriter<'_> {
         DescriptorWriter {
             buf,
-            position: 0,
-            num_interfaces_mark: None,
-            num_endpoints_mark: None,
-            write_iads: false,
+            pos: 0,
         }
     }
 
+    /// Returns a mark that can be used to write data into the middle of the buffer.
+    //pub fn mark(&self) -> Mark {
+    //    Mark(self.position)
+    //}
+
     /// Gets the current position in the buffer, i.e. the number of bytes written so far.
-    pub fn position(&self) -> usize {
-        self.position
+    fn pos(&self) -> usize {
+        self.pos
     }
 
-    /// Writes an arbitrary (usually class-specific) descriptor.
+    fn buf(&mut self) -> &mut [u8] {
+        self.buf
+    }
+
     pub fn write(&mut self, descriptor_type: u8, descriptor: &[u8]) -> Result<()> {
         let length = descriptor.len();
 
-        if (self.position + 2 + length) > self.buf.len() || (length + 2) > 255 {
+        if (self.pos + 2 + length) > self.buf.len() || (length + 2) > 255 {
             return Err(UsbError::BufferOverflow);
         }
 
-        self.buf[self.position] = (length + 2) as u8;
-        self.buf[self.position + 1] = descriptor_type;
+        self.buf[self.pos] = (length + 2) as u8;
+        self.buf[self.pos + 1] = descriptor_type;
 
-        let start = self.position + 2;
+        let start = self.pos + 2;
 
         self.buf[start..start + length].copy_from_slice(descriptor);
 
-        self.position = start + length;
+        self.pos = start + length;
 
         Ok(())
     }
 
-    pub(crate) fn device(&mut self, config: &device::Config) -> Result<()> {
+    pub fn write_device(&mut self, config: &device::DeviceConfig) -> Result<()> {
         self.write(
             descriptor_type::DEVICE,
             &[
@@ -98,134 +105,8 @@ impl DescriptorWriter<'_> {
             ])
     }
 
-    pub(crate) fn configuration(&mut self, config: &device::Config) -> Result<()> {
-        self.num_interfaces_mark = Some(self.position + 4);
-
-        self.write_iads = config.composite_with_iads;
-
-        self.write(
-            descriptor_type::CONFIGURATION,
-            &[
-                0, 0, // wTotalLength
-                0, // bNumInterfaces
-                device::CONFIGURATION_VALUE, // bConfigurationValue
-                0, // iConfiguration
-                0x80
-                    | if config.self_powered { 0x40 } else { 0x00 }
-                    | if config.supports_remote_wakeup { 0x20 } else { 0x00 }, // bmAttributes
-                config.max_power // bMaxPower
-            ])
-    }
-
-    pub(crate) fn end_class(&mut self) {
-        self.num_endpoints_mark = None;
-    }
-
-    pub(crate) fn end_configuration(&mut self) {
-        let position = self.position as u16;
-        self.buf[2..4].copy_from_slice(&position.to_le_bytes());
-    }
-
-    /// Writes a interface association descriptor. Call from `UsbClass::get_configuration_descriptors`
-    /// before writing the USB class or function's interface descriptors if your class has more than
-    /// one interface and wants to play nicely with composite devices on Windows. If the USB device
-    /// hosting the class was not configured as composite with IADs enabled, calling this function
-    /// does nothing, so it is safe to call from libraries.
-    ///
-    /// # Arguments
-    ///
-    /// * `first_interface` - Number of the function's first interface, previously allocated with
-    ///   [`UsbBusAllocator::interface`](crate::bus::UsbBusAllocator::interface).
-    /// * `interface_count` - Number of interfaces in the function.
-    /// * `function_class` - Class code assigned by USB.org. Use `0xff` for vendor-specific devices
-    ///   that do not conform to any class.
-    /// * `function_sub_class` - Sub-class code. Depends on class.
-    /// * `function_protocol` - Protocol code. Depends on class and sub-class.
-    pub fn iad(&mut self, first_interface: InterfaceNumber, interface_count: u8,
-        function_class: u8, function_sub_class: u8, function_protocol: u8) -> Result<()>
-    {
-        if !self.write_iads {
-            return Ok(());
-        }
-
-        self.write(
-            descriptor_type::IAD,
-            &[
-                first_interface.into(), // bFirstInterface
-                interface_count, // bInterfaceCount
-                function_class,
-                function_sub_class,
-                function_protocol,
-                0
-            ])?;
-
-        Ok(())
-    }
-
-    /// Writes a interface descriptor.
-    ///
-    /// # Arguments
-    ///
-    /// * `number` - Interface number previously allocated with
-    ///   [`UsbAllocator::interface`](crate::bus::UsbAllocator::interface).
-    /// * `interface_class` - Class code assigned by USB.org. Use `0xff` for vendor-specific devices
-    ///   that do not conform to any class.
-    /// * `interface_sub_class` - Sub-class code. Depends on class.
-    /// * `interface_protocol` - Protocol code. Depends on class and sub-class.
-    pub fn interface(&mut self, number: InterfaceNumber, alt_setting: u8,
-        interface_class: u8, interface_sub_class: u8, interface_protocol: u8) -> Result<()>
-    {
-        match self.num_interfaces_mark {
-            Some(mark) => self.buf[mark] += 1,
-            None => return Err(UsbError::InvalidState),
-        };
-
-        self.num_endpoints_mark = Some(self.position + 4);
-
-        self.write(
-            descriptor_type::INTERFACE,
-            &[
-                number.into(), // bInterfaceNumber
-                alt_setting, // bAlternateSetting
-                0, // bNumEndpoints
-                interface_class, // bInterfaceClass
-                interface_sub_class, // bInterfaceSubClass
-                interface_protocol, // bInterfaceProtocol
-                0, // iInterface
-            ])?;
-
-        Ok(())
-    }
-
-    /// Writes an endpoint descriptor.
-    ///
-    /// # Arguments
-    ///
-    /// * `endpoint` - Endpoint previously allocated with
-    ///   [`UsbAllocator`](crate::bus::UsbAllocator).
-    pub fn endpoint<E: Endpoint>(&mut self, endpoint: &E) -> Result<()> {
-        match self.num_endpoints_mark {
-            Some(mark) => self.buf[mark] += 1,
-            None => return Err(UsbError::InvalidState),
-        };
-
-        let mps = endpoint.max_packet_size();
-
-        self.write(
-            descriptor_type::ENDPOINT,
-            &[
-                endpoint.address().into(), // bEndpointAddress
-                endpoint.ep_type() as u8, // bmAttributes
-                mps as u8, (mps >> 8) as u8, // wMaxPacketSize
-                endpoint.interval(), // bInterval
-            ])?;
-
-        Ok(())
-    }
-
-    /// Writes a string descriptor.
-    pub(crate) fn string(&mut self, string: &str) -> Result<()> {
-        let mut pos = self.position;
+    pub fn write_string(&mut self, string: &str) -> Result<()> {
+        let mut pos = self.pos;
 
         if pos + 2 > self.buf.len() {
             return Err(UsbError::BufferOverflow);
@@ -245,40 +126,154 @@ impl DescriptorWriter<'_> {
             pos += 2;
         }
 
-        self.buf[self.position] = (pos - self.position) as u8;
+        self.buf[self.pos] = (pos - self.pos) as u8;
 
-        self.position = pos;
+        self.pos = pos;
 
         Ok(())
+    }
+
+    /// Finishes the writes and returns the amount of bytes written.
+    pub fn finish(self) -> Result<usize> {
+        Ok(self.pos())
+    }
+}
+
+pub(crate) struct ConfigurationDescriptorWriter<'b> {
+    writer: DescriptorWriter<'b>,
+    alt_setting: u8,
+    total_length_mark: usize,
+    num_interfaces_mark: usize,
+    num_endpoints_mark: Option<usize>,
+}
+
+impl ConfigurationDescriptorWriter<'_> {
+    pub fn new<'b>(mut writer: DescriptorWriter<'b>, config: &device::DeviceConfig) -> Result<ConfigurationDescriptorWriter<'b>> {
+        let total_length_mark = writer.pos() + 2;
+        let num_interfaces_mark = writer.pos() + 4;
+
+        writer.write(
+            descriptor_type::CONFIGURATION,
+            &[
+                0, 0, // wTotalLength
+                0, // bNumInterfaces
+                device::CONFIGURATION_VALUE, // bConfigurationValue
+                0, // iConfiguration
+                0x80
+                    | if config.self_powered { 0x40 } else { 0x00 }
+                    | if config.supports_remote_wakeup { 0x20 } else { 0x00 }, // bmAttributes
+                config.max_power // bMaxPower
+            ])?;
+
+        Ok(ConfigurationDescriptorWriter {
+            writer,
+            alt_setting: 0,
+            total_length_mark,
+            num_interfaces_mark,
+            num_endpoints_mark: None,
+        })
+    }
+
+    fn write_interface(&mut self, interface: &InterfaceHandle, descriptor: &InterfaceDescriptor) -> Result<()> {
+        self.num_endpoints_mark = Some(self.writer.pos() + 4);
+
+        self.writer.write(
+            descriptor_type::INTERFACE,
+            &[
+                interface.into(), // bInterfaceNumber
+                self.alt_setting, // bAlternateSetting
+                0, // bNumEndpoints
+                descriptor.class, // bInterfaceClass
+                descriptor.sub_class, // bInterfaceSubClass
+                descriptor.protocol, // bInterfaceProtocol
+                0, // iInterface
+            ])
+    }
+
+    fn write_endpoint(&mut self, addr: EndpointAddress, config: &EndpointConfig) -> Result<()> {
+        match self.num_endpoints_mark {
+            Some(mark) => self.writer.buf()[mark] += 1,
+            None => return Err(UsbError::InvalidState),
+        };
+
+        let mps = config.max_packet_size();
+
+        self.writer.write(
+            descriptor_type::ENDPOINT,
+            &[
+                addr.into(), // bEndpointAddress
+                config.ep_type() as u8, // bmAttributes
+                mps as u8, (mps >> 8) as u8, // wMaxPacketSize
+                config.interval(), // bInterval
+            ])?;
+
+        Ok(())
+    }
+
+    pub fn finish(mut self) -> Result<usize> {
+        let position = self.writer.pos() as u16;
+        self.writer.buf()[self.total_length_mark..self.total_length_mark+2].copy_from_slice(&position.to_le_bytes());
+
+        self.writer.finish()
+    }
+}
+
+impl<U: UsbCore> ConfigVisitor<U> for ConfigurationDescriptorWriter<'_> {
+    fn begin_interface(&mut self, interface: &mut InterfaceHandle, descriptor: &InterfaceDescriptor) -> Result<()> {
+        self.writer.buf()[self.num_interfaces_mark] += 1;
+
+        self.alt_setting = 0;
+        self.num_endpoints_mark = Some(self.writer.pos() + 4);
+        self.write_interface(interface, descriptor)?;
+
+        Ok(())
+    }
+
+    fn next_alt_setting(&mut self, interface: &mut InterfaceHandle, descriptor: &InterfaceDescriptor) -> Result<()> {
+        self.alt_setting += 1;
+        self.write_interface(interface, descriptor)?;
+
+        Ok(())
+    }
+
+    fn end_interface(&mut self) -> () {
+        self.num_endpoints_mark = None;
+    }
+
+    fn endpoint_in(&mut self, endpoint: &mut EndpointIn<U>, _extra: Option<&[u8]>) -> Result<()> {
+        self.write_endpoint(endpoint.address(), &endpoint.config)
+    }
+
+    fn endpoint_out(&mut self, endpoint: &mut EndpointOut<U>, _extra: Option<&[u8]>) -> Result<()> {
+        self.write_endpoint(endpoint.address(), &endpoint.config)
     }
 }
 
 /// A writer for Binary Object Store descriptor.
-pub struct BosWriter<'w, 'a: 'w> {
-    writer: &'w mut DescriptorWriter<'a>,
-    num_caps_mark: Option<usize>,
+pub struct BosWriter<'b> {
+    writer: DescriptorWriter<'b>,
+    num_caps_mark: usize,
 }
 
-impl<'w, 'a: 'w> BosWriter<'w, 'a> {
-    pub(crate) fn new(writer: &'w mut DescriptorWriter<'a>) -> Self {
-        Self {
-            writer: writer,
-            num_caps_mark: None,
-        }
-    }
+impl BosWriter<'_> {
+    pub(crate) fn new(mut writer: DescriptorWriter) -> Result<BosWriter> {
+        let num_caps_mark = writer.pos() + 4;
 
-    pub(crate) fn bos(&mut self) -> Result<()> {
-        self.num_caps_mark= Some(self.writer.position + 4);
-        self.writer.write(
+        writer.write(
             descriptor_type::BOS,
             &[
                 0x00, 0x00, // wTotalLength
                 0x00, // bNumDeviceCaps
             ])?;
 
-        self.capability(capability_type::USB_2_0_EXTENSION, &[0; 4])?;
+        let mut bos = BosWriter {
+            writer,
+            num_caps_mark,
+        };
 
-        Ok(())
+        bos.capability(capability_type::USB_2_0_EXTENSION, &[0; 4])?;
+
+        Ok(bos)
     }
 
     /// Writes capability descriptor to a BOS
@@ -288,12 +283,9 @@ impl<'w, 'a: 'w> BosWriter<'w, 'a> {
     /// * `capability_type` - Type of a capability
     /// * `data` - Binary data of the descriptor
     pub fn capability(&mut self, capability_type: u8, data: &[u8]) -> Result<()> {
-        match self.num_caps_mark{
-            Some(mark) => self.writer.buf[mark] += 1,
-            None => return Err(UsbError::InvalidState),
-        }
+        self.writer.buf[self.num_caps_mark] += 1;
 
-        let mut start = self.writer.position;
+        let mut start = self.writer.pos;
         let blen = data.len();
 
         if (start + blen + 3) > self.writer.buf.len() || (blen + 3) > 255 {
@@ -306,14 +298,15 @@ impl<'w, 'a: 'w> BosWriter<'w, 'a> {
 
         start += 3;
         self.writer.buf[start..start+blen].copy_from_slice(data);
-        self.writer.position = start + blen;
+        self.writer.pos = start + blen;
 
         Ok(())
     }
 
-    pub(crate) fn end_bos(&mut self) {
-        self.num_caps_mark= None;
-        let position = self.writer.position as u16;
+    pub(crate) fn finish(self) -> Result<usize> {
+        let position = self.writer.pos() as u16;
         self.writer.buf[2..4].copy_from_slice(&position.to_le_bytes());
+
+        self.writer.finish()
     }
 }

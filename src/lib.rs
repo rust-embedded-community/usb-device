@@ -34,7 +34,7 @@
 //! and people doing that should be familiar with the USB standard.
 
 #![no_std]
-#![warn(missing_docs)]
+//#![warn(missing_docs)]
 
 /// A USB stack error.
 #[derive(Debug)]
@@ -76,6 +76,9 @@ pub enum UsbError {
 
     /// Operation is not valid in the current state of the object.
     InvalidState,
+
+    /// The object was attempted to be configured twice.
+    DuplicateConfig,
 }
 
 /// Direction of USB traffic. Note that in the USB standard the direction is always indicated from
@@ -105,8 +108,11 @@ pub type Result<T> = core::result::Result<T, UsbError>;
 /// USB control transfers and the SETUP packet.
 pub mod control;
 
+/// USB class configuration.
+pub mod config;
+
 /// For implementing peripheral drivers.
-pub mod bus;
+pub mod usbcore;
 
 /// For implementing standard as well as vendor-specific USB classes.
 ///
@@ -191,12 +197,13 @@ pub mod prelude {
 /// Prelude for class implementors.
 pub mod class_prelude {
     pub use crate::UsbError;
-    pub use crate::allocator::{UsbAllocator, EndpointConfig, InterfaceNumber, StringIndex};
-    pub use crate::bus::UsbCore;
-    pub use crate::descriptor::{DescriptorWriter, BosWriter};
-    pub use crate::endpoint::{EndpointType, Endpoint, EndpointIn, EndpointOut, EndpointAddress};
+    pub use crate::allocator::{InterfaceHandle, StringHandle};
     pub use crate::class::{UsbClass, ControlIn, ControlOut};
+    pub use crate::config::{Config, InterfaceDescriptor};
     pub use crate::control;
+    pub use crate::endpoint::{EndpointType, EndpointConfig, EndpointIn, EndpointOut, EndpointAddress};
+    pub use crate::descriptor::BosWriter;
+    pub use crate::usbcore::UsbCore;
 }
 
 // FIXME maybe remove?

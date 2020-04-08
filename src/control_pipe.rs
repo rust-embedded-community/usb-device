@@ -1,9 +1,9 @@
 use core::cmp::min;
 use core::convert::TryInto;
 use crate::{Result, UsbDirection, UsbError};
-use crate::bus::UsbCore;
 use crate::control::Request;
-use crate::endpoint::{Endpoint, EndpointIn, EndpointOut, OutPacketType};
+use crate::endpoint::{EndpointAddress, EndpointConfig, OutPacketType};
+use crate::usbcore::{UsbCore, UsbEndpointAllocator, UsbEndpoint, UsbEndpointOut, UsbEndpointIn};
 
 #[derive(Debug)]
 #[allow(unused)]
@@ -33,6 +33,7 @@ const CONTROL_BUF_LEN: usize = 256;
 
 /// Buffers and parses USB control transfers.
 pub struct ControlPipe<U: UsbCore> {
+    max_packet_size_0: u8,
     ep_out: U::EndpointOut,
     ep_in: U::EndpointIn,
     state: ControlState,
@@ -42,9 +43,19 @@ pub struct ControlPipe<U: UsbCore> {
     len: usize,
 }
 
+const fn ep_config(max_packet_size_0: u8, dir: UsbDirection) -> EndpointConfig {
+    EndpointConfig::control(max_packet_size_0 as u16)
+        .with_fixed_address(EndpointAddress::from_parts(0, dir))
+}
+
 impl<U: UsbCore> ControlPipe<U> {
-    pub fn new<'a>(ep_out: U::EndpointOut, ep_in: U::EndpointIn) -> ControlPipe<U> {
+    pub fn new<'a>(alloc: &mut U::EndpointAllocator, max_packet_size_0: u8) -> ControlPipe<U> {
+
+        let ep_in = alloc.alloc_in(&ep_config(max_packet_size_0, UsbDirection::In)).unwrap();
+        let ep_out = alloc.alloc_out(&ep_config(max_packet_size_0, UsbDirection::Out)).unwrap();
+
         ControlPipe {
+            max_packet_size_0,
             ep_out,
             ep_in,
             state: ControlState::Idle,
@@ -67,8 +78,11 @@ impl<U: UsbCore> ControlPipe<U> {
     }
 
     pub fn reset(&mut self) {
-        self.ep_out.enable();
-        self.ep_in.enable();
+        unsafe {
+            self.ep_out.enable(&ep_config(self.max_packet_size_0, UsbDirection::Out));
+            self.ep_in.enable(&ep_config(self.max_packet_size_0, UsbDirection::In));
+        }
+
         self.state = ControlState::Idle;
     }
 
@@ -83,7 +97,7 @@ impl<U: UsbCore> ControlPipe<U> {
             false
         };
 
-        let (count, packet_type) = match self.ep_out.control_read_packet(&mut self.buf[self.i..]) {
+        let (count, packet_type) = match self.ep_out.read_packet(&mut self.buf[self.i..]) {
             Ok(res) => res,
             Err(UsbError::WouldBlock) => {
                 // This read should not block because this method is usually called when a packet is
@@ -227,7 +241,7 @@ impl<U: UsbCore> ControlPipe<U> {
     }
 
     fn write_in_chunk(&mut self) {
-        let count = min(self.len - self.i, self.ep_in.max_packet_size() as usize);
+        let count = min(self.len - self.i, self.max_packet_size_0 as usize);
 
         let buffer = self.static_in_buf.unwrap_or(&self.buf);
         if self.ep_in.write_packet(&buffer[self.i..(self.i+count)]).is_err() {
@@ -241,7 +255,7 @@ impl<U: UsbCore> ControlPipe<U> {
         if self.i >= self.len {
             self.static_in_buf = None;
 
-            self.state = if count == self.ep_in.max_packet_size() as usize {
+            self.state = if count == self.max_packet_size_0 as usize {
                 ControlState::DataInZlp
             } else {
                 ControlState::DataInLast

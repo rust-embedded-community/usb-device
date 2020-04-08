@@ -1,26 +1,23 @@
 use crate::{Result, UsbError};
-use crate::bus::UsbCore;
-use crate::allocator::{InterfaceNumber, StringIndex};
-use crate::descriptor::{BosWriter, DescriptorWriter};
+use crate::usbcore::UsbCore;
+use crate::allocator::{InterfaceHandle, StringHandle};
 use crate::control;
+use crate::config::Config;
 use crate::control_pipe::ControlPipe;
+use crate::descriptor::BosWriter;
 use crate::endpoint::EndpointAddress;
 
 /// A trait for implementing USB classes.
 ///
-/// All methods are optional callbacks that will be called by
+/// Most methods are optional callbacks that will be called by
 /// [UsbCore::poll](crate::bus::UsbCore::poll)
 pub trait UsbClass<U: UsbCore> {
-    /// Called when a GET_DESCRIPTOR request is received for a configuration descriptor. When
-    /// called, the implementation should write its interface, endpoint and any extra class
-    /// descriptors into `writer`. The configuration descriptor itself will be written by
-    /// [UsbDevice](crate::device::UsbDevice) and shouldn't be written by classes.
+    /// Handles all the things. TODO: Document this method!
     ///
     /// # Errors
     ///
-    /// Generally errors returned by `DescriptorWriter`. Implementors should propagate any errors
-    /// using `?`.
-    fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()>;
+    /// Any errors returned by `Config`. Implementors should propagate any error using `?`.
+    fn configure(&mut self, config: Config<U>) -> Result<()>;
 
     /// Called when a GET_DESCRIPTOR request is received for a BOS descriptor.
     /// When called, the implementation should write its blobs such as capability
@@ -41,7 +38,7 @@ pub trait UsbClass<U: UsbCore> {
     /// * `index` - A string index allocated earlier with
     ///   [`UsbAllocator`](crate::bus::UsbAllocator).
     /// * `lang_id` - The language ID for the string to retrieve.
-    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&str> {
+    fn get_string(&self, index: StringHandle, lang_id: u16) -> Option<&str> {
         let _ = (index, lang_id);
 
         None
@@ -50,52 +47,10 @@ pub trait UsbClass<U: UsbCore> {
     /// Called after a USB reset after the bus reset sequence is complete.
     fn reset(&mut self) { }
 
-    /// Called when the device enters the Configured state. This method must enable the endpoints
-    /// associated with the default alternate setting of each interface, thereby activating the
-    /// default alternate setting.
-    ///
-    /// If the class does not use interface alternate settings, it can just enable all of its
-    /// endpoints directly in this method, but if it does, it is recommended to delegate to
-    /// `self.set_alternate_setting(iface, 0);` for each interface instead of enabling endpoints
-    /// directly.
-    fn configure(&mut self);
-
-    /// Activates the specified alternate setting for the specified interface. The method must
-    /// enable all endpoints used by the alternate setting, and disable all other endpoints not used
-    /// by it. Not required if the class does not use any interface alternate settings.
-    ///
-    /// Note: This method may be called for an interface number you didn't allocate, in which case
-    /// you should return the `InvalidInterface` error.
-    ///
-    /// # Errors
-    ///
-    /// * [`InvalidInterface`](crate::UsbError::InvalidInterface) - The interface number is not
-    ///   defined by this class.
-    /// * [`InvalidAlternateSetting`](crate::UsbError::InvalidAlternateSetting) - The `alt_setting`
-    ///   value is not valid for the interface.
-    fn set_alternate_setting(&mut self, interface: InterfaceNumber, alt_setting: u8) -> Result<()>
-    {
-        let _ = interface;
-        let _ = alt_setting;
-
-        Err(UsbError::InvalidInterface)
-    }
-
-    /// Gets the current active alternate setting for the specified interface. The value may be
-    /// returned based on internal class state, or the value set via `reset`/`set_alternate_setting`
-    /// may simply be stored and returned.
-    ///
-    /// Note: This method may be called for an interface number you didn't allocate, in which case
-    /// you should return the `InvalidInterface` error.
-    ///
-    /// # Errors
-    ///
-    /// * [`InvalidInterface`](crate::UsbError::InvalidInterface) - The interface number is not
-    ///   defined by this class.
-    fn get_alternate_setting(&self, interface: InterfaceNumber) -> Result<u8> {
-        let _ = interface;
-
-        Err(UsbError::InvalidInterface)
+    /// Called to inform the class that an interface alternate setting has been activated by the
+    /// host.
+    fn alt_setting_activated(&mut self, interface: InterfaceHandle, alt_setting: u8) {
+        let _ = (interface, alt_setting);
     }
 
     /// Called whenever the `UsbDevice` is polled.
@@ -103,8 +58,8 @@ pub trait UsbClass<U: UsbCore> {
 
     /// Called when a control request is received with direction HostToDevice.
     ///
-    /// All requests are passed to classes in turn, which can choose to accept, ignore or report an
-    /// error. Classes can even choose to override standard requests, but doing that is rarely
+    /// All requests are passed to all classes in turn, which can choose to accept, ignore or report
+    /// an error. Classes can even choose to override standard requests, but doing that is rarely
     /// necessary.
     ///
     /// See [`ControlOut`] for how to respond to the transfer.
@@ -122,8 +77,8 @@ pub trait UsbClass<U: UsbCore> {
 
     /// Called when a control request is received with direction DeviceToHost.
     ///
-    /// All requests are passed to classes in turn, which can choose to accept, ignore or report an
-    /// error. Classes can even choose to override standard requests, but doing that is rarely
+    /// All requests are passed to all classes in turn, which can choose to accept, ignore or report
+    /// an error. Classes can even choose to override standard requests, but doing that is rarely
     /// necessary.
     ///
     /// See [`ControlIn`] for how to respond to the transfer.

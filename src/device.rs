@@ -1,11 +1,12 @@
-use crate::{Result, UsbError, UsbDirection};
-use crate::allocator::{UsbAllocator, EndpointConfig, InterfaceNumber, StringIndex};
-use crate::bus::{UsbCore, PollResult};
+use crate::{Result, UsbDirection};
+use crate::allocator::{UsbAllocator, InterfaceHandle, StringHandle, self};
+use crate::usbcore::{UsbCore, UsbEndpoint, PollResult};
 use crate::class::{UsbClass, ControlIn, ControlOut};
+use crate::config::{Config, ConfigVisitor, InterfaceDescriptor};
 use crate::control;
 use crate::control_pipe::ControlPipe;
-use crate::descriptor::{DescriptorWriter, BosWriter, descriptor_type, lang_id};
-use crate::endpoint::EndpointAddress;
+use crate::descriptor::{DescriptorWriter, ConfigurationDescriptorWriter, BosWriter, descriptor_type, lang_id};
+use crate::endpoint::{EndpointAddress, EndpointConfig, EndpointOut, EndpointIn};
 pub use crate::device_builder::{UsbDeviceBuilder, UsbVidPid};
 
 /// The global state of the USB device.
@@ -33,7 +34,7 @@ const MAX_ENDPOINTS: usize = 16;
 /// A USB device consisting of one or more device classes.
 pub struct UsbDevice<U: UsbCore> {
     bus: U,
-    config: Config,
+    config: DeviceConfig,
     control: ControlPipe<U>,
     device_state: UsbDeviceState,
     remote_wakeup_enabled: bool,
@@ -41,7 +42,7 @@ pub struct UsbDevice<U: UsbCore> {
     pending_address: u8,
 }
 
-pub(crate) struct Config {
+pub(crate) struct DeviceConfig {
     pub device_class: u8,
     pub device_sub_class: u8,
     pub device_protocol: u8,
@@ -64,24 +65,22 @@ pub const CONFIGURATION_NONE: u8 = 0;
 /// The bConfiguration value for the single configuration supported by this device.
 pub const CONFIGURATION_VALUE: u8 = 1;
 
-type ClassList<'a, U> = [&'a mut dyn UsbClass<U>];
+pub(crate) type ClassList<'a, U> = [&'a mut dyn UsbClass<U>];
 
 impl<U: UsbCore> UsbDevice<U> {
-    pub(crate) fn build(mut alloc: UsbAllocator<U>, config: Config) -> UsbDevice<U> {
-        let control_out = alloc.endpoint_out(
-            EndpointConfig::control(config.max_packet_size_0 as u16).number(0));
+    pub(crate) fn build(mut bus: U, config: DeviceConfig, classes: &mut ClassList<U>) -> UsbDevice<U> {
+        let mut ep_alloc = bus.create_allocator();
 
-        let control_in = alloc.endpoint_in(
-            EndpointConfig::control(config.max_packet_size_0 as u16).number(0));
+        let control = ControlPipe::new(&mut ep_alloc, config.max_packet_size_0);
 
-        let mut bus = alloc.finish();
+        Config::visit(classes, &mut UsbAllocator::new(bus.create_allocator())).expect("Configuration failed");
 
         bus.enable();
 
         UsbDevice {
             bus,
             config,
-            control: ControlPipe::new(control_out, control_in),
+            control,
             device_state: UsbDeviceState::Default,
             remote_wakeup_enabled: false,
             self_powered: false,
@@ -285,14 +284,15 @@ impl<U: UsbCore> UsbDevice<U> {
                 },
 
                 (Recipient::Interface, Request::GET_INTERFACE) => {
-                    let iface = InterfaceNumber::new(req.index as u8);
+                    let iface = InterfaceHandle(Some(req.index as u8));
 
-                    if let Some(alt_setting) = classes.iter()
+                    /*if let Some(alt_setting) = classes.iter()
                         .filter_map(|cls| cls.get_alternate_setting(iface).ok())
                         .next()
                     {
                         xfer.accept_with(&alt_setting.to_le_bytes()).ok();
-                    }
+                    }*/
+                    // FIXME
                 },
 
                 _ => (),
@@ -354,9 +354,11 @@ impl<U: UsbCore> UsbDevice<U> {
 
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_VALUE_U16) => {
                     if self.device_state != UsbDeviceState::Configured {
-                        for cls in classes.iter_mut() {
+                        /*for cls in classes.iter_mut() {
                             cls.configure();
-                        }
+                        }*/
+
+                        // FIXME
 
                         self.device_state = UsbDeviceState::Configured;
                     }
@@ -377,10 +379,10 @@ impl<U: UsbCore> UsbDevice<U> {
                 },
 
                 (Recipient::Interface, Request::SET_INTERFACE, alt_setting) => {
-                    let iface = InterfaceNumber::new(req.index as u8);
+                    let iface = InterfaceHandle(Some(req.index as u8));
                     let alt_setting = alt_setting as u8;
 
-                    for cls in classes.iter_mut() {
+                    /*for cls in classes.iter_mut() {
                         match cls.set_alternate_setting(iface, alt_setting) {
                             Ok(_) => {
                                 xfer.accept().ok();
@@ -391,7 +393,9 @@ impl<U: UsbCore> UsbDevice<U> {
                                 break;
                             }
                         }
-                    }
+                    }*/
+
+                    // FIXME
                 },
 
                 _ => { xfer.reject().ok(); return; },
@@ -403,74 +407,72 @@ impl<U: UsbCore> UsbDevice<U> {
         }
     }
 
-    fn get_descriptor(config: &Config, classes: &mut ClassList<'_, U>, xfer: ControlIn<U>) {
+    fn get_descriptor(config: &DeviceConfig, classes: &mut ClassList<'_, U>, xfer: ControlIn<U>) {
         let req = *xfer.request();
 
         let (dtype, index) = req.descriptor_type_index();
 
         fn accept_writer<U: UsbCore>(
             xfer: ControlIn<U>,
-            f: impl FnOnce(&mut DescriptorWriter) -> Result<()>)
+            f: impl FnOnce(DescriptorWriter) -> Result<usize>)
         {
             xfer.accept(|buf| {
-                let mut writer = DescriptorWriter::new(buf);
-                f(&mut writer)?;
-                Ok(writer.position())
+                f(DescriptorWriter::new(buf))
             }).ok();
         }
 
         match dtype {
             descriptor_type::BOS => accept_writer(xfer, |w| {
-                let mut bw = BosWriter::new(w);
-                bw.bos()?;
+                let mut bw = BosWriter::new(w)?;
 
                 for cls in classes {
                     cls.get_bos_descriptors(&mut bw)?;
                 }
 
-                bw.end_bos();
-
-                Ok(())
+                bw.finish()
             }),
 
-            descriptor_type::DEVICE => accept_writer(xfer, |w| w.device(config)),
+            descriptor_type::DEVICE => accept_writer(xfer, |mut w| {
+                w.write_device(config)?;
+                w.finish()
+            }),
 
             descriptor_type::CONFIGURATION => accept_writer(xfer, |w| {
-                w.configuration(config)?;
+                let mut cw = ConfigurationDescriptorWriter::new(w, config)?;
 
-                for cls in classes {
-                    cls.get_configuration_descriptors(w)?;
-                    w.end_class();
-                }
+                Config::visit(classes, &mut cw)?;
 
-                w.end_configuration();
-
-                Ok(())
+                cw.finish()
             }),
 
             descriptor_type::STRING => {
                 if index == 0 {
-                    accept_writer(xfer, |w|
+                    accept_writer(xfer, |mut w| {
                         w.write(
                             descriptor_type::STRING,
-                            &lang_id::ENGLISH_US.to_le_bytes()))
+                            &lang_id::ENGLISH_US.to_le_bytes())?;
+
+                        w.finish()
+                    });
                 } else {
                     let s = match index {
-                        1 => config.manufacturer,
-                        2 => config.product,
-                        3 => config.serial_number,
+                        allocator::MANUFACTURER_STRING => config.manufacturer,
+                        allocator::PRODUCT_STRING => config.product,
+                        allocator::SERIAL_NUMBER_STRING => config.serial_number,
                         _ => {
-                            let index = StringIndex::new(index);
                             let lang_id = req.index;
 
                             classes.iter()
-                                .filter_map(|cls| cls.get_string(index, lang_id))
+                                .filter_map(|cls| cls.get_string(StringHandle(Some(index)), lang_id))
                                 .next()
                         },
                     };
 
                     if let Some(s) = s {
-                        accept_writer(xfer, |w| w.string(s));
+                        accept_writer(xfer, |mut w| {
+                            w.write_string(s)?;
+                            w.finish()
+                        });
                     } else {
                         xfer.reject().ok();
                     }
@@ -493,5 +495,63 @@ impl<U: UsbCore> UsbDevice<U> {
         for cls in classes {
             cls.reset();
         }
+    }
+}
+
+struct EnableEndpointVisitor {
+    interface: Option<u8>,
+    alt_setting: Option<u8>,
+    interface_match: bool,
+    current_alt: u8,
+}
+
+impl EnableEndpointVisitor {
+    fn new(interface: Option<u8>, alt_setting: Option<u8>) -> Self {
+        Self {
+            interface,
+            alt_setting,
+            interface_match: false,
+            current_alt: 0,
+        }
+    }
+
+    fn visit_endpoint(&mut self, endpoint: Option<&mut impl UsbEndpoint>, config: &EndpointConfig) -> Result<()> {
+        if let Some(endpoint) = endpoint {
+            if self.interface_match
+                && self.alt_setting.map(|a| a == self.current_alt).unwrap_or(true)
+            {
+                if self.alt_setting.is_some() {
+                    unsafe { endpoint.enable(config); }
+                } else {
+                    endpoint.disable();
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+// TODO: Clean up the Option mess
+impl<U: UsbCore> ConfigVisitor<U> for EnableEndpointVisitor {
+    fn begin_interface(&mut self, interface: &mut InterfaceHandle, _descriptor: &InterfaceDescriptor) -> Result<()> {
+        self.interface_match = self.interface.map(|i| i == interface.into()).unwrap_or(true);
+        self.current_alt = 0;
+
+        Ok(())
+    }
+
+    fn next_alt_setting(&mut self, _interface: &mut InterfaceHandle, _descriptor: &InterfaceDescriptor) -> Result<()>{
+        self.current_alt += 1;
+
+        Ok(())
+    }
+
+    fn endpoint_out(&mut self, endpoint: &mut EndpointOut<U>, _extra: Option<&[u8]>) -> Result<()> {
+        self.visit_endpoint(endpoint.core.as_mut().map(|c| &mut c.ep), &endpoint.config)
+    }
+
+    fn endpoint_in(&mut self, endpoint: &mut EndpointIn<U>, _extra: Option<&[u8]>) -> Result<()> {
+        self.visit_endpoint(endpoint.core.as_mut().map(|c| &mut c.ep), &endpoint.config)
     }
 }
