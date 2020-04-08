@@ -415,16 +415,14 @@ impl<U: UsbCore> UsbDevice<U> {
                 }
 
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_VALUE_U16) => {
-                    if self.device_state != UsbDeviceState::Configured {
-                        if Config::visit(classes, &mut EnableEndpointVisitor::new(None, Some(0)))
-                            .is_ok()
-                        {
-                            self.device_state = UsbDeviceState::Configured;
+                    if self.device_state == UsbDeviceState::Configured
+                        || Config::visit(classes, &mut EnableEndpointVisitor::new(None, Some(0))).is_ok()
+                    {
+                        self.device_state = UsbDeviceState::Configured;
 
-                            xfer.accept().ok();
-                        } else {
-                            xfer.reject().ok();
-                        }
+                        xfer.accept().ok();
+                    } else {
+                        xfer.reject().ok();
                     }
                 }
 

@@ -63,10 +63,6 @@ pub fn open_device(ctx: &Context) -> libusb::Result<DeviceHandles<'_>> {
                 }
             }
 
-            /*let endpoints = config_descriptor.interfaces()
-            .flat_map(|i| i.descriptors())
-            .flat_map(|d| d.endpoint_descriptors())
-            .collect::<Vec<_>>();*/
 
             let get_ep = |dir: Direction, ep_type: TransferType| {
                 endpoints
