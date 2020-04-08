@@ -104,6 +104,15 @@ impl<U: UsbCore> UsbDevice<U> {
         &self.bus
     }
 
+    /// Gets a mutabe reference to the [`UsbCore`] implementation used by this `UsbDevice`. You can
+    /// use this to call platform-specific methods on the `UsbCore`.
+    ///
+    /// While it is also possible to call the standard `UsbCore` trait methods through this
+    /// reference, it is not recommended as it can cause the device to misbehave.
+    pub fn bus_mut(&mut self) -> &U {
+        &mut self.bus
+    }
+
     /// Gets the current state of the device.
     ///
     /// In general class traffic is only possible in the `Configured` state.
