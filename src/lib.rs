@@ -49,6 +49,11 @@ pub enum UsbError {
     /// length constraints.
     BufferOverflow,
 
+    /// A fixed address endpoint allocation failed either because two classes attempted to allocate
+    /// the same address, or the hardware does not support the endpoint address and configuration
+    /// combination.
+    EndpointUnavailable,
+
     /// The endpoint is not currently enabled, due to the device not being configured, or the
     /// endpoint belonging to an inactive interface alternate setting.
     EndpointDisabled,
@@ -201,6 +206,7 @@ pub mod class_prelude {
     pub use crate::config::{Config, InterfaceDescriptor};
     pub use crate::control;
     pub use crate::descriptor::BosWriter;
+    pub use crate::device::UsbDeviceState;
     pub use crate::endpoint::{
         EndpointAddress, EndpointConfig, EndpointIn, EndpointOut, EndpointType,
     };
