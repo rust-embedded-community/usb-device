@@ -49,12 +49,13 @@ const fn ep_config(max_packet_size_0: u8, dir: UsbDirection) -> EndpointConfig {
 }
 
 impl<U: UsbCore> ControlPipe<U> {
-    pub fn new<'a>(alloc: &mut U::EndpointAllocator, max_packet_size_0: u8) -> Result<ControlPipe<U>> {
-        let ep_in = alloc
-            .alloc_in(&ep_config(max_packet_size_0, UsbDirection::In))?;
+    pub fn new<'a>(
+        alloc: &mut U::EndpointAllocator,
+        max_packet_size_0: u8,
+    ) -> Result<ControlPipe<U>> {
+        let ep_in = alloc.alloc_in(&ep_config(max_packet_size_0, UsbDirection::In))?;
 
-        let ep_out = alloc
-            .alloc_out(&ep_config(max_packet_size_0, UsbDirection::Out))?;
+        let ep_out = alloc.alloc_out(&ep_config(max_packet_size_0, UsbDirection::Out))?;
 
         Ok(ControlPipe {
             max_packet_size_0,
@@ -155,9 +156,9 @@ impl<U: UsbCore> ControlPipe<U> {
         self.ep_out.set_stalled(false);
 
         /*rtt_target::rprintln!("SETUP {:?} {:?} {:?} req:{} val:{} idx:{} len:{} {:?}",
-            req.direction, req.request_type, req.recipient,
-            req.request, req.value, req.index, req.length,
-            self.state);*/
+        req.direction, req.request_type, req.recipient,
+        req.request, req.value, req.index, req.length,
+        self.state);*/
 
         if req.direction == UsbDirection::Out {
             // OUT transfer

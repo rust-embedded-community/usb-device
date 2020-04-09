@@ -7,7 +7,7 @@ use crate::descriptor::{
     descriptor_type, lang_id, BosWriter, ConfigurationDescriptorWriter, DescriptorWriter,
 };
 pub use crate::device_builder::{UsbDeviceBuilder, UsbVidPid};
-use crate::endpoint::{EndpointAddress, EndpointConfig, EndpointIn, EndpointOut, EndpointCore};
+use crate::endpoint::{EndpointAddress, EndpointConfig, EndpointCore, EndpointIn, EndpointOut};
 use crate::usbcore::{PollResult, UsbCore, UsbEndpoint};
 use crate::{Result, UsbDirection};
 
@@ -171,7 +171,7 @@ impl<U: UsbCore> UsbDevice<U> {
             PollResult::Reset => {
                 self.reset(classes);
                 false
-            },
+            }
             PollResult::Data {
                 mut ep_out,
                 mut ep_in_complete,
@@ -268,7 +268,7 @@ impl<U: UsbCore> UsbDevice<U> {
                 self.device_state = UsbDeviceState::Suspend;
 
                 false
-            },
+            }
         };
 
         for cls in classes.iter_mut() {
@@ -414,7 +414,8 @@ impl<U: UsbCore> UsbDevice<U> {
 
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_VALUE_U16) => {
                     if self.device_state == UsbDeviceState::Configured
-                        || Config::visit(classes, &mut EnableEndpointVisitor::new(None, Some(0))).is_ok()
+                        || Config::visit(classes, &mut EnableEndpointVisitor::new(None, Some(0)))
+                            .is_ok()
                     {
                         self.device_state = UsbDeviceState::Configured;
 
@@ -447,14 +448,12 @@ impl<U: UsbCore> UsbDevice<U> {
                     let alt_setting = alt_setting as u8;
 
                     // Disable endpoints first, then enable correct alt setting
-                    if Config::visit(
-                            classes,
-                            &mut EnableEndpointVisitor::new(iface, None),
-                        ).is_ok()
+                    if Config::visit(classes, &mut EnableEndpointVisitor::new(iface, None)).is_ok()
                         && Config::visit(
                             classes,
                             &mut EnableEndpointVisitor::new(iface, Some(alt_setting)),
-                        ).is_ok()
+                        )
+                        .is_ok()
                     {
                         for cls in classes.iter_mut() {
                             cls.alt_setting_activated(InterfaceHandle(iface), alt_setting);

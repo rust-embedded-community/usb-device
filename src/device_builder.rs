@@ -1,6 +1,6 @@
-use crate::Result;
 use crate::device::{ClassList, DeviceConfig, UsbDevice};
 use crate::usbcore::UsbCore;
+use crate::Result;
 
 /// A USB vendor ID and product ID pair.
 pub struct UsbVidPid(pub u16, pub u16);

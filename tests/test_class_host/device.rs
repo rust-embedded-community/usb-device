@@ -63,7 +63,6 @@ pub fn open_device(ctx: &Context) -> libusb::Result<DeviceHandles<'_>> {
                 }
             }
 
-
             let get_ep = |dir: Direction, ep_type: TransferType| {
                 endpoints
                     .iter()
