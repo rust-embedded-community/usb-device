@@ -1,3 +1,4 @@
+use crate::Result;
 use crate::device::{ClassList, DeviceConfig, UsbDevice};
 use crate::usbcore::UsbCore;
 
@@ -47,7 +48,7 @@ impl<U: UsbCore> UsbDeviceBuilder<U> {
     }
 
     /// Creates the [`UsbDevice`] instance with the configuration in this builder.
-    pub fn build(self, classes: &mut ClassList<U>) -> UsbDevice<U> {
+    pub fn build(self, classes: &mut ClassList<U>) -> Result<UsbDevice<U>> {
         UsbDevice::build(self.usb, self.config, classes)
     }
 

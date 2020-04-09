@@ -81,7 +81,7 @@ impl<U: UsbCore> TestClass<U> {
     }
 
     /// Convenience method to create a UsbDevice that is configured correctly for TestClass.
-    pub fn make_device(&mut self, usb: U) -> UsbDevice<U> {
+    pub fn make_device(&mut self, usb: U) -> Result<UsbDevice<U>> {
         UsbDeviceBuilder::new(usb, UsbVidPid(VID, PID))
             .manufacturer(MANUFACTURER)
             .product(PRODUCT)

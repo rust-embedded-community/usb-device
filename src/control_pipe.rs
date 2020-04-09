@@ -49,16 +49,14 @@ const fn ep_config(max_packet_size_0: u8, dir: UsbDirection) -> EndpointConfig {
 }
 
 impl<U: UsbCore> ControlPipe<U> {
-    pub fn new<'a>(alloc: &mut U::EndpointAllocator, max_packet_size_0: u8) -> ControlPipe<U> {
+    pub fn new<'a>(alloc: &mut U::EndpointAllocator, max_packet_size_0: u8) -> Result<ControlPipe<U>> {
         let ep_in = alloc
-            .alloc_in(&ep_config(max_packet_size_0, UsbDirection::In))
-            .unwrap();
+            .alloc_in(&ep_config(max_packet_size_0, UsbDirection::In))?;
 
         let ep_out = alloc
-            .alloc_out(&ep_config(max_packet_size_0, UsbDirection::Out))
-            .unwrap();
+            .alloc_out(&ep_config(max_packet_size_0, UsbDirection::Out))?;
 
-        ControlPipe {
+        Ok(ControlPipe {
             max_packet_size_0,
             ep_out,
             ep_in,
@@ -67,7 +65,7 @@ impl<U: UsbCore> ControlPipe<U> {
             static_in_buf: None,
             i: 0,
             len: 0,
-        }
+        })
     }
 
     pub fn waiting_for_response(&self) -> bool {

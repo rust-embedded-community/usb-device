@@ -74,18 +74,16 @@ impl<U: UsbCore> UsbDevice<U> {
         mut bus: U,
         config: DeviceConfig,
         classes: &mut ClassList<U>,
-    ) -> UsbDevice<U> {
+    ) -> Result<UsbDevice<U>> {
         let mut ep_alloc = bus.create_allocator();
 
-        let control = ControlPipe::new(&mut ep_alloc, config.max_packet_size_0);
+        let control = ControlPipe::new(&mut ep_alloc, config.max_packet_size_0)?;
 
-        Config::visit(classes, &mut UsbAllocator::new(&mut ep_alloc))
-            .expect("configuration failed");
+        Config::visit(classes, &mut UsbAllocator::new(&mut ep_alloc))?;
 
-        bus.enable(ep_alloc)
-            .expect("enable failed");
+        bus.enable(ep_alloc)?;
 
-        UsbDevice {
+        Ok(UsbDevice {
             bus,
             config,
             control,
@@ -93,7 +91,7 @@ impl<U: UsbCore> UsbDevice<U> {
             remote_wakeup_enabled: false,
             self_powered: false,
             pending_address: 0,
-        }
+        })
     }
 
     /// Gets a reference to the [`UsbCore`] implementation used by this `UsbDevice`. You can use this
