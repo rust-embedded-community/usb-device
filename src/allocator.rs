@@ -43,11 +43,11 @@ impl<U: UsbCore> ConfigVisitor<U> for UsbAllocator<'_, U> {
         interface: &mut InterfaceHandle,
         _descriptor: &InterfaceDescriptor,
     ) -> Result<()> {
-        if cfg!(debug_assertions) && interface.0.is_some() {
+        if cfg!(debug_assertions) && interface.interface.is_some() {
             return Err(UsbError::DuplicateConfig);
         }
 
-        interface.0 = Some(self.next_interface);
+        interface.interface = Some(self.next_interface);
         self.next_interface += 1;
 
         Ok(())
@@ -86,29 +86,50 @@ impl<U: UsbCore> ConfigVisitor<U> for UsbAllocator<'_, U> {
 
 /// A handle for a USB interface that contains its number.
 #[derive(Default)]
-pub struct InterfaceHandle(pub(crate) Option<u8>);
+pub struct InterfaceHandle {
+    interface: Option<u8>,
+    alt_setting: u8,
+}
 
 impl InterfaceHandle {
     pub const fn new() -> Self {
-        InterfaceHandle(None)
+        Self {
+            interface: None,
+            alt_setting: 0,
+        }
+    }
+
+    pub(crate) const fn from_number(interface: u8) -> Self {
+        Self {
+            interface: Some(interface),
+            alt_setting: 0,
+        }
+    }
+
+    pub(crate) fn alt_setting(&self) -> u8 {
+        self.alt_setting
+    }
+
+    pub fn number(&self) -> u8 {
+        self.interface.unwrap_or(0xff)
     }
 }
 
 impl From<&InterfaceHandle> for u8 {
     fn from(handle: &InterfaceHandle) -> u8 {
-        handle.0.unwrap_or(0)
+        handle.number()
     }
 }
 
 impl From<&mut InterfaceHandle> for u8 {
     fn from(handle: &mut InterfaceHandle) -> u8 {
-        handle.0.unwrap_or(0)
+        handle.number()
     }
 }
 
 impl PartialEq for InterfaceHandle {
     fn eq(&self, other: &Self) -> bool {
-        match (self.0, other.0) {
+        match (self.interface, other.interface) {
             (Some(a), Some(b)) => a == b,
             _ => false,
         }
@@ -117,25 +138,25 @@ impl PartialEq for InterfaceHandle {
 
 impl PartialEq<u8> for InterfaceHandle {
     fn eq(&self, other: &u8) -> bool {
-        self.0.map(|n| n == *other).unwrap_or(false)
+        self.interface.map(|n| n == *other).unwrap_or(false)
     }
 }
 
 impl PartialEq<InterfaceHandle> for u8 {
     fn eq(&self, other: &InterfaceHandle) -> bool {
-        other.0.map(|n| n == *self).unwrap_or(false)
+        other.interface.map(|n| n == *self).unwrap_or(false)
     }
 }
 
 impl PartialEq<u16> for InterfaceHandle {
     fn eq(&self, other: &u16) -> bool {
-        self.0.map(|n| u16::from(n) == *other).unwrap_or(false)
+        self.interface.map(|n| u16::from(n) == *other).unwrap_or(false)
     }
 }
 
 impl PartialEq<InterfaceHandle> for u16 {
     fn eq(&self, other: &InterfaceHandle) -> bool {
-        other.0.map(|n| u16::from(n) == *self).unwrap_or(false)
+        other.interface.map(|n| u16::from(n) == *self).unwrap_or(false)
     }
 }
 

@@ -315,11 +315,16 @@ impl<U: UsbCore> UsbDevice<U> {
                 }
 
                 (Recipient::Interface, Request::GET_INTERFACE) => {
-                    let iface = InterfaceHandle(Some(req.index as u8));
+                    let mut visitor = GetInterfaceVisitor::new(req.index as u8);
 
-                    // FIXME: Unimplemented
+                    // This visitor cannot fail
+                    Config::visit(classes, &mut visitor).ok();
 
-                    xfer.reject().ok();
+                    if let Some(alt_setting) = visitor.result() {
+                        xfer.accept_with(&[alt_setting]).ok();
+                    } else {
+                        xfer.reject().ok();
+                    }
                 }
 
                 _ => (),
@@ -390,11 +395,12 @@ impl<U: UsbCore> UsbDevice<U> {
                 }
 
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_VALUE_U16) => {
-                    if self.device_state == UsbDeviceState::Configured
-                        || Config::visit(classes, &mut EnableEndpointVisitor::new(None, Some(0)))
-                            .is_ok()
-                    {
-                        self.device_state = UsbDeviceState::Configured;
+                    if self.device_state == UsbDeviceState::Configured || self.device_state == UsbDeviceState::Addressed {
+                        if self.device_state == UsbDeviceState::Addressed {
+                            Config::visit(classes, &mut EnableEndpointVisitor::new(None, Some(0))).ok();
+
+                            self.device_state = UsbDeviceState::Configured;
+                        }
 
                         xfer.accept().ok();
                     } else {
@@ -408,14 +414,10 @@ impl<U: UsbCore> UsbDevice<U> {
                             xfer.reject().ok();
                         }
                         _ => {
-                            if Config::visit(classes, &mut EnableEndpointVisitor::new(None, None))
-                                .is_ok()
-                            {
-                                self.device_state = UsbDeviceState::Addressed;
-                                xfer.accept().ok();
-                            } else {
-                                xfer.reject().ok();
-                            }
+                            Config::visit(classes, &mut EnableEndpointVisitor::new(None, None)).ok();
+
+                            self.device_state = UsbDeviceState::Addressed;
+                            xfer.accept().ok();
                         }
                     }
                 }
@@ -424,22 +426,17 @@ impl<U: UsbCore> UsbDevice<U> {
                     let iface = Some(req.index as u8);
                     let alt_setting = alt_setting as u8;
 
-                    // Disable endpoints first, then enable correct alt setting
-                    if Config::visit(classes, &mut EnableEndpointVisitor::new(iface, None)).is_ok()
-                        && Config::visit(
-                            classes,
-                            &mut EnableEndpointVisitor::new(iface, Some(alt_setting)),
-                        )
-                        .is_ok()
-                    {
-                        for cls in classes.iter_mut() {
-                            cls.alt_setting_activated(InterfaceHandle(iface), alt_setting);
-                        }
+                    // Disable endpoints first, then enable correct alt setting.
+                    Config::visit(classes, &mut EnableEndpointVisitor::new(iface, None)).ok();
+                    Config::visit(classes, &mut EnableEndpointVisitor::new(iface, Some(alt_setting))).ok();
 
-                        xfer.accept().ok();
-                    } else {
-                        xfer.reject().ok();
+                    // TODO: Should this check the setting was actually valid?
+
+                    for cls in classes.iter_mut() {
+                        cls.alt_setting_activated(InterfaceHandle::from_number(req.index as u8), alt_setting);
                     }
+
+                    xfer.accept().ok();
                 }
 
                 _ => {
@@ -610,7 +607,7 @@ impl<U: UsbCore> ConfigVisitor<U> for EnableEndpointVisitor {
 
     fn next_alt_setting(
         &mut self,
-        _interface: &mut InterfaceHandle,
+        _interface_number: u8,
         _descriptor: &InterfaceDescriptor,
     ) -> Result<()> {
         self.current_alt += 1;
@@ -628,5 +625,39 @@ impl<U: UsbCore> ConfigVisitor<U> for EnableEndpointVisitor {
 
     fn endpoint_in(&mut self, endpoint: &mut EndpointIn<U>, _manual: Option<&[u8]>) -> Result<()> {
         self.visit_endpoint(endpoint.core.as_mut(), &endpoint.config)
+    }
+}
+
+
+struct GetInterfaceVisitor {
+    interface: u8,
+    result: Option<u8>,
+}
+
+impl GetInterfaceVisitor {
+    fn new(interface: u8) -> Self {
+        Self {
+            interface,
+            result: None,
+        }
+    }
+
+    fn result(&self) -> Option<u8> {
+        self.result
+    }
+}
+
+// TODO: Clean up the Option mess
+impl<U: UsbCore> ConfigVisitor<U> for GetInterfaceVisitor {
+    fn begin_interface(
+        &mut self,
+        interface: &mut InterfaceHandle,
+        _descriptor: &InterfaceDescriptor,
+    ) -> Result<()> {
+        if *interface == self.interface {
+            self.result = Some(interface.alt_setting());
+        }
+
+        Ok(())
     }
 }

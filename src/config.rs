@@ -36,7 +36,7 @@ impl<'v, U: UsbCore> Config<'v, U> {
 
         Ok(InterfaceConfig {
             parent: self,
-            interface: InterfaceHandle(interface.0),
+            interface_number: interface.into(),
             descriptor,
         })
     }
@@ -51,7 +51,7 @@ impl<'v, U: UsbCore> Config<'v, U> {
 
 pub struct InterfaceConfig<'v, 'c, U: UsbCore> {
     parent: &'c mut Config<'v, U>,
-    interface: InterfaceHandle,
+    interface_number: u8,
     descriptor: InterfaceDescriptor<'c>,
 }
 
@@ -59,7 +59,7 @@ impl<U: UsbCore> InterfaceConfig<'_, '_, U> {
     pub fn alt_setting(&mut self) -> Result<&mut Self> {
         self.parent
             .0
-            .next_alt_setting(&mut self.interface, &self.descriptor)?;
+            .next_alt_setting(self.interface_number, &self.descriptor)?;
         Ok(self)
     }
 
@@ -125,10 +125,10 @@ pub(crate) trait ConfigVisitor<U: UsbCore> {
 
     fn next_alt_setting(
         &mut self,
-        interface: &mut InterfaceHandle,
+        interface_number: u8,
         desc: &InterfaceDescriptor,
     ) -> Result<()> {
-        let _ = (interface, desc);
+        let _ = (interface_number, desc);
         Ok(())
     }
 
