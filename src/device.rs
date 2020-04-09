@@ -641,11 +641,15 @@ impl<U: UsbCore> ConfigVisitor<U> for EnableEndpointVisitor {
         Ok(())
     }
 
-    fn endpoint_out(&mut self, endpoint: &mut EndpointOut<U>, _extra: Option<&[u8]>) -> Result<()> {
+    fn endpoint_out(
+        &mut self,
+        endpoint: &mut EndpointOut<U>,
+        _manual: Option<&[u8]>,
+    ) -> Result<()> {
         self.visit_endpoint(endpoint.core.as_mut(), &endpoint.config)
     }
 
-    fn endpoint_in(&mut self, endpoint: &mut EndpointIn<U>, _extra: Option<&[u8]>) -> Result<()> {
+    fn endpoint_in(&mut self, endpoint: &mut EndpointIn<U>, _manual: Option<&[u8]>) -> Result<()> {
         self.visit_endpoint(endpoint.core.as_mut(), &endpoint.config)
     }
 }

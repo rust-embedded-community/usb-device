@@ -205,24 +205,36 @@ impl ConfigurationDescriptorWriter<'_> {
         )
     }
 
-    fn write_endpoint(&mut self, addr: EndpointAddress, config: &EndpointConfig) -> Result<()> {
+    fn write_endpoint(
+        &mut self,
+        addr: EndpointAddress,
+        config: &EndpointConfig,
+        manual: Option<&[u8]>,
+    ) -> Result<()> {
         match self.num_endpoints_mark {
             Some(mark) => self.writer.buf()[mark] += 1,
             None => return Err(UsbError::InvalidState),
         };
 
-        let mps = config.max_packet_size();
+        match manual {
+            Some(descriptor) => {
+                self.writer.write(descriptor_type::ENDPOINT, descriptor)?;
+            }
+            None => {
+                let mps = config.max_packet_size();
 
-        self.writer.write(
-            descriptor_type::ENDPOINT,
-            &[
-                addr.into(),            // bEndpointAddress
-                config.ep_type() as u8, // bmAttributes
-                mps as u8,
-                (mps >> 8) as u8,  // wMaxPacketSize
-                config.interval(), // bInterval
-            ],
-        )?;
+                self.writer.write(
+                    descriptor_type::ENDPOINT,
+                    &[
+                        addr.into(),            // bEndpointAddress
+                        config.ep_type() as u8, // bmAttributes
+                        mps as u8,
+                        (mps >> 8) as u8,  // wMaxPacketSize
+                        config.interval(), // bInterval
+                    ],
+                )?;
+            }
+        }
 
         Ok(())
     }
@@ -266,12 +278,12 @@ impl<U: UsbCore> ConfigVisitor<U> for ConfigurationDescriptorWriter<'_> {
         self.num_endpoints_mark = None;
     }
 
-    fn endpoint_in(&mut self, endpoint: &mut EndpointIn<U>, _extra: Option<&[u8]>) -> Result<()> {
-        self.write_endpoint(endpoint.address(), &endpoint.config)
+    fn endpoint_in(&mut self, endpoint: &mut EndpointIn<U>, extra: Option<&[u8]>) -> Result<()> {
+        self.write_endpoint(endpoint.address(), &endpoint.config, extra)
     }
 
-    fn endpoint_out(&mut self, endpoint: &mut EndpointOut<U>, _extra: Option<&[u8]>) -> Result<()> {
-        self.write_endpoint(endpoint.address(), &endpoint.config)
+    fn endpoint_out(&mut self, endpoint: &mut EndpointOut<U>, extra: Option<&[u8]>) -> Result<()> {
+        self.write_endpoint(endpoint.address(), &endpoint.config, extra)
     }
 
     fn descriptor(&mut self, descriptor_type: u8, descriptor: &[u8]) -> Result<()> {

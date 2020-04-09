@@ -53,7 +53,11 @@ impl<U: UsbCore> ConfigVisitor<U> for UsbAllocator<'_, U> {
         Ok(())
     }
 
-    fn endpoint_out(&mut self, endpoint: &mut EndpointOut<U>, _extra: Option<&[u8]>) -> Result<()> {
+    fn endpoint_out(
+        &mut self,
+        endpoint: &mut EndpointOut<U>,
+        _manual: Option<&[u8]>,
+    ) -> Result<()> {
         if cfg!(debug_assertions) && endpoint.core.is_some() {
             return Err(UsbError::DuplicateConfig);
         }
@@ -66,7 +70,7 @@ impl<U: UsbCore> ConfigVisitor<U> for UsbAllocator<'_, U> {
         Ok(())
     }
 
-    fn endpoint_in(&mut self, endpoint: &mut EndpointIn<U>, _extra: Option<&[u8]>) -> Result<()> {
+    fn endpoint_in(&mut self, endpoint: &mut EndpointIn<U>, _manual: Option<&[u8]>) -> Result<()> {
         if cfg!(debug_assertions) && endpoint.core.is_some() {
             return Err(UsbError::DuplicateConfig);
         }

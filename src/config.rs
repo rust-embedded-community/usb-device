@@ -70,12 +70,12 @@ impl<U: UsbCore> InterfaceConfig<'_, '_, U> {
     }
 
     #[inline(always)]
-    pub fn endpoint_out_ex(
+    pub fn endpoint_out_manual(
         &mut self,
         endpoint: &mut EndpointOut<U>,
-        extra: &[u8],
+        descriptor: &[u8],
     ) -> Result<&mut Self> {
-        self.parent.0.endpoint_out(endpoint, Some(extra))?;
+        self.parent.0.endpoint_out(endpoint, Some(descriptor))?;
         Ok(self)
     }
 
@@ -86,12 +86,12 @@ impl<U: UsbCore> InterfaceConfig<'_, '_, U> {
     }
 
     #[inline(always)]
-    pub fn endpoint_in_ex(
+    pub fn endpoint_in_manual(
         &mut self,
         endpoint: &mut EndpointIn<U>,
-        extra: &[u8],
+        descriptor: &[u8],
     ) -> Result<&mut Self> {
-        self.parent.0.endpoint_in(endpoint, Some(extra))?;
+        self.parent.0.endpoint_in(endpoint, Some(descriptor))?;
         Ok(self)
     }
 
@@ -134,13 +134,13 @@ pub(crate) trait ConfigVisitor<U: UsbCore> {
 
     fn end_interface(&mut self) -> () {}
 
-    fn endpoint_out(&mut self, endpoint: &mut EndpointOut<U>, extra: Option<&[u8]>) -> Result<()> {
-        let _ = (endpoint, extra);
+    fn endpoint_out(&mut self, endpoint: &mut EndpointOut<U>, manual: Option<&[u8]>) -> Result<()> {
+        let _ = (endpoint, manual);
         Ok(())
     }
 
-    fn endpoint_in(&mut self, endpoint: &mut EndpointIn<U>, extra: Option<&[u8]>) -> Result<()> {
-        let _ = (endpoint, extra);
+    fn endpoint_in(&mut self, endpoint: &mut EndpointIn<U>, manual: Option<&[u8]>) -> Result<()> {
+        let _ = (endpoint, manual);
         Ok(())
     }
 
