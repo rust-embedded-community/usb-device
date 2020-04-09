@@ -30,7 +30,7 @@ impl<'v, U: UsbCore> Config<'v, U> {
     pub fn interface<'c>(
         &'c mut self,
         interface: &mut InterfaceHandle,
-        descriptor: InterfaceDescriptor,
+        descriptor: InterfaceDescriptor<'c>,
     ) -> Result<InterfaceConfig<'v, 'c, U>> {
         self.0.begin_interface(interface, &descriptor)?;
 
@@ -52,7 +52,7 @@ impl<'v, U: UsbCore> Config<'v, U> {
 pub struct InterfaceConfig<'v, 'c, U: UsbCore> {
     parent: &'c mut Config<'v, U>,
     interface: InterfaceHandle,
-    descriptor: InterfaceDescriptor,
+    descriptor: InterfaceDescriptor<'c>,
 }
 
 impl<U: UsbCore> InterfaceConfig<'_, '_, U> {
@@ -150,9 +150,42 @@ pub(crate) trait ConfigVisitor<U: UsbCore> {
     }
 }
 
-#[derive(Copy, Clone, Default)]
-pub struct InterfaceDescriptor {
-    pub class: u8,
-    pub sub_class: u8,
-    pub protocol: u8,
+#[derive(Copy, Clone)]
+pub struct InterfaceDescriptor<'n> {
+    pub(crate) class: u8,
+    pub(crate) sub_class: u8,
+    pub(crate) protocol: u8,
+    pub(crate) name: Option<&'n StringHandle>,
+}
+
+impl<'n> InterfaceDescriptor<'n> {
+    pub const fn class(class: u8) -> Self {
+        InterfaceDescriptor {
+            class,
+            sub_class: 0,
+            protocol: 0,
+            name: None,
+        }
+    }
+
+    pub const fn sub_class(self, sub_class: u8) -> Self {
+        InterfaceDescriptor {
+            sub_class,
+            ..self
+        }
+    }
+
+    pub const fn protocol(self, protocol: u8) -> Self {
+        InterfaceDescriptor {
+            protocol,
+            ..self
+        }
+    }
+
+    pub const fn name(self, name: &'n StringHandle) -> InterfaceDescriptor<'n> {
+        InterfaceDescriptor {
+            name: Some(name),
+            ..self
+        }
+    }
 }
