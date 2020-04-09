@@ -190,6 +190,7 @@ pub mod test_class;
 pub mod allocator;
 
 mod control_pipe;
+mod control_transfer;
 
 mod device_builder;
 
