@@ -232,7 +232,7 @@ impl<U: UsbCore> EndpointIn<U> {
     /// * [`BufferOverflow`](crate::UsbError::BufferOverflow) - The data is longer than the
     ///   `max_packet_size` specified when allocating the endpoint. This is generally an error in
     ///   the class implementation.
-    /// * [`EndpointDisabled`](crate::UsbError::InvalidState) -  The endpoint is currently not
+    /// * [`EndpointDisabled`](crate::UsbError::EndpointDisabled) -  The endpoint is currently not
     ///   enabled in the current interface alternate or the device has not been configured by the
     ///   host yet.
     pub fn write_packet(&mut self, data: &[u8]) -> Result<()> {
@@ -242,6 +242,32 @@ impl<U: UsbCore> EndpointIn<U> {
             .and_then(|c| {
                 if c.enabled {
                     c.ep.write_packet(data)
+                } else {
+                    Err(UsbError::EndpointDisabled)
+                }
+            })
+    }
+
+    /// Returns `Ok` if all packets successfully written via `write_packet` have been transmitted to
+    /// the host, otherwise an error.
+    ///
+    /// # Errors
+    ///
+    /// Note: USB bus implementation errors are directly passed through, so be prepared to handle
+    /// other errors as well.
+    ///
+    /// * [`WouldBlock`](crate::UsbError::WouldBlock) - There are still untransmitted packets in
+    ///   peripheral buffers.
+    /// * [`EndpointDisabled`](crate::UsbError::EndpointDisabled) -  The endpoint is currently not
+    ///   enabled in the current interface alternate or the device has not been configured by the
+    ///   host yet.
+    pub fn flush(&mut self) -> Result<()> {
+        self.core
+            .as_mut()
+            .ok_or(UsbError::EndpointDisabled)
+            .and_then(|c| {
+                if c.enabled {
+                    c.ep.flush()
                 } else {
                     Err(UsbError::EndpointDisabled)
                 }

@@ -144,17 +144,13 @@ pub trait UsbEndpointOut: UsbEndpoint {
     ///
     /// # Errors
     ///
-    /// Note: USB bus implementation errors are directly passed through, so be prepared to handle
-    /// other errors as well.
+    /// You may also return other errors as needed.
     ///
     /// * [`WouldBlock`](crate::UsbError::WouldBlock) - There is no packet to be read. Note that
     ///   this is different from a received zero-length packet, which is valid and significant in
-    ///   USB. A zero-length packet will return `Ok(0)`.
+    ///   USB. A zero-length packet shall return `Ok(0)`.
     /// * [`BufferOverflow`](crate::UsbError::BufferOverflow) - The received packet is too long to
-    ///   fit in `data`. This is generally an error in the class implementation.
-    /// * [`EndpointDisabled`](crate::UsbError::EndpointDisabled) - The endpoint is not currently
-    ///   enabled, due to the device not being configured, or the endpoint belonging to an inactive
-    ///   interface alternate setting.
+    ///   fit in `data`.
     fn read_packet(&mut self, data: &mut [u8]) -> Result<(usize, OutPacketType)>;
 }
 
@@ -165,14 +161,23 @@ pub trait UsbEndpointIn: UsbEndpoint {
     ///
     /// # Errors
     ///
-    /// Note: USB bus implementation errors are directly passed through, so be prepared to handle
-    /// other errors as well.
+    /// You may also return other errors as needed.
     ///
     /// * [`WouldBlock`](crate::UsbError::WouldBlock) - The transmission buffer of the USB
     ///   peripheral is full and the packet cannot be sent now. A peripheral may or may not support
     ///   concurrent transmission of packets.
     /// * [`BufferOverflow`](crate::UsbError::BufferOverflow) - The data is longer than the
-    ///   `max_packet_size` specified when allocating the endpoint. This is generally an error in
-    ///   the class implementation.
+    ///   `max_packet_size` specified when allocating the endpoint.
     fn write_packet(&mut self, data: &[u8]) -> Result<()>;
+
+    /// Returns `Ok` if all packets successfully written via `write_packet` have been transmitted to
+    /// the host, otherwise an error.
+    ///
+    /// # Errors
+    ///
+    /// You may also return other errors as needed.
+    ///
+    /// * [`WouldBlock`](crate::UsbError::WouldBlock) - There are still untransmitted packets in
+    ///   peripheral buffers.
+    fn flush(&mut self) -> Result<()>;
 }
