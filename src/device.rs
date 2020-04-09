@@ -1,5 +1,5 @@
 use crate::allocator::{self, InterfaceHandle, StringHandle, UsbAllocator};
-use crate::class::{ControlIn, ControlOut, UsbClass};
+use crate::class::{ControlIn, ControlOut, EndpointOutSet, EndpointInSet, UsbClass};
 use crate::config::{Config, ConfigVisitor, InterfaceDescriptor};
 use crate::control;
 use crate::control_pipe::ControlPipe;
@@ -7,7 +7,7 @@ use crate::descriptor::{
     descriptor_type, lang_id, BosWriter, ConfigurationDescriptorWriter, DescriptorWriter,
 };
 pub use crate::device_builder::{UsbDeviceBuilder, UsbVidPid};
-use crate::endpoint::{EndpointAddress, EndpointConfig, EndpointCore, EndpointIn, EndpointOut};
+use crate::endpoint::{EndpointConfig, EndpointCore, EndpointIn, EndpointOut};
 use crate::usbcore::{PollResult, UsbCore, UsbEndpoint};
 use crate::{Result, UsbDirection};
 
@@ -228,36 +228,16 @@ impl<U: UsbCore> UsbDevice<U> {
 
                 // Pending events for other endpoints?
 
-                let mut bit = 2u16;
-
-                for i in 1..MAX_ENDPOINTS {
-                    if (ep_out & bit) != 0 {
-                        for cls in classes.iter_mut() {
-                            cls.endpoint_out(EndpointAddress::from_parts(
-                                i as u8,
-                                UsbDirection::Out,
-                            ));
-                        }
+                if ep_out != 0 {
+                    for cls in classes.iter_mut() {
+                        cls.endpoint_out(EndpointOutSet(ep_out));
                     }
+                }
 
-                    if (ep_in_complete & bit) != 0 {
-                        for cls in classes.iter_mut() {
-                            cls.endpoint_in_complete(EndpointAddress::from_parts(
-                                i as u8,
-                                UsbDirection::In,
-                            ));
-                        }
+                if ep_in_complete != 0 {
+                    for cls in classes.iter_mut() {
+                        cls.endpoint_in_complete(EndpointInSet(ep_in_complete));
                     }
-
-                    ep_out &= !bit;
-                    ep_in_complete &= !bit;
-
-                    if ep_out == 0 && ep_in_complete == 0 {
-                        // No more pending events for higher endpoints
-                        break;
-                    }
-
-                    bit <<= 1;
                 }
 
                 true

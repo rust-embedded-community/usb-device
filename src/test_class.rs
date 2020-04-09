@@ -220,12 +220,12 @@ impl<U: UsbCore> UsbClass<U> for TestClass<U> {
         }
     }
 
-    fn endpoint_in_complete(&mut self, addr: EndpointAddress) {
+    fn endpoint_in_complete(&mut self, eps: EndpointInSet) {
         if self.bench {
             return;
         }
 
-        if addr == self.ep_bulk_in.address() {
+        if eps.contains(&self.ep_bulk_in) {
             if self.expect_bulk_in_complete {
                 self.expect_bulk_in_complete = false;
 
@@ -233,7 +233,7 @@ impl<U: UsbCore> UsbClass<U> for TestClass<U> {
             } else {
                 panic!("unexpected endpoint_in_complete");
             }
-        } else if addr == self.ep_interrupt_in.address() {
+        } else if eps.contains(&self.ep_interrupt_in) {
             if self.expect_interrupt_in_complete {
                 self.expect_interrupt_in_complete = false;
             } else {
@@ -242,10 +242,10 @@ impl<U: UsbCore> UsbClass<U> for TestClass<U> {
         }
     }
 
-    fn endpoint_out(&mut self, addr: EndpointAddress) {
-        if addr == self.ep_bulk_out.address() {
+    fn endpoint_out(&mut self, eps: EndpointOutSet) {
+        if eps.contains(&self.ep_bulk_out) {
             self.expect_bulk_out = true;
-        } else if addr == self.ep_interrupt_out.address() {
+        } else if eps.contains(&self.ep_interrupt_out) {
             self.expect_interrupt_out = true;
         }
     }

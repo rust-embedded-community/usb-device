@@ -4,7 +4,7 @@ use crate::control;
 use crate::control_pipe::ControlPipe;
 use crate::descriptor::BosWriter;
 use crate::device::UsbDeviceState;
-use crate::endpoint::EndpointAddress;
+use crate::endpoint::{EndpointOut, EndpointIn};
 use crate::usbcore::UsbCore;
 use crate::{Result, UsbError};
 
@@ -97,20 +97,23 @@ pub trait UsbClass<U: UsbCore> {
         let _ = xfer;
     }
 
-    /// Called when endpoint with address `addr` has received data (OUT packet).
+    /// Called when some endpoints may have received data (OUT packet).
     ///
-    /// Note: This method may be called for an endpoint address you didn't allocate, in which case
-    /// you should ignore the event.
-    fn endpoint_out(&mut self, addr: EndpointAddress) {
-        let _ = addr;
+    /// Use [`EndpointOutSet::container`] to check which endpoints have received data.
+    fn endpoint_out(&mut self, eps: EndpointOutSet) {
+        let _ = eps;
     }
 
-    /// Called when endpoint with address `addr` has completed transmitting data (IN packet).
+    /// Called when some endpoints may have completed transmitting data (IN packet).
     ///
-    /// Note: This method may be called for an endpoint address you didn't allocate, in which case
-    /// you should ignore the event.
-    fn endpoint_in_complete(&mut self, addr: EndpointAddress) {
-        let _ = addr;
+    /// This method is not guaranteed to be called once for every call to
+    /// [`EndpointIn::write_packet`], but it is guaranteed to eventually be called when all packets
+    /// have been transmitted. You can use [`EndpointIn::flush`] to check if all data has been
+    /// transmitted.
+    ///
+    /// Use [`EndpointInSet::container`] to check which endpoints have received data.
+    fn endpoint_in_complete(&mut self, eps: EndpointInSet) {
+        let _ = eps;
     }
 }
 
@@ -194,5 +197,29 @@ impl<'p, 'r, U: UsbCore> ControlOut<'p, 'r, U> {
     /// Rejects the transfer by stalling the pipe.
     pub fn reject(self) -> Result<()> {
         self.pipe.reject()
+    }
+}
+
+pub struct EndpointOutSet(pub(crate) u16);
+
+impl EndpointOutSet {
+    pub fn is_empty(&self) -> bool {
+        self.0 == 0
+    }
+
+    pub fn contains<U: UsbCore>(&self, ep: &EndpointOut<U>) -> bool {
+        ep.address_option().map(|a| (self.0 & (1 << a.number())) != 0).unwrap_or(false)
+    }
+}
+
+pub struct EndpointInSet(pub(crate) u16);
+
+impl EndpointInSet {
+    pub fn is_empty(&self) -> bool {
+        self.0 == 0
+    }
+
+    pub fn contains<U: UsbCore>(&self, ep: &EndpointIn<U>) -> bool {
+        ep.address_option().map(|a| (self.0 & (1 << a.number())) != 0).unwrap_or(false)
     }
 }

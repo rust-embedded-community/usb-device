@@ -117,11 +117,14 @@ impl<U: UsbCore> EndpointOut<U> {
         self.config.interval
     }
 
-    pub fn address(&self) -> EndpointAddress {
+    pub(crate) fn address_option(&self) -> Option<EndpointAddress> {
         self.core
             .as_ref()
             .map(|c| c.ep.address())
-            .unwrap_or(EndpointAddress(0))
+    }
+
+    pub fn address(&self) -> EndpointAddress {
+        self.address_option().unwrap_or(EndpointAddress(0xff))
     }
 
     pub fn is_enabled(&self) -> bool {
@@ -207,11 +210,14 @@ impl<U: UsbCore> EndpointIn<U> {
         self.config.interval
     }
 
-    pub fn address(&self) -> EndpointAddress {
+    pub(crate) fn address_option(&self) -> Option<EndpointAddress> {
         self.core
             .as_ref()
             .map(|c| c.ep.address())
-            .unwrap_or(EndpointAddress(0))
+    }
+
+    pub fn address(&self) -> EndpointAddress {
+        self.address_option().unwrap_or(EndpointAddress(0xff))
     }
 
     pub fn is_enabled(&self) -> bool {
@@ -302,13 +308,6 @@ impl From<EndpointAddress> for u8 {
         addr.0
     }
 }
-
-/*impl From<Option<EndpointAddress>> for u8 {
-    #[inline]
-    fn from(addr: Option<EndpointAddress>) -> u8 {
-        addr.unwrap_or(0)
-    }
-}*/
 
 impl EndpointAddress {
     const INBITS: u8 = UsbDirection::In as u8;

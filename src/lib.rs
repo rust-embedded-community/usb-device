@@ -202,7 +202,7 @@ pub mod prelude {
 /// Prelude for class implementors.
 pub mod class_prelude {
     pub use crate::allocator::{InterfaceHandle, StringHandle};
-    pub use crate::class::{ControlIn, ControlOut, UsbClass};
+    pub use crate::class::{ControlIn, ControlOut, EndpointOutSet, EndpointInSet, UsbClass};
     pub use crate::config::{Config, InterfaceDescriptor};
     pub use crate::control;
     pub use crate::descriptor::BosWriter;
