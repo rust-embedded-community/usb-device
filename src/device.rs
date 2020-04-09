@@ -30,9 +30,6 @@ pub enum UsbDeviceState {
     Suspend,
 }
 
-// Maximum number of endpoints in one direction. Specified by the USB specification.
-const MAX_ENDPOINTS: usize = 16;
-
 /// A USB device consisting of one or more device classes.
 pub struct UsbDevice<U: UsbCore> {
     bus: U,
