@@ -124,6 +124,10 @@ impl<U: UsbCore> EndpointOut<U> {
             .unwrap_or(EndpointAddress(0))
     }
 
+    pub fn is_enabled(&self) -> bool {
+        self.core.as_ref().map(|c| c.enabled).unwrap_or(false)
+    }
+
     /// Reads a single packet of data from the specified endpoint and returns the actual length of
     /// the packet. The buffer should be large enough to fit at least as many bytes as the
     /// `max_packet_size` specified when allocating the endpoint.
@@ -208,6 +212,10 @@ impl<U: UsbCore> EndpointIn<U> {
             .as_ref()
             .map(|c| c.ep.address())
             .unwrap_or(EndpointAddress(0))
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        self.core.as_ref().map(|c| c.enabled).unwrap_or(false)
     }
 
     /// Writes a single packet of data to the specified endpoint. The buffer must not be longer than
