@@ -42,8 +42,8 @@ impl<'v, U: UsbCore> Config<'v, U> {
     }
 
     #[inline(always)]
-    pub fn descriptor(&mut self, descriptor: &[u8]) -> Result<&mut Self> {
-        self.0.descriptor(descriptor)?;
+    pub fn descriptor(&mut self, descriptor_type: u8, descriptor: &[u8]) -> Result<&mut Self> {
+        self.0.descriptor(descriptor_type, descriptor)?;
 
         Ok(self)
     }
@@ -96,8 +96,8 @@ impl<U: UsbCore> InterfaceConfig<'_, '_, U> {
     }
 
     #[inline(always)]
-    pub fn descriptor(&mut self, descriptor: &[u8]) -> Result<&mut Self> {
-        self.parent.0.descriptor(descriptor)?;
+    pub fn descriptor(&mut self, descriptor_type: u8, descriptor: &[u8]) -> Result<&mut Self> {
+        self.parent.0.descriptor(descriptor_type, descriptor)?;
         Ok(self)
     }
 }
@@ -144,8 +144,8 @@ pub(crate) trait ConfigVisitor<U: UsbCore> {
         Ok(())
     }
 
-    fn descriptor(&mut self, descriptor: &[u8]) -> Result<()> {
-        let _ = descriptor;
+    fn descriptor(&mut self, descriptor_type: u8, descriptor: &[u8]) -> Result<()> {
+        let _ = (descriptor_type, descriptor);
         Ok(())
     }
 }

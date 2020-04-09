@@ -273,6 +273,10 @@ impl<U: UsbCore> ConfigVisitor<U> for ConfigurationDescriptorWriter<'_> {
     fn endpoint_out(&mut self, endpoint: &mut EndpointOut<U>, _extra: Option<&[u8]>) -> Result<()> {
         self.write_endpoint(endpoint.address(), &endpoint.config)
     }
+
+    fn descriptor(&mut self, descriptor_type: u8, descriptor: &[u8]) -> Result<()> {
+        self.writer.write(descriptor_type, descriptor)
+    }
 }
 
 /// A writer for Binary Object Store descriptor.
