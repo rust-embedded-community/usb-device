@@ -115,7 +115,29 @@ impl PartialEq for InterfaceHandle {
     }
 }
 
-impl Eq for InterfaceHandle {}
+impl PartialEq<u8> for InterfaceHandle {
+    fn eq(&self, other: &u8) -> bool {
+        self.0.map(|n| n == *other).unwrap_or(false)
+    }
+}
+
+impl PartialEq<InterfaceHandle> for u8 {
+    fn eq(&self, other: &InterfaceHandle) -> bool {
+        other.0.map(|n| n == *self).unwrap_or(false)
+    }
+}
+
+impl PartialEq<u16> for InterfaceHandle {
+    fn eq(&self, other: &u16) -> bool {
+        self.0.map(|n| u16::from(n) == *other).unwrap_or(false)
+    }
+}
+
+impl PartialEq<InterfaceHandle> for u16 {
+    fn eq(&self, other: &InterfaceHandle) -> bool {
+        other.0.map(|n| u16::from(n) == *self).unwrap_or(false)
+    }
+}
 
 /// A handle for a USB string descriptor that contains its index.
 #[derive(Default)]
@@ -147,5 +169,3 @@ impl PartialEq for StringHandle {
         }
     }
 }
-
-impl Eq for StringHandle {}
