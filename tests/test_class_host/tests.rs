@@ -53,6 +53,17 @@ fn string_descriptors(dev, _out) {
         test_class::CUSTOM_STRING);
 }
 
+fn interface_name(dev, _out) {
+    let index = dev.config_descriptor.interfaces().next().expect("get interfaces")
+        .descriptors().next().expect("get interface descriptors")
+        .description_string_index().expect("get interface description string index");
+
+    assert_eq!(
+        dev.read_string_descriptor(dev.en_us, index, TIMEOUT)
+            .expect("read interface description descriptor"),
+        test_class::INTERFACE_DESCRIPTION);
+}
+
 fn control_request(dev, _out) {
     let mut rng = rand::thread_rng();
 

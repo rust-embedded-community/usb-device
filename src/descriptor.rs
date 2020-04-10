@@ -200,7 +200,7 @@ impl ConfigurationDescriptorWriter<'_> {
                 descriptor.class,     // bInterfaceClass
                 descriptor.sub_class, // bInterfaceSubClass
                 descriptor.protocol,  // bInterfaceProtocol
-                descriptor.name.map(|n| n.into()).unwrap_or(0), // iInterface
+                descriptor.description.map(|n| n.into()).unwrap_or(0), // iInterface
             ],
         )
     }

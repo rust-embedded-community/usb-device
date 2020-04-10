@@ -163,7 +163,7 @@ pub struct InterfaceDescriptor<'n> {
     pub(crate) class: u8,
     pub(crate) sub_class: u8,
     pub(crate) protocol: u8,
-    pub(crate) name: Option<&'n StringHandle>,
+    pub(crate) description: Option<&'n StringHandle>,
 }
 
 impl<'n> InterfaceDescriptor<'n> {
@@ -172,7 +172,7 @@ impl<'n> InterfaceDescriptor<'n> {
             class,
             sub_class: 0,
             protocol: 0,
-            name: None,
+            description: None,
         }
     }
 
@@ -190,9 +190,9 @@ impl<'n> InterfaceDescriptor<'n> {
         }
     }
 
-    pub const fn name(self, name: &'n StringHandle) -> InterfaceDescriptor<'n> {
+    pub const fn description(self, description: &'n StringHandle) -> InterfaceDescriptor<'n> {
         InterfaceDescriptor {
-            name: Some(name),
+            description: Some(description),
             ..self
         }
     }
