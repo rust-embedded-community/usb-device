@@ -21,8 +21,12 @@ impl<'v, U: UsbCore> Config<'v, U> {
     }
 
     #[inline(always)]
-    pub fn string(&mut self, string: &mut StringHandle) -> Result<&mut Self> {
-        self.0.string(string)?;
+    pub fn string(
+        &mut self,
+        handle: &mut StringHandle,
+        string: &str) -> Result<&mut Self>
+    {
+        self.0.string(handle, string)?;
         Ok(self)
     }
 
@@ -109,8 +113,12 @@ impl<U: UsbCore> Drop for InterfaceConfig<'_, '_, U> {
 }
 
 pub(crate) trait ConfigVisitor<U: UsbCore> {
-    fn string(&mut self, string: &mut StringHandle) -> Result<()> {
-        let _ = string;
+    fn string(
+        &mut self,
+        string: &mut StringHandle,
+        value: &str) -> Result<()>
+    {
+        let _ = (string, value);
         Ok(())
     }
 

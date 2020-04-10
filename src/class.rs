@@ -1,4 +1,4 @@
-use crate::allocator::{InterfaceHandle, StringHandle};
+use crate::allocator::InterfaceHandle;
 use crate::config::Config;
 use crate::descriptor::BosWriter;
 use crate::device::UsbDeviceState;
@@ -20,29 +20,13 @@ pub trait UsbClass<U: UsbCore> {
     /// Any errors returned by `Config`. Implementors should propagate any error using `?`.
     fn configure(&mut self, config: Config<U>) -> Result<()>;
 
-    /// Called when a GET_DESCRIPTOR request is received for a BOS descriptor.
-    /// When called, the implementation should write its blobs such as capability
-    /// descriptors into `writer`. The BOS descriptor itself will be written by
-    /// [UsbDevice](crate::device::UsbDevice) and shouldn't be written by classes.
+    /// Called when a GET_DESCRIPTOR request is received for a BOS descriptor. When called, the
+    /// implementation should write its blobs such as capability descriptors into `writer`. The BOS
+    /// descriptor itself will be written by [UsbDevice](crate::device::UsbDevice) and shouldn't be
+    /// written by classes.
     fn get_bos_descriptors(&self, writer: &mut BosWriter) -> Result<()> {
         let _ = writer;
         Ok(())
-    }
-
-    /// Gets a class-specific string descriptor.
-    ///
-    /// Note: All string descriptor requests are passed to all classes in turn, so implementations
-    /// should return [`None`] if an unknown index is requested.
-    ///
-    /// # Arguments
-    ///
-    /// * `index` - A string index allocated earlier with
-    ///   [`UsbAllocator`](crate::bus::UsbAllocator).
-    /// * `lang_id` - The language ID for the string to retrieve.
-    fn get_string(&self, index: StringHandle, lang_id: u16) -> Option<&str> {
-        let _ = (index, lang_id);
-
-        None
     }
 
     /// Called after a USB reset after the bus reset sequence is complete.

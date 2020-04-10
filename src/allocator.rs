@@ -27,7 +27,7 @@ impl<U: UsbCore> UsbAllocator<'_, U> {
 }
 
 impl<U: UsbCore> ConfigVisitor<U> for UsbAllocator<'_, U> {
-    fn string(&mut self, string: &mut StringHandle) -> Result<()> {
+    fn string(&mut self, string: &mut StringHandle, _value: &str) -> Result<()> {
         if cfg!(debug_assertions) && string.0.is_some() {
             return Err(UsbError::DuplicateConfig);
         }
@@ -188,5 +188,17 @@ impl PartialEq for StringHandle {
             (Some(a), Some(b)) => a == b,
             _ => false,
         }
+    }
+}
+
+impl PartialEq<u8> for StringHandle {
+    fn eq(&self, other: &u8) -> bool {
+        self.0.map(|n| n == *other).unwrap_or(false)
+    }
+}
+
+impl PartialEq<StringHandle> for u8 {
+    fn eq(&self, other: &StringHandle) -> bool {
+        other.0.map(|n| n == *self).unwrap_or(false)
     }
 }

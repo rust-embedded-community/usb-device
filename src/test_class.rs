@@ -1,7 +1,6 @@
 #![allow(missing_docs)]
 
 use crate::class_prelude::*;
-use crate::descriptor;
 use crate::device::{UsbDevice, UsbDeviceBuilder, UsbVidPid};
 use crate::Result;
 use core::cmp;
@@ -48,6 +47,7 @@ pub const MANUFACTURER: &'static str = "TestClass Manufacturer";
 pub const PRODUCT: &'static str = "virkkunen.net usb-device TestClass";
 pub const SERIAL_NUMBER: &'static str = "TestClass Serial";
 pub const CUSTOM_STRING: &'static str = "TestClass Custom String";
+pub const INTERFACE_NAME: &'static str = "Test Interface";
 
 pub const REQ_STORE_REQUEST: u8 = 1;
 pub const REQ_READ_BUFFER: u8 = 2;
@@ -184,8 +184,8 @@ impl<U: UsbCore> TestClass<U> {
 
 impl<U: UsbCore> UsbClass<U> for TestClass<U> {
     fn configure(&mut self, mut config: Config<U>) -> Result<()> {
-        config.string(&mut self.custom_string)?;
-        config.string(&mut self.iface_name)?;
+        config.string(&mut self.custom_string, CUSTOM_STRING)?;
+        config.string(&mut self.iface_name, INTERFACE_NAME)?;
 
         config
             .interface(
@@ -210,7 +210,7 @@ impl<U: UsbCore> UsbClass<U> for TestClass<U> {
         self.expect_interrupt_out = false;
     }
 
-    fn get_string(&self, index: StringHandle, lang_id: u16) -> Option<&str> {
+    /*fn get_string(&self, index: StringHandle, lang_id: u16) -> Option<&str> {
         if index == self.custom_string && lang_id == descriptor::lang_id::ENGLISH_US {
             Some(CUSTOM_STRING)
         } else  if index == self.iface_name && lang_id == descriptor::lang_id::ENGLISH_US {
@@ -218,7 +218,7 @@ impl<U: UsbCore> UsbClass<U> for TestClass<U> {
         } else {
             None
         }
-    }
+    }*/
 
     fn endpoint_in_complete(&mut self, eps: EndpointInSet) {
         if self.bench {

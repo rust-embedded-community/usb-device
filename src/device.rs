@@ -9,7 +9,7 @@ use crate::descriptor::{
 pub use crate::device_builder::{UsbDeviceBuilder, UsbVidPid};
 use crate::endpoint::{EndpointConfig, EndpointCore, EndpointIn, EndpointOut};
 use crate::usbcore::{PollResult, UsbCore, UsbEndpoint};
-use crate::{Result, UsbDirection};
+use crate::{Result, UsbError, UsbDirection};
 
 /// The global state of the USB device.
 ///
@@ -499,25 +499,28 @@ impl<U: UsbCore> UsbDevice<U> {
                         allocator::MANUFACTURER_STRING => config.manufacturer,
                         allocator::PRODUCT_STRING => config.product,
                         allocator::SERIAL_NUMBER_STRING => config.serial_number,
-                        _ => {
-                            let lang_id = req.index;
-
-                            classes
-                                .iter()
-                                .filter_map(|cls| {
-                                    cls.get_string(StringHandle(Some(index)), lang_id)
-                                })
-                                .next()
-                        }
+                        _ => None,
                     };
 
-                    if let Some(s) = s {
-                        accept_writer(xfer, |mut w| {
-                            w.write_string(s)?;
-                            w.finish()
-                        });
-                    } else {
-                        xfer.reject().ok();
+                    match s {
+                        Some(s) => {
+                            accept_writer(xfer, |mut w| {
+                                w.write_string(s)?;
+                                w.finish()
+                            });
+                        }
+                        _ => {
+                            let mut visitor = GetStringVisitor {
+                                index,
+                                xfer: Some(xfer),
+                            };
+
+                            Config::visit(classes, &mut visitor).ok();
+
+                            if let Some(xfer) = visitor.xfer.take() {
+                                xfer.reject().ok();
+                            }
+                        }
                     }
                 }
             }
@@ -542,6 +545,7 @@ impl<U: UsbCore> UsbDevice<U> {
         }
     }
 }
+
 
 struct EnableEndpointVisitor {
     interface: Option<u8>,
@@ -588,7 +592,6 @@ impl EnableEndpointVisitor {
     }
 }
 
-// TODO: Clean up the Option mess
 impl<U: UsbCore> ConfigVisitor<U> for EnableEndpointVisitor {
     fn begin_interface(
         &mut self,
@@ -656,6 +659,35 @@ impl<U: UsbCore> ConfigVisitor<U> for GetInterfaceVisitor {
     ) -> Result<()> {
         if *interface == self.interface {
             self.result = Some(interface.alt_setting());
+            return Err(UsbError::Break);
+        }
+
+        Ok(())
+    }
+}
+
+
+struct GetStringVisitor<'p, 'r, U: UsbCore> {
+    index: u8,
+    xfer: Option<ControlIn<'p, 'r, U>>,
+}
+
+impl<U: UsbCore> ConfigVisitor<U> for GetStringVisitor<'_, '_, U> {
+    fn string(
+        &mut self,
+        string: &mut StringHandle,
+        value: &str) -> Result<()>
+    {
+        if *string == self.index {
+            if let Some(xfer) = self.xfer.take() {
+                xfer.accept(|buf| {
+                    let mut w = DescriptorWriter::new(buf);
+                    w.write_string(value)?;
+                    w.finish()
+                })?;
+            }
+
+            return Err(UsbError::Break);
         }
 
         Ok(())

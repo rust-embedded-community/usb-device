@@ -84,6 +84,10 @@ pub enum UsbError {
 
     /// The object was attempted to be configured twice.
     DuplicateConfig,
+
+    /// Early return from some configuration operations. Not really an error.
+    #[doc(hidden)]
+    Break,
 }
 
 /// Direction of USB traffic. Note that in the USB standard the direction is always indicated from
