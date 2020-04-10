@@ -26,32 +26,32 @@ pub trait UsbCore: Sized {
     /// Handles a USB protocol reset signaled from the host. This method should reset the state of
     /// all endpoints and peripheral flags back to a state compatible with host enumeration, as well
     /// as ensure that all endpoints are disabled.
-    fn reset(&mut self);
+    fn reset(&mut self) -> Result<()>;
 
     /// Gets information about events and incoming data. Usually called in a loop or from an
     /// interrupt handler. See the [`PollResult`] struct for more information.
-    fn poll(&mut self) -> PollResult;
+    fn poll(&mut self) -> Result<PollResult>;
 
     /// Sets the device USB address to `addr`.
-    fn set_device_address(&mut self, addr: u8);
+    fn set_device_address(&mut self, addr: u8) -> Result<()>;
 
     /// Sets or clears the STALL condition for an endpoint. If the endpoint is an OUT endpoint, it
     /// will be prepared to receive data again. Only used during control transfers.
-    fn set_stalled(&mut self, ep_addr: EndpointAddress, stalled: bool);
+    fn set_stalled(&mut self, ep_addr: EndpointAddress, stalled: bool) -> Result<()>;
 
     /// Gets whether the STALL condition is set for an endpoint. Only used during control transfers.
-    fn is_stalled(&self, ep_addr: EndpointAddress) -> bool;
+    fn is_stalled(&mut self, ep_addr: EndpointAddress) -> Result<bool>;
 
     /// Causes the USB peripheral to enter USB suspend mode, lowering power consumption and
     /// preparing to detect a USB wakeup event. This will be called after
     /// [`poll`](crate::device::UsbDevice::poll) returns [`PollResult::Suspend`]. The device will
     /// continue be polled, and it shall return a value other than `Suspend` from `poll` when it no
     /// longer detects the suspend condition.
-    fn suspend(&mut self);
+    fn suspend(&mut self) -> Result<()>;
 
     /// Resumes from suspend mode. This may only be called after the peripheral has been previously
     /// suspended.
-    fn resume(&mut self);
+    fn resume(&mut self) -> Result<()>;
 
     /// Indicates that `set_device_address` must be called before accepting the corresponding
     /// control transfer.
@@ -64,9 +64,6 @@ pub trait UsbCore: Sized {
 
 /// Event and incoming packet information returned by [`UsbCore::poll`].
 pub enum PollResult {
-    /// No events or packets to report.
-    None,
-
     /// The USB reset condition has been detected.
     Reset,
 
@@ -119,17 +116,17 @@ pub trait UsbEndpoint {
     ///
     /// This method is unsafe because enabling two endpoints allocated for different interface
     /// alternate settings simultaneously may result in undefined behavior.
-    unsafe fn enable(&mut self, config: &EndpointConfig);
+    unsafe fn enable(&mut self, config: &EndpointConfig) -> Result<()>;
 
     /// Disables the endpoint.
-    fn disable(&mut self);
+    fn disable(&mut self) -> Result<()>;
 
     /// Gets whether the STALL condition is set for an endpoint.
-    fn is_stalled(&self) -> bool;
+    fn is_stalled(&mut self) -> Result<bool>;
 
     /// Sets or clears the STALL condition for the endpoint. If the endpoint is unstalled and it is
     /// an OUT endpoint, it shall be enabled to receive data again.
-    fn set_stalled(&mut self, stalled: bool);
+    fn set_stalled(&mut self, stalled: bool) -> Result<()>;
 }
 
 /// Implementation of an OUT endpoint.

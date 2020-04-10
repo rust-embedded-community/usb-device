@@ -85,6 +85,9 @@ pub enum UsbError {
     /// The object was attempted to be configured twice.
     DuplicateConfig,
 
+    /// An unknown platform-specific error has occurred.
+    Platform,
+
     /// Early return from some configuration operations. Not really an error.
     #[doc(hidden)]
     Break,

@@ -80,18 +80,20 @@ impl<U: UsbCore> ControlPipe<U> {
         &self.buf[0..self.len]
     }
 
-    pub fn reset(&mut self) {
+    pub fn reset(&mut self) -> Result<()> {
         unsafe {
             self.ep_out
-                .enable(&ep_config(self.max_packet_size_0, UsbDirection::Out));
+                .enable(&ep_config(self.max_packet_size_0, UsbDirection::Out))?;
             self.ep_in
-                .enable(&ep_config(self.max_packet_size_0, UsbDirection::In));
+                .enable(&ep_config(self.max_packet_size_0, UsbDirection::In))?;
         }
 
         self.state = ControlState::Idle;
+
+        Ok(())
     }
 
-    pub fn handle_out(&mut self) -> Option<Request> {
+    pub fn handle_out(&mut self) -> Result<Option<Request>> {
         // When reading a packet the buffer must always have at least 8 bytes of space for a SETUP
         // packet. If there is not enough space, make note of it and reset the buffer pointer to the
         // start to make space.
@@ -109,16 +111,16 @@ impl<U: UsbCore> ControlPipe<U> {
                 // known to be waiting to be read, but if the read somehow still blocked, and the
                 // buffer was reset, this transfer has now failed.
                 if buffer_reset_for_setup {
-                    self.set_error();
+                    self.set_error()?;
                 }
 
-                return None;
+                return Ok(None);
             }
             Err(_) => {
                 // Failed to read or buffer overflow (overflow is only possible if the host
                 // sends more data than it indicated in the SETUP request)
-                self.set_error();
-                return None;
+                self.set_error()?;
+                return Ok(None);
             }
         };
 
@@ -127,33 +129,33 @@ impl<U: UsbCore> ControlPipe<U> {
                 Ok(request) => self.handle_out_setup(request),
                 Err(_) => {
                     // SETUP packet length is incorrect
-                    self.set_error();
-                    None
+                    self.set_error()?;
+                    Ok(None)
                 }
             }
         } else if buffer_reset_for_setup {
             // Buffer was reset to reserve space for a potential SETUP, and this transfer has now
             // failed due to the buffer being too small.
-            self.set_error();
-            None
+            self.set_error()?;
+            Ok(None)
         } else {
             self.handle_out_data(count)
         }
     }
 
-    fn handle_out_setup(&mut self, request: [u8; 8]) -> Option<Request> {
+    fn handle_out_setup(&mut self, request: [u8; 8]) -> Result<Option<Request>> {
         let req = match Request::parse(&request) {
             Ok(req) => req,
             Err(_) => {
                 // Failed to parse SETUP packet
-                self.set_error();
-                return None;
+                self.set_error()?;
+                return Ok(None);
             }
         };
 
         // Now that we have properly parsed the setup packet, ensure the end-point is no longer in
         // a stalled state.
-        self.ep_out.set_stalled(false);
+        self.ep_out.set_stalled(false)?;
 
         /*rtt_target::rprintln!("SETUP {:?} {:?} {:?} req:{} val:{} idx:{} len:{} {:?}",
         req.direction, req.request_type, req.recipient,
@@ -168,8 +170,8 @@ impl<U: UsbCore> ControlPipe<U> {
 
                 if req.length as usize > self.buf.len() {
                     // Data stage won't fit in buffer
-                    self.set_error();
-                    return None;
+                    self.set_error()?;
+                    return Ok(None);
                 }
 
                 self.i = 0;
@@ -180,26 +182,26 @@ impl<U: UsbCore> ControlPipe<U> {
 
                 self.len = 0;
                 self.state = ControlState::CompleteOut;
-                return Some(req);
+                return Ok(Some(req));
             }
         } else {
             // IN transfer
 
             self.state = ControlState::CompleteIn(req);
-            return Some(req);
+            return Ok(Some(req));
         }
 
-        return None;
+        return Ok(None);
     }
 
-    fn handle_out_data(&mut self, count: usize) -> Option<Request> {
+    fn handle_out_data(&mut self, count: usize) -> Result<Option<Request>> {
         match self.state {
             ControlState::DataOut(req) => {
                 self.i += count;
 
                 if self.i >= self.len {
                     self.state = ControlState::CompleteOut;
-                    return Some(req);
+                    return Ok(Some(req));
                 }
             }
             ControlState::StatusOut => {
@@ -207,14 +209,14 @@ impl<U: UsbCore> ControlPipe<U> {
             }
             _ => {
                 // Unexpected OUT packet
-                self.set_error()
+                self.set_error()?;
             }
         }
 
-        return None;
+        return Ok(None);
     }
 
-    pub fn handle_in_complete(&mut self) -> bool {
+    pub fn handle_in_complete(&mut self) -> Result<bool> {
         match self.state {
             ControlState::DataIn => {
                 self.write_in_chunk();
@@ -223,26 +225,26 @@ impl<U: UsbCore> ControlPipe<U> {
                 if self.ep_in.write_packet(&[]).is_err() {
                     // There isn't much we can do if the write fails, except to wait for another
                     // poll or for the host to resend the request.
-                    return false;
+                    return Ok(false);
                 }
 
                 self.state = ControlState::DataInLast;
             }
             ControlState::DataInLast => {
-                self.ep_out.set_stalled(false);
+                self.ep_out.set_stalled(false)?;
                 self.state = ControlState::StatusOut;
             }
             ControlState::StatusIn => {
                 self.state = ControlState::Idle;
-                return true;
+                return Ok(true);
             }
             _ => {
                 // Unexpected IN packet
-                self.set_error();
+                self.set_error()?;
             }
         };
 
-        return false;
+        return Ok(false);
     }
 
     fn write_in_chunk(&mut self) {
@@ -292,7 +294,7 @@ impl<U: UsbCore> ControlPipe<U> {
         let len = f(&mut self.buf[..])?;
 
         if len > self.buf.len() {
-            self.set_error();
+            self.set_error()?;
             return Err(UsbError::BufferOverflow);
         }
 
@@ -324,13 +326,15 @@ impl<U: UsbCore> ControlPipe<U> {
             return Err(UsbError::InvalidState);
         }
 
-        self.set_error();
+        self.set_error()?;
         Ok(())
     }
 
-    fn set_error(&mut self) {
+    fn set_error(&mut self) -> Result<()> {
         self.state = ControlState::Error;
-        self.ep_out.set_stalled(true);
-        self.ep_in.set_stalled(true);
+        self.ep_out.set_stalled(true)?;
+        self.ep_in.set_stalled(true)?;
+
+        Ok(())
     }
 }
