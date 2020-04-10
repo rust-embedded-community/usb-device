@@ -144,14 +144,11 @@ impl<U: UsbCore> EndpointOut<U> {
     /// Note: USB bus implementation errors are directly passed through, so be prepared to handle
     /// other errors as well.
     ///
-    /// * [`WouldBlock`](crate::UsbError::WouldBlock) - There is no packet to be read. Note that
-    ///   this is different from a received zero-length packet, which is valid and significant in
-    ///   USB. A zero-length packet will return `Ok(0)`.
+    /// * [`WouldBlock`](crate::UsbError::WouldBlock) - There is no packet to be read or the
+    ///   endpoint is disabled. Note that this is different from a received zero-length packet,
+    ///   which is valid and significant in USB. A zero-length packet will return `Ok(0)`.
     /// * [`BufferOverflow`](crate::UsbError::BufferOverflow) - The received packet is too long to
     ///   fit in `data`. This is generally an error in the class implementation.
-    /// * [`EndpointDisabled`](crate::UsbError::EndpointDisabled) - The endpoint is not currently
-    ///   enabled, due to the device not being configured, or the endpoint belonging to an inactive
-    ///   interface alternate setting.
     /// * [`Unsupported`](crate::UsbError::Unsupported) - The endpoint is a control endpoint.
     ///   Control endpoints must use [`control_read_packet`].
     pub fn read_packet(&mut self, data: &mut [u8]) -> Result<usize> {
@@ -169,24 +166,21 @@ impl<U: UsbCore> EndpointOut<U> {
     /// Note: USB bus implementation errors are directly passed through, so be prepared to handle
     /// other errors as well.
     ///
-    /// * [`WouldBlock`](crate::UsbError::WouldBlock) - There is no packet to be read. Note that
-    ///   this is different from a received zero-length packet, which is valid and significant in
-    ///   USB. A zero-length packet will return `Ok(0)`.
+    /// * [`WouldBlock`](crate::UsbError::WouldBlock) - There is no packet to be read or the
+    ///   endpoint is disabled. Note that this is different from a received zero-length packet,
+    ///   which is valid and significant in USB. A zero-length packet will return `Ok(0)`.
     /// * [`BufferOverflow`](crate::UsbError::BufferOverflow) - The received packet is too long to
     ///   fit in `data`. This is generally an error in the class implementation.
-    /// * [`EndpointDisabled`](crate::UsbError::EndpointDisabled) - The endpoint is not currently
-    ///   enabled, due to the device not being configured, or the endpoint belonging to an inactive
-    ///   interface alternate setting.
     /// * [`Unsupported`](crate::UsbError::Unsupported) - The endpoint is not a control endpoint.
     pub fn control_read_packet(&mut self, data: &mut [u8]) -> Result<(usize, OutPacketType)> {
         self.core
             .as_mut()
-            .ok_or(UsbError::EndpointDisabled)
+            .ok_or(UsbError::WouldBlock)
             .and_then(|c| {
                 if c.enabled {
                     c.ep.read_packet(data)
                 } else {
-                    Err(UsbError::EndpointDisabled)
+                    Err(UsbError::WouldBlock)
                 }
             })
     }
@@ -233,23 +227,20 @@ impl<U: UsbCore> EndpointIn<U> {
     /// other errors as well.
     ///
     /// * [`WouldBlock`](crate::UsbError::WouldBlock) - The transmission buffer of the USB
-    ///   peripheral is full and the packet cannot be sent now. A peripheral may or may not support
-    ///   concurrent transmission of packets.
+    ///   peripheral is full and the packet cannot be sent now, or the endpoint is disabled. A
+    ///   peripheral may or may not support concurrent transmission of packets.
     /// * [`BufferOverflow`](crate::UsbError::BufferOverflow) - The data is longer than the
     ///   `max_packet_size` specified when allocating the endpoint. This is generally an error in
     ///   the class implementation.
-    /// * [`EndpointDisabled`](crate::UsbError::EndpointDisabled) -  The endpoint is currently not
-    ///   enabled in the current interface alternate or the device has not been configured by the
-    ///   host yet.
     pub fn write_packet(&mut self, data: &[u8]) -> Result<()> {
         self.core
             .as_mut()
-            .ok_or(UsbError::EndpointDisabled)
+            .ok_or(UsbError::WouldBlock)
             .and_then(|c| {
                 if c.enabled {
                     c.ep.write_packet(data)
                 } else {
-                    Err(UsbError::EndpointDisabled)
+                    Err(UsbError::WouldBlock)
                 }
             })
     }
@@ -264,20 +255,17 @@ impl<U: UsbCore> EndpointIn<U> {
     ///
     /// * [`WouldBlock`](crate::UsbError::WouldBlock) - There are still untransmitted packets in
     ///   peripheral buffers.
-    /// * [`EndpointDisabled`](crate::UsbError::EndpointDisabled) -  The endpoint is currently not
-    ///   enabled in the current interface alternate or the device has not been configured by the
-    ///   host yet.
     pub fn flush(&mut self) -> Result<()> {
-        self.core
-            .as_mut()
-            .ok_or(UsbError::EndpointDisabled)
-            .and_then(|c| {
+        match self.core.as_mut() {
+            Some(c) => {
                 if c.enabled {
                     c.ep.flush()
                 } else {
-                    Err(UsbError::EndpointDisabled)
+                    Ok(())
                 }
-            })
+            }
+            None => Ok(())
+        }
     }
 }
 
