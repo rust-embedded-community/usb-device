@@ -262,13 +262,13 @@ impl<U: UsbCore> UsbDevice<U> {
                             0x0000
                         };
 
-                    xfer.accept_with(&status.to_le_bytes()).ok();
+                    xfer.accept_with(&status.to_le_bytes())?;
                 }
 
                 (Recipient::Interface, Request::GET_STATUS) => {
                     let status: u16 = 0x0000;
 
-                    xfer.accept_with(&status.to_le_bytes()).ok();
+                    xfer.accept_with(&status.to_le_bytes())?;
                 }
 
                 (Recipient::Endpoint, Request::GET_STATUS) => {
@@ -281,11 +281,11 @@ impl<U: UsbCore> UsbDevice<U> {
                             0x0000
                         };
 
-                    xfer.accept_with(&status.to_le_bytes()).ok();
+                    xfer.accept_with(&status.to_le_bytes())?;
                 }
 
                 (Recipient::Device, Request::GET_DESCRIPTOR) => {
-                    UsbDevice::get_descriptor(&self.config, classes, xfer)
+                    UsbDevice::get_descriptor(&self.config, classes, xfer)?;
                 }
 
                 (Recipient::Device, Request::GET_CONFIGURATION) => {
@@ -294,19 +294,18 @@ impl<U: UsbCore> UsbDevice<U> {
                         _ => CONFIGURATION_NONE,
                     };
 
-                    xfer.accept_with(&config.to_le_bytes()).ok();
+                    xfer.accept_with(&config.to_le_bytes())?;
                 }
 
                 (Recipient::Interface, Request::GET_INTERFACE) => {
                     let mut visitor = GetInterfaceVisitor::new(req.index as u8);
 
-                    // This visitor cannot fail
-                    Config::visit(classes, &mut visitor).ok();
+                    Config::visit(classes, &mut visitor)?;
 
                     if let Some(alt_setting) = visitor.result() {
-                        xfer.accept_with(&[alt_setting]).ok();
+                        xfer.accept_with(&[alt_setting])?;
                     } else {
-                        xfer.reject().ok();
+                        xfer.reject()?;
                     }
                 }
 
@@ -315,7 +314,7 @@ impl<U: UsbCore> UsbDevice<U> {
         }
 
         if self.control.waiting_for_response() {
-            self.control.reject().ok();
+            self.control.reject()?;
         }
 
         Ok(())
@@ -345,13 +344,13 @@ impl<U: UsbCore> UsbDevice<U> {
                     Request::FEATURE_DEVICE_REMOTE_WAKEUP,
                 ) => {
                     self.remote_wakeup_enabled = false;
-                    xfer.accept().ok();
+                    xfer.accept()?;
                 }
 
                 (Recipient::Endpoint, Request::CLEAR_FEATURE, Request::FEATURE_ENDPOINT_HALT) => {
                     self.bus
                         .set_stalled(((req.index as u8) & 0x8f).into(), false)?;
-                    xfer.accept().ok();
+                    xfer.accept()?;
                 }
 
                 (
@@ -360,13 +359,13 @@ impl<U: UsbCore> UsbDevice<U> {
                     Request::FEATURE_DEVICE_REMOTE_WAKEUP,
                 ) => {
                     self.remote_wakeup_enabled = true;
-                    xfer.accept().ok();
+                    xfer.accept()?;
                 }
 
                 (Recipient::Endpoint, Request::SET_FEATURE, Request::FEATURE_ENDPOINT_HALT) => {
                     self.bus
                         .set_stalled(((req.index as u8) & 0x8f).into(), true)?;
-                    xfer.accept().ok();
+                    xfer.accept()?;
                 }
 
                 (Recipient::Device, Request::SET_ADDRESS, 1..=127) => {
@@ -376,33 +375,33 @@ impl<U: UsbCore> UsbDevice<U> {
                     } else {
                         self.pending_address = req.value as u8;
                     }
-                    xfer.accept().ok();
+                    xfer.accept()?;
                 }
 
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_VALUE_U16) => {
                     if self.device_state == UsbDeviceState::Configured || self.device_state == UsbDeviceState::Addressed {
                         if self.device_state == UsbDeviceState::Addressed {
-                            Config::visit(classes, &mut EnableEndpointVisitor::new(None, Some(0))).ok();
+                            Config::visit(classes, &mut EnableEndpointVisitor::new(None, Some(0)))?;
 
                             self.device_state = UsbDeviceState::Configured;
                         }
 
-                        xfer.accept().ok();
+                        xfer.accept()?;
                     } else {
-                        xfer.reject().ok();
+                        xfer.reject()?;
                     }
                 }
 
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_NONE_U16) => {
                     match self.device_state {
                         UsbDeviceState::Default => {
-                            xfer.reject().ok();
+                            xfer.reject()?;
                         }
                         _ => {
-                            Config::visit(classes, &mut EnableEndpointVisitor::new(None, None)).ok();
+                            Config::visit(classes, &mut EnableEndpointVisitor::new(None, None))?;
 
                             self.device_state = UsbDeviceState::Addressed;
-                            xfer.accept().ok();
+                            xfer.accept()?;
                         }
                     }
                 }
@@ -411,9 +410,8 @@ impl<U: UsbCore> UsbDevice<U> {
                     let iface = Some(req.index as u8);
                     let alt_setting = alt_setting as u8;
 
-                    // Disable endpoints first, then enable correct alt setting.
-                    Config::visit(classes, &mut EnableEndpointVisitor::new(iface, None)).ok();
-                    Config::visit(classes, &mut EnableEndpointVisitor::new(iface, Some(alt_setting))).ok();
+                    Config::visit(classes, &mut EnableEndpointVisitor::new(iface, None))?;
+                    Config::visit(classes, &mut EnableEndpointVisitor::new(iface, Some(alt_setting)))?;
 
                     // TODO: Should this check the setting was actually valid?
 
@@ -421,7 +419,7 @@ impl<U: UsbCore> UsbDevice<U> {
                         cls.alt_setting_activated(InterfaceHandle::from_number(req.index as u8), alt_setting);
                     }
 
-                    xfer.accept().ok();
+                    xfer.accept()?;
                 }
 
                 _ => { }
@@ -429,13 +427,13 @@ impl<U: UsbCore> UsbDevice<U> {
         }
 
         if self.control.waiting_for_response() {
-            self.control.reject().ok();
+            self.control.reject()?;
         }
 
         Ok(())
     }
 
-    fn get_descriptor(config: &DeviceConfig, classes: &mut ClassList<'_, U>, xfer: ControlIn<U>) {
+    fn get_descriptor(config: &DeviceConfig, classes: &mut ClassList<'_, U>, xfer: ControlIn<U>) -> Result<()> {
         let req = *xfer.request();
 
         let (dtype, index) = req.descriptor_type_index();
@@ -443,8 +441,8 @@ impl<U: UsbCore> UsbDevice<U> {
         fn accept_writer<U: UsbCore>(
             xfer: ControlIn<U>,
             f: impl FnOnce(DescriptorWriter) -> Result<usize>,
-        ) {
-            xfer.accept(|buf| f(DescriptorWriter::new(buf))).ok();
+        ) -> Result<()> {
+            xfer.accept(|buf| f(DescriptorWriter::new(buf)))
         }
 
         match dtype {
@@ -456,12 +454,12 @@ impl<U: UsbCore> UsbDevice<U> {
                 }
 
                 bw.finish()
-            }),
+            })?,
 
             descriptor_type::DEVICE => accept_writer(xfer, |mut w| {
                 w.write_device(config)?;
                 w.finish()
-            }),
+            })?,
 
             descriptor_type::CONFIGURATION => accept_writer(xfer, |w| {
                 let mut cw = ConfigurationDescriptorWriter::new(w, config)?;
@@ -469,7 +467,7 @@ impl<U: UsbCore> UsbDevice<U> {
                 Config::visit(classes, &mut cw)?;
 
                 cw.finish()
-            }),
+            })?,
 
             descriptor_type::STRING => {
                 if index == 0 {
@@ -477,7 +475,7 @@ impl<U: UsbCore> UsbDevice<U> {
                         w.write(descriptor_type::STRING, &lang_id::ENGLISH_US.to_le_bytes())?;
 
                         w.finish()
-                    });
+                    })?;
                 } else {
                     let s = match index {
                         allocator::MANUFACTURER_STRING => config.manufacturer,
@@ -491,7 +489,7 @@ impl<U: UsbCore> UsbDevice<U> {
                             accept_writer(xfer, |mut w| {
                                 w.write_string(s)?;
                                 w.finish()
-                            });
+                            })?;
                         }
                         _ => {
                             let mut visitor = GetStringVisitor {
@@ -499,10 +497,10 @@ impl<U: UsbCore> UsbDevice<U> {
                                 xfer: Some(xfer),
                             };
 
-                            Config::visit(classes, &mut visitor).ok();
+                            Config::visit(classes, &mut visitor)?;
 
                             if let Some(xfer) = visitor.xfer.take() {
-                                xfer.reject().ok();
+                                xfer.reject()?;
                             }
                         }
                     }
@@ -510,9 +508,11 @@ impl<U: UsbCore> UsbDevice<U> {
             }
 
             _ => {
-                xfer.reject().ok();
+                xfer.reject()?;
             }
         }
+
+        Ok(())
     }
 
     fn reset(&mut self, classes: &mut ClassList<'_, U>) -> Result<()> {

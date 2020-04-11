@@ -67,7 +67,7 @@ pub fn open_device(ctx: &Context) -> libusb::Result<DeviceHandles<'_>> {
                 endpoints
                     .iter()
                     .find(|ep| ep.0 == dir && ep.1 == ep_type)
-                    .unwrap()
+                    .expect(&format!("Endpoint not found: {:?} {:?}", dir, ep_type))
                     .2
             };
 
