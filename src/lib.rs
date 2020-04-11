@@ -4,15 +4,49 @@
 //!
 //! A USB device consists of a [`UsbDevice`](device::UsbDevice) instance, one or more
 //! [`UsbClass`](crate::class::UsbClass)es, and a platform-specific [`UsbCore`](usbcore::UsbCore)
-//! implementation which together form a USB composite device.
+//! implementation which together form a USB device.
 //!
-//! In the future USB device implementors will be able to use pre-existing peripheral driver crates
-//! and USB class implementation crates. The necessary types for the basic USB composite device
-//! implementation are available with:
+//! In the future USB applications will be able to use pre-existing peripheral driver crates and USB
+//! class implementation crates.
 //!
-//! `use usb_device::prelude::*`.
+//! # Example
 //!
-//! See the [`device`] module for a more complete example.
+//! This is an example of a USB application. See [`class`] for an example on how to implement new
+//! USB classes.
+//!
+//! ```ignore
+//! use usb_device::prelude::*; // the prelude is geared towards creating USB applications
+//! use usb_device::test_class::TestClass; // using the built-in test class as a sample
+//!
+//! // Create the USB peripheral driver. The exact name and arguments are platform specific, so
+//! // check the documentation for your device driver crate.
+//! let usb = device_specific_usb::UsbCore::new();
+//!
+//! // Create one or more USB classes.
+//! let mut usb_class = TestClass::new();
+//!
+//! // Build the final UsbDevice instance. The required arguments are the peripheral driver
+//! // created earlier, as well as a USB vendor ID/product ID pair. Additional builder arguments
+//! // can specify parameters such as device class code or product name. If using an existing
+//! // class,remember to check the class crate documentation for correct values for fields such
+//! // as device_class.
+//! let mut usb_dev = UsbDeviceBuilder::new(usb, UsbVidPid(0x5824, 0x27dd))
+//!     .device_class(0xff) // vendor specific
+//!     .product("My product")
+//!     .build(&mut [&mut usb_class])
+//!     .expect("device creation failed");
+//!
+//! // At this point the USB peripheral is enabled and a the host will attempt to enumerate it if
+//! // it's plugged in.
+//! loop {
+//!     // Must be called more often than once every 10ms to handle events and stay USB compliant,
+//!     // or from a device-specific interrupt handler. The list of classes must be the same
+//!     // classes in the same order as at device creation time.
+//!     if usb_dev.poll(&mut [&mut usb_class]).is_ok() {
+//!         // Call class-specific methods here
+//!     }
+//! }
+//! ```
 //!
 //! ## USB classes
 //!
@@ -20,7 +54,7 @@
 //! [`TestClass`](test_class::TestClass) source code for an example of a custom USB device class
 //! implementation. The necessary types for creating new classes are available with:
 //!
-//! `use usb_device::class_prelude::*`.
+//! `use usb_device::class::*`.
 //!
 //! ## USB peripheral drivers
 //!
@@ -117,9 +151,6 @@ pub type Result<T> = core::result::Result<T, UsbError>;
 /// USB control transfers and the SETUP packet requests.
 pub mod control;
 
-/// USB class configuration.
-pub mod config;
-
 /// Traits that must be implemented by peripheral drivers.
 pub mod usbcore;
 
@@ -142,46 +173,9 @@ pub mod endpoint;
 /// The [UsbDevice](device::UsbDevice) type in this module is the core of this crate. It combines
 /// multiple USB class implementations and the USB driver and dispatches state changes and control
 /// messages between them.
-///
-/// To implement USB support for your own project, the required code is usually as follows:
-///
-/// ``` ignore
-/// use usb_device::prelude::*;
-/// use usb_serial; // example class crate (not included)
-///
-/// // Create the device-specific USB peripheral driver. The exact name and arguments are device
-/// // specific, so check the documentation for your device driver crate.
-/// let usb_bus = device_specific_usb::UsbCore::new(...);
-///
-/// // Create one or more USB class implementation. The name and arguments depend on the class,
-/// // however most classes require the UsbAllocator as the first argument in order to allocate
-/// // the required shared resources.
-/// let mut serial = usb_serial::SerialPort::new(&usb_bus.allocator());
-///
-/// // Build the final [UsbDevice](device::UsbDevice) instance. The required arguments are a
-/// // reference to the peripheral driver created earlier, as well as a USB vendor ID/product ID
-/// // pair. Additional builder arguments can specify parameters such as device class code or
-/// // product name. If using an existing class, remember to check the class crate documentation
-/// // for correct values.
-/// let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x5824, 0x27dd))
-///     .product("Serial port")
-///     .device_class(usb_serial::DEVICE_CLASS)
-///     .build();
-///
-/// // At this point the USB peripheral is enabled and a connected host will attempt to enumerate
-/// // it.
-/// loop {
-///     // Must be called more often than once every 10ms to handle events and stay USB compilant,
-///     // or from a device-specific interrupt handler.
-///     if (usb_dev.poll(&mut [&mut serial])) {}
-///         // Call class-specific methods here
-///         serial.read(...);
-///     }
-/// }
-/// ```
 pub mod device;
 
-/// Creating USB descriptors
+/// Writers for creating USB descriptors. Can also be usedto
 pub mod descriptor;
 
 /// Test USB class for testing USB driver implementations. Peripheral driver implementations should
@@ -189,31 +183,13 @@ pub mod descriptor;
 /// driver to be tested with the test_class_host example in this crate.
 pub mod test_class;
 
-/// Contains the `UsbAllocator` type which is used for allocating USB resources.
-pub mod allocator;
-
+mod allocator;
+mod config;
 mod control_pipe;
-mod control_transfer;
-
 mod device_builder;
 
-/// Prelude for device implementors.
+/// Prelude for applications.
 pub mod prelude {
     pub use crate::device::{UsbDevice, UsbDeviceBuilder, UsbDeviceState, UsbVidPid};
-    pub use crate::UsbError;
-}
-
-/// Prelude for class implementors.
-pub mod class_prelude {
-    pub use crate::allocator::{InterfaceHandle, StringHandle};
-    pub use crate::class::{ControlIn, ControlOut, EndpointOutSet, EndpointInSet, UsbClass};
-    pub use crate::config::{Config, InterfaceDescriptor};
-    pub use crate::control;
-    pub use crate::descriptor::BosWriter;
-    pub use crate::device::UsbDeviceState;
-    pub use crate::endpoint::{
-        EndpointAddress, EndpointConfig, EndpointIn, EndpointOut, EndpointType,
-    };
-    pub use crate::usbcore::UsbCore;
     pub use crate::UsbError;
 }

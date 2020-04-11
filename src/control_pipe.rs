@@ -158,9 +158,9 @@ impl<U: UsbCore> ControlPipe<U> {
         self.ep_out.set_stalled(false)?;
 
         /*rtt::rprintln!("SETUP {:?} {:?} {:?} req:{} val:{} idx:{} len:{} {:?}",
-            req.direction, req.request_type, req.recipient,
-            req.request, req.value, req.index, req.length,
-            self.state);*/
+        req.direction, req.request_type, req.recipient,
+        req.request, req.value, req.index, req.length,
+        self.state);*/
 
         if req.direction == UsbDirection::Out {
             // OUT transfer
@@ -223,7 +223,7 @@ impl<U: UsbCore> ControlPipe<U> {
             }
             ControlState::DataInZlp => {
                 match self.ep_in.write_packet(&[]) {
-                    Ok(()) => { },
+                    Ok(()) => {}
                     Err(UsbError::WouldBlock) => return Ok(false),
                     Err(e) => return Err(e),
                 }
@@ -252,8 +252,10 @@ impl<U: UsbCore> ControlPipe<U> {
 
         let buffer = self.static_in_buf.unwrap_or(&self.buf);
         match self.ep_in.write_packet(&buffer[self.i..(self.i + count)]) {
-            Ok(()) => {  },
-            Err(UsbError::WouldBlock) => { return Ok(()); },
+            Ok(()) => {}
+            Err(UsbError::WouldBlock) => {
+                return Ok(());
+            }
             Err(e) => return Err(e),
         };
 

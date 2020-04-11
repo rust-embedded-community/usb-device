@@ -37,7 +37,7 @@ pub mod capability_type {
 }
 
 /// A writer for USB descriptors.
-pub(crate) struct DescriptorWriter<'b> {
+pub struct DescriptorWriter<'b> {
     buf: &'b mut [u8],
     pos: usize,
 }
@@ -46,6 +46,7 @@ pub(crate) struct DescriptorWriter<'b> {
 //struct Mark(usize);
 
 impl DescriptorWriter<'_> {
+    /// Creates a new descriptor writer that will write to the provided buffer.
     pub fn new(buf: &mut [u8]) -> DescriptorWriter<'_> {
         DescriptorWriter { buf, pos: 0 }
     }
@@ -64,6 +65,8 @@ impl DescriptorWriter<'_> {
         self.buf
     }
 
+    /// Writes a USB standard format descriptor to the buffer. The descriptor type and length fields
+    /// will be written, followed by the data in `descriptor`.
     pub fn write(&mut self, descriptor_type: u8, descriptor: &[u8]) -> Result<()> {
         let length = descriptor.len();
 
@@ -83,7 +86,7 @@ impl DescriptorWriter<'_> {
         Ok(())
     }
 
-    pub fn write_device(&mut self, config: &device::DeviceConfig) -> Result<()> {
+    pub(crate) fn write_device(&mut self, config: &device::DeviceConfig) -> Result<()> {
         self.write(
             descriptor_type::DEVICE,
             &[
@@ -107,7 +110,7 @@ impl DescriptorWriter<'_> {
         )
     }
 
-    pub fn write_string(&mut self, string: &str) -> Result<()> {
+    pub(crate) fn write_string(&mut self, string: &str) -> Result<()> {
         let mut pos = self.pos;
 
         if pos + 2 > self.buf.len() {
@@ -194,12 +197,12 @@ impl ConfigurationDescriptorWriter<'_> {
         self.writer.write(
             descriptor_type::INTERFACE,
             &[
-                interface_number,     // bInterfaceNumber
-                self.alt_setting,     // bAlternateSetting
-                0,                    // bNumEndpoints
-                descriptor.class,     // bInterfaceClass
-                descriptor.sub_class, // bInterfaceSubClass
-                descriptor.protocol,  // bInterfaceProtocol
+                interface_number,                                      // bInterfaceNumber
+                self.alt_setting,                                      // bAlternateSetting
+                0,                                                     // bNumEndpoints
+                descriptor.class,                                      // bInterfaceClass
+                descriptor.sub_class,                                  // bInterfaceSubClass
+                descriptor.protocol,                                   // bInterfaceProtocol
                 descriptor.description.map(|n| n.into()).unwrap_or(0), // iInterface
             ],
         )
@@ -291,7 +294,7 @@ impl<U: UsbCore> ConfigVisitor<U> for ConfigurationDescriptorWriter<'_> {
     }
 }
 
-/// A writer for Binary Object Store descriptor.
+/// A writer for Binary Object Store (BOS) descriptor.
 pub struct BosWriter<'b> {
     writer: DescriptorWriter<'b>,
     num_caps_mark: usize,

@@ -1,6 +1,6 @@
 #![allow(missing_docs)]
 
-use crate::class_prelude::*;
+use crate::class::*;
 use crate::device::{UsbDevice, UsbDeviceBuilder, UsbVidPid};
 use crate::Result;
 use core::cmp;
@@ -123,7 +123,7 @@ impl<U: UsbCore> UsbClass<U> for TestClass<U> {
         config
             .interface(
                 &mut self.iface,
-                InterfaceDescriptor::class(0xff).description(&self.iface_description)
+                InterfaceDescriptor::class(0xff).description(&self.iface_description),
             )?
             .endpoint_in(&mut self.ep_bulk_in)?
             .endpoint_out(&mut self.ep_bulk_out)?
@@ -152,10 +152,9 @@ impl<U: UsbCore> UsbClass<U> for TestClass<U> {
                 Err(err) => panic!("bulk bench read {:?}", err),
             };
 
-            match self
-                .ep_bulk_in
-                .write_packet(&self.bulk_buf[0..self.ep_bulk_in.config().max_packet_size() as usize])
-            {
+            match self.ep_bulk_in.write_packet(
+                &self.bulk_buf[0..self.ep_bulk_in.config().max_packet_size() as usize],
+            ) {
                 Ok(_) | Err(UsbError::WouldBlock) => {}
                 Err(err) => panic!("bulk bench write {:?}", err),
             };

@@ -1,12 +1,14 @@
-use crate::allocator::InterfaceHandle;
-use crate::config::Config;
-use crate::descriptor::BosWriter;
-use crate::device::UsbDeviceState;
-use crate::endpoint::{EndpointOut, EndpointIn};
-use crate::usbcore::UsbCore;
+use crate::control_pipe::ControlPipe;
 use crate::Result;
 
-pub use crate::control_transfer::*;
+pub use crate::allocator::{InterfaceHandle, StringHandle};
+pub use crate::config::{Config, InterfaceConfig, InterfaceDescriptor};
+pub use crate::control;
+pub use crate::descriptor::BosWriter;
+pub use crate::device::UsbDeviceState;
+pub use crate::endpoint::{EndpointAddress, EndpointConfig, EndpointIn, EndpointInSet, EndpointOut, EndpointOutSet};
+pub use crate::usbcore::UsbCore;
+pub use crate::UsbError;
 
 /// A trait for implementing USB classes.
 ///
@@ -48,8 +50,8 @@ pub trait UsbClass<U: UsbCore> {
     /// setting, but the second interface has two alternate settings with different endpoints types.
     /// The second interface also has a description.
     ///
-    /// ```
-    /// use usb_device::class_prelude::*;
+    /// ```no_run
+    /// use usb_device::class::*;
     /// use usb_device::Result;
     ///
     /// struct SampleClass<U: UsbCore> {
@@ -242,36 +244,89 @@ pub trait UsbClass<U: UsbCore> {
     }
 }
 
-/// Set of OUT endpoint addresses.
-#[derive(Debug)]
-pub struct EndpointOutSet(pub(crate) u16);
+/// Handle for a control IN transfer.
+///
+/// When implementing a class, use the methods of this object to
+/// response to the transfer with either data or an error (STALL condition). To ignore the request
+/// and pass it on to the next class, simply don't call any method.
+pub struct ControlIn<'p, 'r, U: UsbCore> {
+    pipe: &'p mut ControlPipe<U>,
+    req: &'r control::Request,
+}
 
-impl EndpointOutSet {
-    /// Returns `true` if the set is empty.
-    pub fn is_empty(&self) -> bool {
-        self.0 == 0
+impl<'p, 'r, U: UsbCore> ControlIn<'p, 'r, U> {
+    pub(crate) fn new(pipe: &'p mut ControlPipe<U>, req: &'r control::Request) -> Self {
+        ControlIn { pipe, req }
     }
 
-    /// Returns `true` if the set contains the specified endpoint's address. Always returns `false`
-    /// if the endpoint has not been allocated yet.
-    pub fn contains<U: UsbCore>(&self, ep: &EndpointOut<U>) -> bool {
-        ep.address_option().map(|a| (self.0 & (1 << a.number())) != 0).unwrap_or(false)
+    /// Gets the request from the SETUP packet.
+    pub fn request(&self) -> &control::Request {
+        self.req
+    }
+
+    /// Accepts the transfer with the supplied buffer.
+    pub fn accept_with(self, data: &[u8]) -> Result<()> {
+        self.pipe.accept_in(|buf| {
+            if data.len() > buf.len() {
+                return Err(UsbError::BufferOverflow);
+            }
+
+            buf[..data.len()].copy_from_slice(data);
+
+            Ok(data.len())
+        })
+    }
+
+    /// Accepts the transfer with the supplied static buffer.
+    /// This method is useful when you have a large static descriptor to send as one packet.
+    pub fn accept_with_static(self, data: &'static [u8]) -> Result<()> {
+        self.pipe.accept_in_static(data)
+    }
+
+    /// Accepts the transfer with a callback that can write to the internal buffer of the control
+    /// pipe. Can be used to avoid an extra copy.
+    pub fn accept(self, f: impl FnOnce(&mut [u8]) -> Result<usize>) -> Result<()> {
+        self.pipe.accept_in(f)
+    }
+
+    /// Rejects the transfer by stalling the pipe.
+    pub fn reject(self) -> Result<()> {
+        self.pipe.reject()
     }
 }
 
-/// Set of IN endpoint addresses.
-#[derive(Debug)]
-pub struct EndpointInSet(pub(crate) u16);
+/// Handle for a control OUT transfer.
+///
+/// When implementing a class, use the methods of this object to
+/// response to the transfer with an ACK or an error (STALL condition). To ignore the request and
+/// pass it on to the next class, simply don't call any method.
+pub struct ControlOut<'p, 'r, U: UsbCore> {
+    pipe: &'p mut ControlPipe<U>,
+    req: &'r control::Request,
+}
 
-impl EndpointInSet {
-    /// Return `true` if the set is empty.
-    pub fn is_empty(&self) -> bool {
-        self.0 == 0
+impl<'p, 'r, U: UsbCore> ControlOut<'p, 'r, U> {
+    pub(crate) fn new(pipe: &'p mut ControlPipe<U>, req: &'r control::Request) -> Self {
+        ControlOut { pipe, req }
     }
 
-    /// Returns `true` if the set contains the specified endpoint's address. Always returns `false`
-    /// if the endpoint has not been allocated yet.
-    pub fn contains<U: UsbCore>(&self, ep: &EndpointIn<U>) -> bool {
-        ep.address_option().map(|a| (self.0 & (1 << a.number())) != 0).unwrap_or(false)
+    /// Gets the request from the SETUP packet.
+    pub fn request(&self) -> &control::Request {
+        self.req
+    }
+
+    /// Gets the data from the data stage of the request. May be empty if there was no data stage.
+    pub fn data(&self) -> &[u8] {
+        self.pipe.data()
+    }
+
+    /// Accepts the transfer by succesfully responding to the status stage.
+    pub fn accept(self) -> Result<()> {
+        self.pipe.accept_out()
+    }
+
+    /// Rejects the transfer by stalling the pipe.
+    pub fn reject(self) -> Result<()> {
+        self.pipe.reject()
     }
 }

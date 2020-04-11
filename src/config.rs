@@ -26,11 +26,7 @@ impl<'v, U: UsbCore> Config<'v, U> {
 
     /// Registers a string descriptor with the specified value.
     #[inline(always)]
-    pub fn string(
-        &mut self,
-        handle: &mut StringHandle,
-        string: &str) -> Result<&mut Self>
-    {
+    pub fn string(&mut self, handle: &mut StringHandle, string: &str) -> Result<&mut Self> {
         self.0.string(handle, string)?;
         Ok(self)
     }
@@ -139,11 +135,7 @@ impl<U: UsbCore> Drop for InterfaceConfig<'_, '_, U> {
 }
 
 pub(crate) trait ConfigVisitor<U: UsbCore> {
-    fn string(
-        &mut self,
-        string: &mut StringHandle,
-        value: &str) -> Result<()>
-    {
+    fn string(&mut self, string: &mut StringHandle, value: &str) -> Result<()> {
         let _ = (string, value);
         Ok(())
     }
@@ -157,11 +149,7 @@ pub(crate) trait ConfigVisitor<U: UsbCore> {
         Ok(())
     }
 
-    fn next_alt_setting(
-        &mut self,
-        interface_number: u8,
-        desc: &InterfaceDescriptor,
-    ) -> Result<()> {
+    fn next_alt_setting(&mut self, interface_number: u8, desc: &InterfaceDescriptor) -> Result<()> {
         let _ = (interface_number, desc);
         Ok(())
     }
@@ -207,19 +195,13 @@ impl<'n> InterfaceDescriptor<'n> {
 
     /// Sets the subclass code of the descriptor. The meaning depends on the class code.
     pub const fn subclass(self, sub_class: u8) -> Self {
-        InterfaceDescriptor {
-            sub_class,
-            ..self
-        }
+        InterfaceDescriptor { sub_class, ..self }
     }
 
     /// Sets the protocol code of the descriptor. The meaning depends on the class and subclass
     /// codes.
     pub const fn protocol(self, protocol: u8) -> Self {
-        InterfaceDescriptor {
-            protocol,
-            ..self
-        }
+        InterfaceDescriptor { protocol, ..self }
     }
 
     /// Sets the interface description string. Use `[Config::string]` to register the content of the

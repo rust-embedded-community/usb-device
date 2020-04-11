@@ -1,5 +1,5 @@
 use crate::allocator::{self, InterfaceHandle, StringHandle, UsbAllocator};
-use crate::class::{ControlIn, ControlOut, EndpointOutSet, EndpointInSet, UsbClass};
+use crate::class::{ControlIn, ControlOut, UsbClass};
 use crate::config::{Config, ConfigVisitor, InterfaceDescriptor};
 use crate::control;
 use crate::control_pipe::ControlPipe;
@@ -7,9 +7,9 @@ use crate::descriptor::{
     descriptor_type, lang_id, BosWriter, ConfigurationDescriptorWriter, DescriptorWriter,
 };
 pub use crate::device_builder::{UsbDeviceBuilder, UsbVidPid};
-use crate::endpoint::{EndpointConfig, EndpointCore, EndpointIn, EndpointOut};
+use crate::endpoint::{EndpointConfig, EndpointCore, EndpointIn, EndpointInSet, EndpointOut, EndpointOutSet};
 use crate::usbcore::{PollResult, UsbCore, UsbEndpoint};
-use crate::{Result, UsbError, UsbDirection};
+use crate::{Result, UsbDirection, UsbError};
 
 /// The global state of the USB device.
 ///
@@ -301,7 +301,7 @@ impl<U: UsbCore> UsbDevice<U> {
                     }
 
                     match res {
-                        Ok(_) | Err(UsbError::Break) => { },
+                        Ok(_) | Err(UsbError::Break) => {}
                         Err(err) => return Err(err),
                     }
                 }
@@ -376,7 +376,9 @@ impl<U: UsbCore> UsbDevice<U> {
                 }
 
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_VALUE_U16) => {
-                    if self.device_state == UsbDeviceState::Configured || self.device_state == UsbDeviceState::Addressed {
+                    if self.device_state == UsbDeviceState::Configured
+                        || self.device_state == UsbDeviceState::Addressed
+                    {
                         if self.device_state == UsbDeviceState::Addressed {
                             Config::visit(classes, &mut EnableEndpointVisitor::new(None, Some(0)))?;
 
@@ -408,18 +410,24 @@ impl<U: UsbCore> UsbDevice<U> {
                     let alt_setting = alt_setting as u8;
 
                     Config::visit(classes, &mut EnableEndpointVisitor::new(iface, None))?;
-                    Config::visit(classes, &mut EnableEndpointVisitor::new(iface, Some(alt_setting)))?;
+                    Config::visit(
+                        classes,
+                        &mut EnableEndpointVisitor::new(iface, Some(alt_setting)),
+                    )?;
 
                     // TODO: Should this check the setting was actually valid?
 
                     for cls in classes.iter_mut() {
-                        cls.alt_setting_activated(InterfaceHandle::from_number(req.index as u8), alt_setting);
+                        cls.alt_setting_activated(
+                            InterfaceHandle::from_number(req.index as u8),
+                            alt_setting,
+                        );
                     }
 
                     xfer.accept()?;
                 }
 
-                _ => { }
+                _ => {}
             }
         }
 
@@ -430,7 +438,11 @@ impl<U: UsbCore> UsbDevice<U> {
         Ok(())
     }
 
-    fn get_descriptor(config: &DeviceConfig, classes: &mut ClassList<'_, U>, xfer: ControlIn<U>) -> Result<()> {
+    fn get_descriptor(
+        config: &DeviceConfig,
+        classes: &mut ClassList<'_, U>,
+        xfer: ControlIn<U>,
+    ) -> Result<()> {
         let req = *xfer.request();
 
         let (dtype, index) = req.descriptor_type_index();
@@ -501,7 +513,7 @@ impl<U: UsbCore> UsbDevice<U> {
                             }
 
                             match res {
-                                Ok(_) | Err(UsbError::Break) => { },
+                                Ok(_) | Err(UsbError::Break) => {}
                                 Err(err) => return Err(err),
                             }
                         }
@@ -533,7 +545,6 @@ impl<U: UsbCore> UsbDevice<U> {
         Ok(())
     }
 }
-
 
 struct EnableEndpointVisitor {
     interface: Option<u8>,
@@ -586,10 +597,7 @@ impl<U: UsbCore> ConfigVisitor<U> for EnableEndpointVisitor {
         interface: &mut InterfaceHandle,
         _descriptor: &InterfaceDescriptor,
     ) -> Result<()> {
-        self.interface_match = self
-            .interface
-            .map(|i| i == *interface)
-            .unwrap_or(true);
+        self.interface_match = self.interface.map(|i| i == *interface).unwrap_or(true);
 
         self.current_alt = 0;
 
@@ -618,7 +626,6 @@ impl<U: UsbCore> ConfigVisitor<U> for EnableEndpointVisitor {
         self.visit_endpoint(endpoint.core.as_mut(), &endpoint.config)
     }
 }
-
 
 struct GetInterfaceVisitor {
     interface: u8,
@@ -653,18 +660,13 @@ impl<U: UsbCore> ConfigVisitor<U> for GetInterfaceVisitor {
     }
 }
 
-
 struct GetStringVisitor<'p, 'r, U: UsbCore> {
     index: u8,
     xfer: Option<ControlIn<'p, 'r, U>>,
 }
 
 impl<U: UsbCore> ConfigVisitor<U> for GetStringVisitor<'_, '_, U> {
-    fn string(
-        &mut self,
-        string: &mut StringHandle,
-        value: &str) -> Result<()>
-    {
+    fn string(&mut self, string: &mut StringHandle, value: &str) -> Result<()> {
         if *string == self.index {
             if let Some(xfer) = self.xfer.take() {
                 xfer.accept(|buf| {

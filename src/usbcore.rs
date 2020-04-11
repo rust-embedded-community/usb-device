@@ -1,5 +1,5 @@
-use crate::Result;
 use crate::endpoint::{EndpointAddress, EndpointConfig, OutPacketType};
+use crate::Result;
 
 /// A trait for accessing device-specific USB peripherals. Implement this to add support for a new
 /// hardware peripheral.
@@ -103,7 +103,7 @@ pub trait UsbEndpointAllocator<U: UsbCore> {
     fn next_alt_setting(&mut self) -> Result<()>;
 }
 
-/// Shared implementation between both OUT and IN endpoints.
+/// Shared methods between both OUT and IN endpoints.
 pub trait UsbEndpoint {
     /// Gets the address of the endpoint.
     fn address(&self) -> EndpointAddress;

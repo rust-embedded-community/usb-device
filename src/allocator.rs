@@ -4,13 +4,13 @@ use crate::usbcore::{UsbCore, UsbEndpointAllocator};
 use crate::{Result, UsbError};
 
 // Reserved numbers for standard descriptor strings
-pub(crate) const MANUFACTURER_STRING: u8 = 1;
-pub(crate) const PRODUCT_STRING: u8 = 2;
-pub(crate) const SERIAL_NUMBER_STRING: u8 = 3;
+pub const MANUFACTURER_STRING: u8 = 1;
+pub const PRODUCT_STRING: u8 = 2;
+pub const SERIAL_NUMBER_STRING: u8 = 3;
 const FIRST_ALLOCATED_STRING: u8 = 4;
 
 /// Allocates resources for USB classes.
-pub(crate) struct UsbAllocator<'a, U: UsbCore> {
+pub struct UsbAllocator<'a, U: UsbCore> {
     ep_alloc: &'a mut U::EndpointAllocator,
     next_string: u8,
     next_interface: u8,
@@ -152,19 +152,24 @@ impl PartialEq<InterfaceHandle> for u8 {
 
 impl PartialEq<u16> for InterfaceHandle {
     fn eq(&self, other: &u16) -> bool {
-        self.interface.map(|n| u16::from(n) == *other).unwrap_or(false)
+        self.interface
+            .map(|n| u16::from(n) == *other)
+            .unwrap_or(false)
     }
 }
 
 impl PartialEq<InterfaceHandle> for u16 {
     fn eq(&self, other: &InterfaceHandle) -> bool {
-        other.interface.map(|n| u16::from(n) == *self).unwrap_or(false)
+        other
+            .interface
+            .map(|n| u16::from(n) == *self)
+            .unwrap_or(false)
     }
 }
 
 /// A handle for a USB string descriptor that contains its index.
 #[derive(Default)]
-pub struct StringHandle(pub(crate) Option<u8>);
+pub struct StringHandle(Option<u8>);
 
 impl StringHandle {
     /// Creates a new unallocated string handle.

@@ -134,9 +134,7 @@ impl<U: UsbCore> EndpointOut<U> {
     }
 
     pub(crate) fn address_option(&self) -> Option<EndpointAddress> {
-        self.core
-            .as_ref()
-            .map(|c| c.ep.address())
+        self.core.as_ref().map(|c| c.ep.address())
     }
 
     /// Returns the endpoint's address. If the address hasn't been allocated yet, returns a dummy
@@ -221,9 +219,7 @@ impl<U: UsbCore> EndpointIn<U> {
     }
 
     pub(crate) fn address_option(&self) -> Option<EndpointAddress> {
-        self.core
-            .as_ref()
-            .map(|c| c.ep.address())
+        self.core.as_ref().map(|c| c.ep.address())
     }
 
     /// Returns the endpoint's address. If the address hasn't been allocated yet, returns a dummy
@@ -290,7 +286,7 @@ impl<U: UsbCore> EndpointIn<U> {
                     Ok(())
                 }
             }
-            None => Ok(())
+            None => Ok(()),
         }
     }
 }
@@ -350,5 +346,43 @@ impl EndpointAddress {
     #[inline]
     pub fn number(&self) -> u8 {
         (self.0 & !Self::INBITS) as u8
+    }
+}
+
+/// Set of OUT endpoint addresses.
+#[derive(Debug)]
+pub struct EndpointOutSet(pub(crate) u16);
+
+impl EndpointOutSet {
+    /// Returns `true` if the set is empty.
+    pub fn is_empty(&self) -> bool {
+        self.0 == 0
+    }
+
+    /// Returns `true` if the set contains the specified endpoint's address. Always returns `false`
+    /// if the endpoint has not been allocated yet.
+    pub fn contains<U: UsbCore>(&self, ep: &EndpointOut<U>) -> bool {
+        ep.address_option()
+            .map(|a| (self.0 & (1 << a.number())) != 0)
+            .unwrap_or(false)
+    }
+}
+
+/// Set of IN endpoint addresses.
+#[derive(Debug)]
+pub struct EndpointInSet(pub(crate) u16);
+
+impl EndpointInSet {
+    /// Return `true` if the set is empty.
+    pub fn is_empty(&self) -> bool {
+        self.0 == 0
+    }
+
+    /// Returns `true` if the set contains the specified endpoint's address. Always returns `false`
+    /// if the endpoint has not been allocated yet.
+    pub fn contains<U: UsbCore>(&self, ep: &EndpointIn<U>) -> bool {
+        ep.address_option()
+            .map(|a| (self.0 & (1 << a.number())) != 0)
+            .unwrap_or(false)
     }
 }
