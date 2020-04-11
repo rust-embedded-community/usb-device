@@ -169,7 +169,9 @@ pub trait UsbClass<U: UsbCore> {
         let _ = (interface, alt_setting);
     }
 
-    /// Called whenever the `UsbDevice` is polled.
+    /// Called whenever the `UsbDevice` is polled. This method is called last, after all the other
+    /// callbacks. The `state` parameter is the current state of the USB device, after processing
+    /// events.
     fn poll(&mut self, state: UsbDeviceState) {
         let _ = state;
     }

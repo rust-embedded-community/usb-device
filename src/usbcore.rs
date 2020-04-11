@@ -13,13 +13,12 @@ pub trait UsbCore: Sized {
     /// The endpoint allocator type for this USB driver.
     type EndpointAllocator: UsbEndpointAllocator<Self>;
 
+    // TODO: This might have to be "take_allocator"
     /// Creates an EndpointAllocator for this UsbCore.
     ///
-    /// TODO: This might have to be "take_allocator"
     fn create_allocator(&mut self) -> Self::EndpointAllocator;
 
-    /// Enables and initializes the USB peripheral. `reset` is called soon after enabling the
-    /// peripheral, so there's no need to call it yourself.
+    /// Enables and initializes the USB peripheral.
     fn enable(&mut self, allocator: Self::EndpointAllocator) -> Result<()>;
 
     /// Handles a USB protocol reset signaled from the host. This method should reset the state of
