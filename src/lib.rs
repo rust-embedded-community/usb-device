@@ -4,10 +4,14 @@
 //!
 //! A USB device consists of a [`UsbDevice`](device::UsbDevice) instance, one or more
 //! [`UsbClass`](crate::class::UsbClass)es, and a platform-specific [`UsbCore`](usbcore::UsbCore)
-//! implementation which together form a USB device.
+//! implementation which together form a USB device. The crate is able to automatically allocate
+//! resources to and coordinate multiple separate classes in the same device, so that the same
+//! device can appear as e.g. a keyboard as well as a serial port at the same time.
 //!
-//! In the future USB applications will be able to use pre-existing peripheral driver crates and USB
-//! class implementation crates.
+//! Some USB class crates are already available, so you might not have to implement a USB class by
+//! hand for your application. Check [usb-device on
+//! crates.io](https://crates.io/search?q=usb-device) before writing your own! Device drivers are
+//! also available under the same keyword, unless already built into your HAL crate.
 //!
 //! # Example
 //!
