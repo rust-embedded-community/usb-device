@@ -193,12 +193,12 @@ impl<'n> InterfaceDescriptor<'n> {
         }
     }
 
-    /// Sets the subclass code of the descriptor. The meaning depends on the class code.
-    pub const fn subclass(self, sub_class: u8) -> Self {
+    /// Sets the sub-class code of the descriptor. The meaning depends on the class code.
+    pub const fn sub_class(self, sub_class: u8) -> Self {
         InterfaceDescriptor { sub_class, ..self }
     }
 
-    /// Sets the protocol code of the descriptor. The meaning depends on the class and subclass
+    /// Sets the protocol code of the descriptor. The meaning depends on the class and sub-class
     /// codes.
     pub const fn protocol(self, protocol: u8) -> Self {
         InterfaceDescriptor { protocol, ..self }
