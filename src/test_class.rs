@@ -36,9 +36,7 @@ pub struct TestClass<U: UsbCore> {
     i: usize,
     bench: bool,
     expect_bulk_in_complete: bool,
-    expect_bulk_out: bool,
     expect_interrupt_in_complete: bool,
-    expect_interrupt_out: bool,
 }
 
 pub const VID: u16 = 0x16c0;
@@ -76,9 +74,7 @@ impl<U: UsbCore> TestClass<U> {
             i: 0,
             bench: false,
             expect_bulk_in_complete: false,
-            expect_bulk_out: false,
             expect_interrupt_in_complete: false,
-            expect_interrupt_out: false,
         }
     }
 
@@ -89,70 +85,6 @@ impl<U: UsbCore> TestClass<U> {
             .product(PRODUCT)
             .serial_number(SERIAL_NUMBER)
             .build(&mut [self])
-    }
-
-    /// Must be called after polling the UsbDevice.
-    pub fn poll(&mut self, state: UsbDeviceState) {
-        if state != UsbDeviceState::Configured {
-            return;
-        }
-
-        if self.bench {
-            match self.ep_bulk_out.read_packet(&mut self.bulk_buf) {
-                Ok(_) | Err(UsbError::WouldBlock) => {}
-                Err(err) => panic!("bulk bench read {:?}", err),
-            };
-
-            match self
-                .ep_bulk_in
-                .write_packet(&self.bulk_buf[0..self.ep_bulk_in.config().max_packet_size() as usize])
-            {
-                Ok(_) | Err(UsbError::WouldBlock) => {}
-                Err(err) => panic!("bulk bench write {:?}", err),
-            };
-
-            return;
-        }
-
-        let temp_i = self.i;
-        match self.ep_bulk_out.read_packet(&mut self.bulk_buf[temp_i..]) {
-            Ok(count) => {
-                if self.expect_bulk_out {
-                    self.expect_bulk_out = false;
-                } else {
-                    panic!("unexpectedly read data from bulk out endpoint");
-                }
-
-                self.i += count;
-
-                if count < self.ep_bulk_out.config().max_packet_size() as usize {
-                    self.len = self.i;
-                    self.i = 0;
-
-                    self.write_bulk_in(count == 0);
-                }
-            }
-            Err(UsbError::WouldBlock) => {}
-            Err(err) => panic!("bulk read {:?}", err),
-        };
-
-        match self.ep_interrupt_out.read_packet(&mut self.interrupt_buf) {
-            Ok(count) => {
-                if self.expect_interrupt_out {
-                    self.expect_interrupt_out = false;
-                } else {
-                    panic!("unexpectedly read data from interrupt out endpoint");
-                }
-
-                self.ep_interrupt_in
-                    .write_packet(&self.interrupt_buf[0..count])
-                    .expect("interrupt write");
-
-                self.expect_interrupt_in_complete = true;
-            }
-            Err(UsbError::WouldBlock) => {}
-            Err(err) => panic!("interrupt read {:?}", err),
-        };
     }
 
     fn write_bulk_in(&mut self, write_empty: bool) {
@@ -206,9 +138,57 @@ impl<U: UsbCore> UsbClass<U> for TestClass<U> {
         self.i = 0;
         self.bench = false;
         self.expect_bulk_in_complete = false;
-        self.expect_bulk_out = false;
         self.expect_interrupt_in_complete = false;
-        self.expect_interrupt_out = false;
+    }
+
+    fn poll(&mut self, state: UsbDeviceState) {
+        if state != UsbDeviceState::Configured {
+            return;
+        }
+
+        if self.bench {
+            match self.ep_bulk_out.read_packet(&mut self.bulk_buf) {
+                Ok(_) | Err(UsbError::WouldBlock) => {}
+                Err(err) => panic!("bulk bench read {:?}", err),
+            };
+
+            match self
+                .ep_bulk_in
+                .write_packet(&self.bulk_buf[0..self.ep_bulk_in.config().max_packet_size() as usize])
+            {
+                Ok(_) | Err(UsbError::WouldBlock) => {}
+                Err(err) => panic!("bulk bench write {:?}", err),
+            };
+
+            return;
+        }
+
+        match self.ep_bulk_out.read_packet(&mut self.bulk_buf[self.i..]) {
+            Ok(count) => {
+                self.i += count;
+
+                if count < self.ep_bulk_out.config().max_packet_size() as usize {
+                    self.len = self.i;
+                    self.i = 0;
+
+                    self.write_bulk_in(count == 0);
+                }
+            }
+            Err(UsbError::WouldBlock) => {}
+            Err(err) => panic!("bulk read {:?}", err),
+        };
+
+        match self.ep_interrupt_out.read_packet(&mut self.interrupt_buf) {
+            Ok(count) => {
+                self.ep_interrupt_in
+                    .write_packet(&self.interrupt_buf[0..count])
+                    .expect("interrupt write");
+
+                self.expect_interrupt_in_complete = true;
+            }
+            Err(UsbError::WouldBlock) => {}
+            Err(err) => panic!("interrupt read {:?}", err),
+        };
     }
 
     fn endpoint_in_complete(&mut self, eps: EndpointInSet) {
@@ -230,14 +210,6 @@ impl<U: UsbCore> UsbClass<U> for TestClass<U> {
             } else {
                 panic!("unexpected endpoint_in_complete");
             }
-        }
-    }
-
-    fn endpoint_out(&mut self, eps: EndpointOutSet) {
-        if eps.contains(&self.ep_bulk_out) {
-            self.expect_bulk_out = true;
-        } else if eps.contains(&self.ep_interrupt_out) {
-            self.expect_interrupt_out = true;
         }
     }
 

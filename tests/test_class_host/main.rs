@@ -1,9 +1,10 @@
+//! Runs tests against a TestClass device running on actual hardware using libusb.
+//!
+//! This is implemented without the standard test harness because it is not well suited for running
+//! tests that must depend on outside resources such as hardware and therefore cannot be run in
+//! parallel.
+
 mod device;
-/// Runs tests against a TestClass device running on actual hardware using libusb.
-///
-/// This is implemented as an example as opposed to a test because the Rust test runner system is
-/// not well suited for running tests that must depend on outside resources such as hardware and
-/// cannot be run in parallel.
 mod tests;
 
 use crate::device::open_device;
