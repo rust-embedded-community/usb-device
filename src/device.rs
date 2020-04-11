@@ -191,10 +191,10 @@ impl<U: UsbCore> UsbDevice<U> {
 
                         match req {
                             Some(req) if req.direction == UsbDirection::In => {
-                                self.control_in(classes, req)?
+                                self.control_in(classes, req)?;
                             }
                             Some(req) if req.direction == UsbDirection::Out => {
-                                self.control_out(classes, req)?
+                                self.control_out(classes, req)?;
                             }
                             _ => (),
                         };
@@ -292,12 +292,17 @@ impl<U: UsbCore> UsbDevice<U> {
                 (Recipient::Interface, Request::GET_INTERFACE) => {
                     let mut visitor = GetInterfaceVisitor::new(req.index as u8);
 
-                    Config::visit(classes, &mut visitor)?;
+                    let res = Config::visit(classes, &mut visitor);
 
                     if let Some(alt_setting) = visitor.result() {
                         xfer.accept_with(&[alt_setting])?;
                     } else {
                         xfer.reject()?;
+                    }
+
+                    match res {
+                        Ok(_) | Err(UsbError::Break) => { },
+                        Err(err) => return Err(err),
                     }
                 }
 
@@ -489,10 +494,15 @@ impl<U: UsbCore> UsbDevice<U> {
                                 xfer: Some(xfer),
                             };
 
-                            Config::visit(classes, &mut visitor)?;
+                            let res = Config::visit(classes, &mut visitor);
 
                             if let Some(xfer) = visitor.xfer.take() {
                                 xfer.reject()?;
+                            }
+
+                            match res {
+                                Ok(_) | Err(UsbError::Break) => { },
+                                Err(err) => return Err(err),
                             }
                         }
                     }
