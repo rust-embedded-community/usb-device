@@ -1,5 +1,4 @@
 use crate::Result;
-//use crate::allocator::EndpointConfig;
 use crate::endpoint::{EndpointAddress, EndpointConfig, OutPacketType};
 
 /// A trait for accessing device-specific USB peripherals. Implement this to add support for a new
@@ -67,12 +66,12 @@ pub enum PollResult {
     /// The USB reset condition has been detected.
     Reset,
 
-    /// A USB suspend request has been detected or, in the case of self-powered devices, the device
-    /// has been disconnected from the USB bus.
+    /// Signaled when a suspend request from the host has been detected or, in the case of
+    /// self-powered devices, also when the device has been disconnected from the USB bus.
     Suspend,
 
-    /// A USB resume request has been detected after being suspended or, in the case of self-powered
-    /// devices, the device has been connected to the USB bus.
+    /// Signaled when a resume request from the host has been detected after being suspended or, in
+    /// the case of self-powered devices, also when the device has been connected to the USB bus.
     Resume,
 
     /// USB packets have been received or sent. Each data field is a bit-field where the least

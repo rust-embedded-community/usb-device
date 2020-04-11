@@ -3,7 +3,7 @@
 //! ## Implementing a USB device
 //!
 //! A USB device consists of a [`UsbDevice`](device::UsbDevice) instance, one or more
-//! [`UsbClass`](crate::class::UsbClass)es, and a platform-specific [`UsbCore`](bus::UsbCore)
+//! [`UsbClass`](crate::class::UsbClass)es, and a platform-specific [`UsbCore`](usbcore::UsbCore)
 //! implementation which together form a USB composite device.
 //!
 //! In the future USB device implementors will be able to use pre-existing peripheral driver crates
@@ -24,7 +24,8 @@
 //!
 //! ## USB peripheral drivers
 //!
-//! New peripheral driver crates can be created by implementing the [`UsbCore`](bus::UsbCore) trait.
+//! New peripheral driver crates can be created by implementing the [`UsbCore`](usbcore::UsbCore)
+//! trait.
 //!
 //! # Note about terminology
 //!
@@ -34,7 +35,7 @@
 //! and people doing that should be familiar with the USB standard.
 
 #![no_std]
-//#![warn(missing_docs)]
+#![warn(missing_docs)]
 
 /// A USB stack error.
 #[derive(Debug)]
@@ -113,25 +114,24 @@ impl From<u8> for UsbDirection {
 /// Result for USB operations.
 pub type Result<T> = core::result::Result<T, UsbError>;
 
-/// USB control transfers and the SETUP packet.
+/// USB control transfers and the SETUP packet requests.
 pub mod control;
 
 /// USB class configuration.
 pub mod config;
 
-/// For implementing peripheral drivers.
+/// Traits that must be implemented by peripheral drivers.
 pub mod usbcore;
 
-/// For implementing standard as well as vendor-specific USB classes.
+/// Traits and objects used for implementing standard as well as vendor-specific USB classes.
 ///
 /// To implement a new class, implement the [`UsbClass`](class::UsbClass) trait. The trait contains
-/// numerous callbacks that you can use to respond to USB events. None of the methods are required,
-/// and you only need to override the ones that your specific class needs to function. See the trait
-/// documentation for more information on the callback methods.
+/// numerous callbacks that you can use to respond to USB events. See the trait documentation for
+/// more information on the callback methods.
 ///
 /// In addition to implementing the trait, add struct methods for the end-user to send and receive
-/// data via your class. For example, a serial port class might have class-specific methods `read`
-/// and `write` to read and write data.
+/// data via your class. For example, a serial port class might have class-specific `read` and
+/// `write` methods.
 pub mod class;
 
 /// USB endpoints.
@@ -140,8 +140,8 @@ pub mod endpoint;
 /// USB composite device.
 ///
 /// The [UsbDevice](device::UsbDevice) type in this module is the core of this crate. It combines
-/// multiple USB class implementations and the USB bus driver and dispatches bus state changes and
-/// control messages between them.
+/// multiple USB class implementations and the USB driver and dispatches state changes and control
+/// messages between them.
 ///
 /// To implement USB support for your own project, the required code is usually as follows:
 ///

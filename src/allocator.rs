@@ -92,6 +92,7 @@ pub struct InterfaceHandle {
 }
 
 impl InterfaceHandle {
+    /// Creates a new unallocated interface handle.
     pub const fn new() -> Self {
         Self {
             interface: None,
@@ -110,6 +111,7 @@ impl InterfaceHandle {
         self.alt_setting
     }
 
+    /// Gets the number of the interface, or `0xff` if it has not been allocated yet.
     pub fn number(&self) -> u8 {
         self.interface.unwrap_or(0xff)
     }
@@ -165,8 +167,14 @@ impl PartialEq<InterfaceHandle> for u16 {
 pub struct StringHandle(pub(crate) Option<u8>);
 
 impl StringHandle {
+    /// Creates a new unallocated string handle.
     pub const fn new() -> Self {
         StringHandle(None)
+    }
+
+    /// Gets the index of the string, or `0xff` if it has not been allocated yet.
+    pub fn index(&self) -> u8 {
+        self.0.unwrap_or(0xff)
     }
 }
 

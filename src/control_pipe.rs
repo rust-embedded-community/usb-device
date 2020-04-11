@@ -239,7 +239,7 @@ impl<U: UsbCore> ControlPipe<U> {
                 return Ok(true);
             }
             _ => {
-                // Unexpected IN packet
+                // Unexpected IN completion
                 self.set_error()?;
             }
         };

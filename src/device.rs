@@ -32,7 +32,7 @@ pub enum UsbDeviceState {
 
 /// A USB device consisting of one or more device classes.
 pub struct UsbDevice<U: UsbCore> {
-    bus: U,
+    usb: U,
     config: DeviceConfig,
     control: ControlPipe<U>,
     device_state: UsbDeviceState,
@@ -68,20 +68,20 @@ pub(crate) type ClassList<'a, U> = [&'a mut dyn UsbClass<U>];
 
 impl<U: UsbCore> UsbDevice<U> {
     pub(crate) fn build(
-        mut bus: U,
+        mut usb: U,
         config: DeviceConfig,
         classes: &mut ClassList<U>,
     ) -> Result<UsbDevice<U>> {
-        let mut ep_alloc = bus.create_allocator();
+        let mut ep_alloc = usb.create_allocator();
 
         let control = ControlPipe::new(&mut ep_alloc, config.max_packet_size_0)?;
 
         Config::visit(classes, &mut UsbAllocator::new(&mut ep_alloc))?;
 
-        bus.enable(ep_alloc)?;
+        usb.enable(ep_alloc)?;
 
         Ok(UsbDevice {
-            bus,
+            usb: usb,
             config,
             control,
             device_state: UsbDeviceState::Default,
@@ -96,8 +96,8 @@ impl<U: UsbCore> UsbDevice<U> {
     ///
     /// While it is also possible to call the standard `UsbCore` trait methods through this
     /// reference, it is not recommended as it can cause the device to misbehave.
-    pub fn bus(&self) -> &U {
-        &self.bus
+    pub fn usb(&self) -> &U {
+        &self.usb
     }
 
     /// Gets a mutabe reference to the [`UsbCore`] implementation used by this `UsbDevice`. You can
@@ -105,8 +105,8 @@ impl<U: UsbCore> UsbDevice<U> {
     ///
     /// While it is also possible to call the standard `UsbCore` trait methods through this
     /// reference, it is not recommended as it can cause the device to misbehave.
-    pub fn bus_mut(&mut self) -> &U {
-        &mut self.bus
+    pub fn usb_mut(&mut self) -> &U {
+        &mut self.usb
     }
 
     /// Gets the current state of the device.
@@ -132,24 +132,16 @@ impl<U: UsbCore> UsbDevice<U> {
     }
 
     /// Polls the [`UsbCore`] for new events and dispatches them to the provided classes. Returns
-    /// true if one of the classes may have data available for reading or be ready for writing,
-    /// false otherwise. This should be called periodically as often as possible for the best data
-    /// rate, or preferably from an interrupt handler. Must be called at least once every 10
-    /// milliseconds while connected to the USB host to be USB compliant.
+    /// `Ok` if one of the classes may have data available for reading or be ready for writing,
+    /// `WouldBlock` if there is no new data available, or another error if an error occurred.. This
+    /// should be called periodically as often as possible for the best data rate, or preferably
+    /// from an interrupt handler. Must be called at least once every 10 milliseconds while
+    /// connected to the USB host to be compliant with the USB specification.
     ///
-    /// Note: The list of classes passed in must be the same classes in the same order for every
-    /// call while the device is configured, or the device may enumerate incorrectly or otherwise
-    /// misbehave. The easiest way to do this is to call the `poll` method in only one place in your
-    /// code, as follows:
-    ///
-    /// ``` ignore
-    /// usb_dev.poll(&mut [&mut class1, &mut class2]);
-    /// ```
-    ///
-    /// Strictly speaking the list of classes is allowed to change between polls if the device has
-    /// been reset, which is indicated by `state` being equal to [`UsbDeviceState::Default`].
+    /// Note: The list of classes passed in must be the same classes in the same order as the ones
+    /// used when creating the device or the device will misbehave.
     pub fn poll(&mut self, classes: &mut ClassList<'_, U>) -> Result<()> {
-        let pr = self.bus.poll();
+        let pr = self.usb.poll();
 
         if self.device_state == UsbDeviceState::Suspend {
             match pr {
@@ -158,7 +150,7 @@ impl<U: UsbCore> UsbDevice<U> {
                 }
 
                 _ => {
-                    self.bus.resume()?;
+                    self.usb.resume()?;
                 }
             }
         }
@@ -183,7 +175,7 @@ impl<U: UsbCore> UsbDevice<U> {
 
                         if !U::QUIRK_SET_ADDRESS_BEFORE_STATUS {
                             if completed && self.pending_address != 0 {
-                                self.bus.set_device_address(self.pending_address)?;
+                                self.usb.set_device_address(self.pending_address)?;
                                 self.pending_address = 0;
 
                                 self.device_state = UsbDeviceState::Addressed;
@@ -225,7 +217,7 @@ impl<U: UsbCore> UsbDevice<U> {
                     }
                 }
                 PollResult::Suspend => {
-                    self.bus.suspend()?;
+                    self.usb.suspend()?;
                     self.device_state = UsbDeviceState::Suspend;
                 }
             };
@@ -275,7 +267,7 @@ impl<U: UsbCore> UsbDevice<U> {
                     let ep_addr = ((req.index as u8) & 0x8f).into();
 
                     let status: u16 = 0x0000
-                        | if self.bus.is_stalled(ep_addr)? {
+                        | if self.usb.is_stalled(ep_addr)? {
                             0x0001
                         } else {
                             0x0000
@@ -348,7 +340,7 @@ impl<U: UsbCore> UsbDevice<U> {
                 }
 
                 (Recipient::Endpoint, Request::CLEAR_FEATURE, Request::FEATURE_ENDPOINT_HALT) => {
-                    self.bus
+                    self.usb
                         .set_stalled(((req.index as u8) & 0x8f).into(), false)?;
                     xfer.accept()?;
                 }
@@ -363,14 +355,14 @@ impl<U: UsbCore> UsbDevice<U> {
                 }
 
                 (Recipient::Endpoint, Request::SET_FEATURE, Request::FEATURE_ENDPOINT_HALT) => {
-                    self.bus
+                    self.usb
                         .set_stalled(((req.index as u8) & 0x8f).into(), true)?;
                     xfer.accept()?;
                 }
 
                 (Recipient::Device, Request::SET_ADDRESS, 1..=127) => {
                     if U::QUIRK_SET_ADDRESS_BEFORE_STATUS {
-                        self.bus.set_device_address(req.value as u8)?;
+                        self.usb.set_device_address(req.value as u8)?;
                         self.device_state = UsbDeviceState::Addressed;
                     } else {
                         self.pending_address = req.value as u8;
@@ -516,7 +508,7 @@ impl<U: UsbCore> UsbDevice<U> {
     }
 
     fn reset(&mut self, classes: &mut ClassList<'_, U>) -> Result<()> {
-        self.bus.reset()?;
+        self.usb.reset()?;
 
         self.device_state = UsbDeviceState::Default;
         self.remote_wakeup_enabled = false;
@@ -636,7 +628,6 @@ impl GetInterfaceVisitor {
     }
 }
 
-// TODO: Clean up the Option mess
 impl<U: UsbCore> ConfigVisitor<U> for GetInterfaceVisitor {
     fn begin_interface(
         &mut self,

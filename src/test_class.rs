@@ -105,7 +105,7 @@ impl<U: UsbCore> TestClass<U> {
 
             match self
                 .ep_bulk_in
-                .write_packet(&self.bulk_buf[0..self.ep_bulk_in.max_packet_size() as usize])
+                .write_packet(&self.bulk_buf[0..self.ep_bulk_in.config().max_packet_size() as usize])
             {
                 Ok(_) | Err(UsbError::WouldBlock) => {}
                 Err(err) => panic!("bulk bench write {:?}", err),
@@ -125,7 +125,7 @@ impl<U: UsbCore> TestClass<U> {
 
                 self.i += count;
 
-                if count < self.ep_bulk_out.max_packet_size() as usize {
+                if count < self.ep_bulk_out.config().max_packet_size() as usize {
                     self.len = self.i;
                     self.i = 0;
 
@@ -158,7 +158,7 @@ impl<U: UsbCore> TestClass<U> {
     fn write_bulk_in(&mut self, write_empty: bool) {
         let count = cmp::min(
             self.len - self.i,
-            self.ep_bulk_in.max_packet_size() as usize,
+            self.ep_bulk_in.config().max_packet_size() as usize,
         );
 
         if count == 0 && !write_empty {
