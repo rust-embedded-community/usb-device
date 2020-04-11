@@ -214,21 +214,29 @@ pub trait UsbClass<U: UsbCore> {
         let _ = xfer;
     }
 
-    /// Called when some endpoints may have received data (OUT packet).
+    /// Called when some endpoints may have received data.
     ///
-    /// Use [`EndpointOutSet::contains`] to check which endpoints have received data.
+    /// The data may also have been received by another class, in which case `eps` contains no
+    /// endpoints belonging to this class.
+    ///
+    /// Use [`EndpointOutSet::contains`] to check which endpoints may have received data. The
+    /// endpoints are not guaranteed to have data available, because due to timing the data may
+    /// already have been read, so be sure to handle `WouldBlock`.
     fn endpoint_out(&mut self, eps: EndpointOutSet) {
         let _ = eps;
     }
 
-    /// Called when some endpoints may have completed transmitting data (IN packet).
+    /// Called when some endpoints may have completed transmitting data.
+    ///
+    /// The data may also have been transmitted by another class, in which case `eps` contain no
+    /// endpoints belonging to this class.
     ///
     /// This method is not guaranteed to be called once for every call to
-    /// [`EndpointIn::write_packet`], but it is guaranteed to eventually be called when all packets
-    /// have been transmitted. You can use [`EndpointIn::flush`] to check if all data has been
-    /// transmitted.
+    /// [`EndpointIn::write_packet`], however it will called some time after transmitting one or
+    /// more packets has completed, unless the device is reset and some packets are discarded . You
+    /// can use [`EndpointIn::flush`] to check if all data sent so far has been transmitted.
     ///
-    /// Use [`EndpointInSet::contains`] to check which endpoints have received data.
+    /// Use [`EndpointInSet::contains`] to check which endpoints have completed transmission.
     fn endpoint_in_complete(&mut self, eps: EndpointInSet) {
         let _ = eps;
     }
