@@ -157,7 +157,7 @@ pub trait UsbClass<U: UsbCore> {
     /// # Errors
     ///
     /// Any errors returned by `BosWriter`. Implementors should propagate errors using `?`.
-    fn get_bos_descriptors(&self, writer: &mut BosWriter) -> Result<()> {
+    fn get_bos_descriptors(&mut self, writer: &mut BosWriter) -> Result<()> {
         let _ = writer;
         Ok(())
     }
