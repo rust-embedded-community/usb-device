@@ -6,7 +6,7 @@ pub use crate::config::{Config, InterfaceConfig, InterfaceDescriptor};
 pub use crate::control;
 pub use crate::descriptor::BosWriter;
 pub use crate::device::UsbDeviceState;
-pub use crate::endpoint::{EndpointAddress, EndpointConfig, EndpointIn, EndpointInSet, EndpointOut, EndpointOutSet};
+pub use crate::endpoint::{EndpointAddress, EndpointConfig, EndpointIn, EndpointOut};
 pub use crate::usbcore::UsbCore;
 pub use crate::UsbError;
 
@@ -167,15 +167,24 @@ pub trait UsbClass<U: UsbCore> {
 
     /// Called to inform the class that an interface alternate setting has been activated by the
     /// host.
+    ///
+    /// This method may be called for an interface you didn't allocate. Always use the `interface`
+    /// and `alt_setting` values to check which interface has been activated.
     fn alt_setting_activated(&mut self, interface: InterfaceHandle, alt_setting: u8) {
         let _ = (interface, alt_setting);
     }
 
     /// Called whenever the `UsbDevice` is polled, unless the device is suspended or not connected
-    /// to the USB bus. This method is called last, after all the other callbacks. The `state`
-    /// parameter is the current state of the USB device, after processing events.
-    fn poll(&mut self, state: UsbDeviceState) {
-        let _ = state;
+    /// to the USB bus.
+    ///
+    /// If the host suspends the bus after being connected or the device is disconnected, this
+    /// method will be called once with [`PollEvent::device_state`] set to `Suspend` to notify the
+    /// class.
+    ///
+    /// The `event` parameter contains the current state of the USB device, as well as methods for
+    /// checking which endpoints have events (data or completed transfer notifications) available.
+    fn poll(&mut self, event: &PollEvent) {
+        let _ = event;
     }
 
     /// Called when a control request is received with direction HostToDevice.
@@ -215,32 +224,56 @@ pub trait UsbClass<U: UsbCore> {
     fn control_in(&mut self, xfer: ControlIn<U>) {
         let _ = xfer;
     }
+}
 
-    /// Called when some endpoints may have received data.
-    ///
-    /// The data may also have been received by another class, in which case `eps` contains no
-    /// endpoints belonging to this class.
-    ///
-    /// Use [`EndpointOutSet::contains`] to check which endpoints may have received data. The
-    /// endpoints are not guaranteed to have data available, because due to timing the data may
-    /// already have been read, so be sure to handle `WouldBlock`.
-    fn endpoint_out(&mut self, eps: EndpointOutSet) {
-        let _ = eps;
+/// Event information for USB class polls.
+pub struct PollEvent {
+    pub(crate) device_state: UsbDeviceState,
+    pub(crate) ep_out: u16,
+    pub(crate) ep_in_complete: u16,
+}
+
+impl PollEvent {
+    /// Gets the current USB device state.
+    pub fn device_state(&self) -> UsbDeviceState {
+        self.device_state
     }
 
-    /// Called when some endpoints may have completed transmitting data.
+    /// Convenience method for checking if the USB device is in the Configured state, which is the
+    /// state most class operations will happen.
+    pub fn is_configured(&self) -> bool {
+        self.device_state == UsbDeviceState::Configured
+    }
+
+    /// Returns `true` if there are any events.
+    pub fn has_events(&self) -> bool {
+        (self.ep_out | self.ep_in_complete) != 0
+    }
+
+    /// Returns `true` if the endpoint has received data.
     ///
-    /// The data may also have been transmitted by another class, in which case `eps` contain no
-    /// endpoints belonging to this class.
+    /// Always returns `false` if the endpoint has not been allocated yet.
     ///
-    /// This method is not guaranteed to be called once for every call to
-    /// [`EndpointIn::write_packet`], however it will called some time after transmitting one or
-    /// more packets has completed, unless the device is reset and some packets are discarded . You
+    /// If you also read from the endpoint without receiving this event, the data may already have
+    /// been read., so be sure to handle `WouldBlock` even after checking.
+    pub fn has_data<U: UsbCore>(&self, ep: &EndpointOut<U>) -> bool {
+        ep.address_option()
+            .map(|a| (self.ep_out & (1 << a.number())) != 0)
+            .unwrap_or(false)
+    }
+
+    /// Returns `true` if the endpoint has just completed a transfer.
+    ///
+    /// Always returns `false` if the endpoint has not been allocated yet.
+    ///
+    /// Transmission completion is not indicated to be signaled once for every call to
+    /// [`EndpointIn::write_packet`], however it will indicated some time after transmitting one or
+    /// more packets has completed unless the device was reset and some packets were discarded. You
     /// can use [`EndpointIn::flush`] to check if all data sent so far has been transmitted.
-    ///
-    /// Use [`EndpointInSet::contains`] to check which endpoints have completed transmission.
-    fn endpoint_in_complete(&mut self, eps: EndpointInSet) {
-        let _ = eps;
+    pub fn has_completed<U: UsbCore>(&self, ep: &EndpointIn<U>) -> bool {
+        ep.address_option()
+            .map(|a| (self.ep_in_complete & (1 << a.number())) != 0)
+            .unwrap_or(false)
     }
 }
 

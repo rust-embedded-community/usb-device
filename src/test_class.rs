@@ -35,8 +35,6 @@ pub struct TestClass<U: UsbCore> {
     len: usize,
     i: usize,
     bench: bool,
-    expect_bulk_in_complete: bool,
-    expect_interrupt_in_complete: bool,
 }
 
 pub const VID: u16 = 0x16c0;
@@ -73,8 +71,6 @@ impl<U: UsbCore> TestClass<U> {
             len: 0,
             i: 0,
             bench: false,
-            expect_bulk_in_complete: false,
-            expect_interrupt_in_complete: false,
         }
     }
 
@@ -105,7 +101,6 @@ impl<U: UsbCore> TestClass<U> {
             .write_packet(&self.bulk_buf[self.i..self.i + count])
         {
             Ok(()) => {
-                self.expect_bulk_in_complete = true;
                 self.i += count;
             }
             Err(UsbError::WouldBlock) => {}
@@ -137,12 +132,10 @@ impl<U: UsbCore> UsbClass<U> for TestClass<U> {
         self.len = 0;
         self.i = 0;
         self.bench = false;
-        self.expect_bulk_in_complete = false;
-        self.expect_interrupt_in_complete = false;
     }
 
-    fn poll(&mut self, state: UsbDeviceState) {
-        if state != UsbDeviceState::Configured {
+    fn poll(&mut self, event: &PollEvent) {
+        if !event.is_configured() {
             return;
         }
 
@@ -160,6 +153,10 @@ impl<U: UsbCore> UsbClass<U> for TestClass<U> {
             };
 
             return;
+        }
+
+        if event.has_completed(&self.ep_bulk_in) {
+            self.write_bulk_in(false);
         }
 
         match self.ep_bulk_out.read_packet(&mut self.bulk_buf[self.i..]) {
@@ -183,33 +180,10 @@ impl<U: UsbCore> UsbClass<U> for TestClass<U> {
                     .write_packet(&self.interrupt_buf[0..count])
                     .expect("interrupt write");
 
-                self.expect_interrupt_in_complete = true;
             }
             Err(UsbError::WouldBlock) => {}
             Err(err) => panic!("interrupt read {:?}", err),
         };
-    }
-
-    fn endpoint_in_complete(&mut self, eps: EndpointInSet) {
-        if self.bench {
-            return;
-        }
-
-        if eps.contains(&self.ep_bulk_in) {
-            if self.expect_bulk_in_complete {
-                self.expect_bulk_in_complete = false;
-
-                self.write_bulk_in(false);
-            } else {
-                panic!("unexpected endpoint_in_complete");
-            }
-        } else if eps.contains(&self.ep_interrupt_in) {
-            if self.expect_interrupt_in_complete {
-                self.expect_interrupt_in_complete = false;
-            } else {
-                panic!("unexpected endpoint_in_complete");
-            }
-        }
     }
 
     fn control_in(&mut self, xfer: ControlIn<U>) {

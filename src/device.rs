@@ -1,5 +1,5 @@
 use crate::allocator::{self, InterfaceHandle, StringHandle, UsbAllocator};
-use crate::class::{ControlIn, ControlOut, UsbClass};
+use crate::class::{ControlIn, ControlOut, UsbClass, PollEvent};
 use crate::config::{Config, ConfigVisitor, InterfaceDescriptor};
 use crate::control;
 use crate::control_pipe::ControlPipe;
@@ -7,7 +7,7 @@ use crate::descriptor::{
     descriptor_type, lang_id, BosWriter, ConfigurationDescriptorWriter, DescriptorWriter,
 };
 pub use crate::device_builder::{UsbDeviceBuilder, UsbVidPid};
-use crate::endpoint::{EndpointConfig, EndpointCore, EndpointIn, EndpointInSet, EndpointOut, EndpointOutSet};
+use crate::endpoint::{EndpointConfig, EndpointCore, EndpointIn, EndpointOut};
 use crate::usbcore::{PollResult, UsbCore, UsbEndpoint};
 use crate::{Result, UsbDirection, UsbError};
 
@@ -155,6 +155,8 @@ impl<U: UsbCore> UsbDevice<U> {
             }
         }
 
+        let mut ev_ep_out: u16 = 0;
+        let mut ev_ep_in_complete: u16 = 0;
 
         if let Ok(pr) = &pr {
             match pr {
@@ -202,19 +204,8 @@ impl<U: UsbCore> UsbDevice<U> {
                         ep_out &= !1;
                     }
 
-                    // Pending events for other endpoints?
-
-                    if ep_out != 0 {
-                        for cls in classes.iter_mut() {
-                            cls.endpoint_out(EndpointOutSet(ep_out));
-                        }
-                    }
-
-                    if ep_in_complete != 0 {
-                        for cls in classes.iter_mut() {
-                            cls.endpoint_in_complete(EndpointInSet(ep_in_complete));
-                        }
-                    }
+                    ev_ep_out = ep_out;
+                    ev_ep_in_complete = ep_in_complete;
                 }
                 PollResult::Suspend => {
                     self.usb.suspend()?;
@@ -223,8 +214,14 @@ impl<U: UsbCore> UsbDevice<U> {
             };
         }
 
+        let ev = PollEvent {
+            device_state: self.device_state,
+            ep_out: ev_ep_out,
+            ep_in_complete: ev_ep_in_complete,
+        };
+
         for cls in classes.iter_mut() {
-            cls.poll(self.device_state);
+            cls.poll(&ev);
         }
 
         pr.map(|_| ())
