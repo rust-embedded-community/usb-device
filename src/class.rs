@@ -292,6 +292,13 @@ impl<'p, 'r, U: UsbCore> ControlIn<'p, 'r, U> {
         ControlIn { pipe, req }
     }
 
+    pub(crate) fn internal_clone(&mut self) -> ControlIn<U> {
+        ControlIn {
+            pipe: self.pipe,
+            req: self.req,
+        }
+    }
+
     /// Gets the request from the SETUP packet.
     pub fn request(&self) -> &control::Request {
         self.req
@@ -341,6 +348,13 @@ pub struct ControlOut<'p, 'r, U: UsbCore> {
 impl<'p, 'r, U: UsbCore> ControlOut<'p, 'r, U> {
     pub(crate) fn new(pipe: &'p mut ControlPipe<U>, req: &'r control::Request) -> Self {
         ControlOut { pipe, req }
+    }
+
+    pub(crate) fn internal_clone(&mut self) -> ControlOut<U> {
+        ControlOut {
+            pipe: self.pipe,
+            req: self.req,
+        }
     }
 
     /// Gets the request from the SETUP packet.

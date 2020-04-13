@@ -1,27 +1,16 @@
 use crate::allocator::{InterfaceHandle, StringHandle};
-use crate::class::UsbClass;
 use crate::endpoint::{EndpointIn, EndpointOut};
 use crate::usbcore::UsbCore;
 use crate::Result;
 
-// Dynamic dispatch is used to keep the `UsbClass::configure` method object safe and to avoid
-// monomorphization.
-
 /// Used by classes to register descriptors and resources with usb-device. See
 /// [`UsbClass::configure`](crate::class::UsbClass::configure) for more information on what this
 /// type does.
-pub struct Config<'v, U: UsbCore>(&'v mut dyn ConfigVisitor<U>);
+pub struct Config<'v, U: UsbCore>(pub(crate) &'v mut dyn ConfigVisitor<U>);
 
 impl<'v, U: UsbCore> Config<'v, U> {
-    pub(crate) fn visit(
-        classes: &mut [&mut dyn UsbClass<U>],
-        visitor: &mut dyn ConfigVisitor<U>,
-    ) -> Result<()> {
-        for cls in classes.iter_mut() {
-            cls.configure(Config(visitor))?;
-        }
-
-        Ok(())
+    pub(crate) fn internal_clone(&mut self) -> Config<U> {
+        Config(self.0)
     }
 
     /// Registers a string descriptor with the specified value.
@@ -135,11 +124,13 @@ impl<U: UsbCore> Drop for InterfaceConfig<'_, '_, U> {
 }
 
 pub(crate) trait ConfigVisitor<U: UsbCore> {
+    #[inline(always)]
     fn string(&mut self, string: &mut StringHandle, value: &str) -> Result<()> {
         let _ = (string, value);
         Ok(())
     }
 
+    #[inline(always)]
     fn begin_interface(
         &mut self,
         interface: &mut InterfaceHandle,
@@ -149,23 +140,28 @@ pub(crate) trait ConfigVisitor<U: UsbCore> {
         Ok(())
     }
 
+    #[inline(always)]
     fn next_alt_setting(&mut self, interface_number: u8, desc: &InterfaceDescriptor) -> Result<()> {
         let _ = (interface_number, desc);
         Ok(())
     }
 
+    #[inline(always)]
     fn end_interface(&mut self) -> () {}
 
+    #[inline(always)]
     fn endpoint_out(&mut self, endpoint: &mut EndpointOut<U>, manual: Option<&[u8]>) -> Result<()> {
         let _ = (endpoint, manual);
         Ok(())
     }
 
+    #[inline(always)]
     fn endpoint_in(&mut self, endpoint: &mut EndpointIn<U>, manual: Option<&[u8]>) -> Result<()> {
         let _ = (endpoint, manual);
         Ok(())
     }
 
+    #[inline(always)]
     fn descriptor(&mut self, descriptor_type: u8, descriptor: &[u8]) -> Result<()> {
         let _ = (descriptor_type, descriptor);
         Ok(())

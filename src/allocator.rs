@@ -4,6 +4,7 @@ use crate::usbcore::{UsbCore, UsbEndpointAllocator};
 use crate::{Result, UsbError};
 
 // Reserved numbers for standard descriptor strings
+
 pub const MANUFACTURER_STRING: u8 = 1;
 pub const PRODUCT_STRING: u8 = 2;
 pub const SERIAL_NUMBER_STRING: u8 = 3;
@@ -109,6 +110,13 @@ impl InterfaceHandle {
 
     pub(crate) fn alt_setting(&self) -> u8 {
         self.alt_setting
+    }
+
+    pub(crate) fn internal_clone(&self) -> Self {
+        Self {
+            interface: self.interface,
+            alt_setting: self.alt_setting,
+        }
     }
 
     /// Gets the number of the interface, or `0xff` if it has not been allocated yet.

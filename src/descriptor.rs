@@ -42,19 +42,11 @@ pub struct DescriptorWriter<'b> {
     pos: usize,
 }
 
-/// A mark that can be used to write data into the middle of a descriptor buffer.
-//struct Mark(usize);
-
 impl DescriptorWriter<'_> {
     /// Creates a new descriptor writer that will write to the provided buffer.
     pub fn new(buf: &mut [u8]) -> DescriptorWriter<'_> {
         DescriptorWriter { buf, pos: 0 }
     }
-
-    /// Returns a mark that can be used to write data into the middle of the buffer.
-    //pub fn mark(&self) -> Mark {
-    //    Mark(self.position)
-    //}
 
     /// Gets the current position in the buffer, i.e. the number of bytes written so far.
     fn pos(&self) -> usize {

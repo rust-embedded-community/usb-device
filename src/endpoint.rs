@@ -348,4 +348,3 @@ impl EndpointAddress {
         (self.0 & !Self::INBITS) as u8
     }
 }
-

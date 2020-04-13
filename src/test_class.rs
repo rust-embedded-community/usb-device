@@ -80,7 +80,7 @@ impl<U: UsbCore> TestClass<U> {
             .manufacturer(MANUFACTURER)
             .product(PRODUCT)
             .serial_number(SERIAL_NUMBER)
-            .build(&mut [self])
+            .build(self)
     }
 
     fn write_bulk_in(&mut self, write_empty: bool) {
@@ -179,7 +179,6 @@ impl<U: UsbCore> UsbClass<U> for TestClass<U> {
                 self.ep_interrupt_in
                     .write_packet(&self.interrupt_buf[0..count])
                     .expect("interrupt write");
-
             }
             Err(UsbError::WouldBlock) => {}
             Err(err) => panic!("interrupt read {:?}", err),

@@ -37,7 +37,7 @@
 //! let mut usb_dev = UsbDeviceBuilder::new(usb, UsbVidPid(0x5824, 0x27dd))
 //!     .device_class(0xff) // vendor specific
 //!     .product("My product")
-//!     .build(&mut [&mut usb_class])
+//!     .build(&mut usb_class) // for multiple classes: &mut (&mut c1, &mut c2)
 //!     .expect("device creation failed");
 //!
 //! // At this point the USB peripheral is enabled and a the host will attempt to enumerate it if
@@ -46,7 +46,7 @@
 //!     // Must be called more often than once every 10ms to handle events and stay USB compliant,
 //!     // or from a device-specific interrupt handler. The list of classes must be the same
 //!     // classes in the same order as at device creation time.
-//!     if usb_dev.poll(&mut [&mut usb_class]).is_ok() {
+//!     if usb_dev.poll(&mut usb_class).is_ok() {
 //!         // Call class-specific methods here
 //!     }
 //! }
@@ -188,6 +188,7 @@ pub mod descriptor;
 pub mod test_class;
 
 mod allocator;
+mod class_list;
 mod config;
 mod control_pipe;
 mod device_builder;

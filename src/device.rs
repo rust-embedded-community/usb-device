@@ -1,5 +1,6 @@
 use crate::allocator::{self, InterfaceHandle, StringHandle, UsbAllocator};
-use crate::class::{ControlIn, ControlOut, UsbClass, PollEvent};
+use crate::class::{ControlIn, ControlOut, PollEvent, UsbClass};
+pub use crate::class_list::DynamicClasses;
 use crate::config::{Config, ConfigVisitor, InterfaceDescriptor};
 use crate::control;
 use crate::control_pipe::ControlPipe;
@@ -61,22 +62,20 @@ pub(crate) struct DeviceConfig {
 /// The bConfiguration value for the not configured state.
 pub const CONFIGURATION_NONE: u8 = 0;
 
-/// The bConfiguration value for the single configuration supported by this device.
+/// The bConfiguration value for the single configuration supported by this crate.
 pub const CONFIGURATION_VALUE: u8 = 1;
-
-pub(crate) type ClassList<'a, U> = [&'a mut dyn UsbClass<U>];
 
 impl<U: UsbCore> UsbDevice<U> {
     pub(crate) fn build(
         mut usb: U,
         config: DeviceConfig,
-        classes: &mut ClassList<U>,
+        mut classes: impl UsbClass<U>,
     ) -> Result<UsbDevice<U>> {
         let mut ep_alloc = usb.create_allocator();
 
         let control = ControlPipe::new(&mut ep_alloc, config.max_packet_size_0)?;
 
-        Config::visit(classes, &mut UsbAllocator::new(&mut ep_alloc))?;
+        classes.configure(Config(&mut UsbAllocator::new(&mut ep_alloc)))?;
 
         usb.enable(ep_alloc)?;
 
@@ -133,14 +132,36 @@ impl<U: UsbCore> UsbDevice<U> {
 
     /// Polls the [`UsbCore`] for new events and dispatches them to the provided classes. Returns
     /// `Ok` if one of the classes may have data available for reading or be ready for writing,
-    /// `WouldBlock` if there is no new data available, or another error if an error occurred.. This
-    /// should be called periodically as often as possible for the best data rate, or preferably
-    /// from an interrupt handler. Must be called at least once every 10 milliseconds while
-    /// connected to the USB host to be compliant with the USB specification.
+    /// `WouldBlock` if there is no new data available, or another error if an error occurred.
     ///
-    /// Note: The list of classes passed in must be the same classes in the same order as the ones
+    /// You can pass in either a single class:
+    ///
+    /// ```
+    /// usb_dev.poll(&mut class)
+    /// ```
+    ///
+    /// Or a tuple of classes (up to 8):
+    ///
+    /// ```
+    /// usb_dev.poll((&mut class1, &mut class2))
+    /// ```
+    ///
+    /// Or if you really want to, with trait objects if you want to use dynamic dispatch. This could
+    /// be useful for devices that change composition on the fly.
+    ///
+    /// ```
+    /// use usb_device::device::DynamicClasses;
+    ///
+    /// usb_dev.poll(DynamicClasses(&mut [&mut class1, &mut class2]))
+    /// ```
+    ///
+    /// Note: The list of classes passed in *must* be the same classes in the same order as the ones
     /// used when creating the device or the device will misbehave.
-    pub fn poll(&mut self, classes: &mut ClassList<'_, U>) -> Result<()> {
+    ///
+    /// This method should be called periodically as often as possible for the best data rate, or
+    /// preferably from an interrupt handler. Must be called at least once every 10 milliseconds
+    /// while connected to the USB host to be compliant with the USB specification.
+    pub fn poll(&mut self, mut classes: impl UsbClass<U>) -> Result<()> {
         let pr = self.usb.poll();
 
         if self.device_state == UsbDeviceState::Suspend {
@@ -162,7 +183,7 @@ impl<U: UsbCore> UsbDevice<U> {
             match pr {
                 PollResult::Resume => { /* handled above */ }
                 PollResult::Reset => {
-                    self.reset(classes)?;
+                    self.reset(&mut classes)?;
                 }
                 PollResult::Data {
                     mut ep_out,
@@ -193,10 +214,10 @@ impl<U: UsbCore> UsbDevice<U> {
 
                         match req {
                             Some(req) if req.direction == UsbDirection::In => {
-                                self.control_in(classes, req)?;
+                                self.control_in(&mut classes, req)?;
                             }
                             Some(req) if req.direction == UsbDirection::Out => {
-                                self.control_out(classes, req)?;
+                                self.control_out(&mut classes, req)?;
                             }
                             _ => (),
                         };
@@ -220,22 +241,18 @@ impl<U: UsbCore> UsbDevice<U> {
             ep_in_complete: ev_ep_in_complete,
         };
 
-        for cls in classes.iter_mut() {
-            cls.poll(&ev);
-        }
+        classes.poll(&ev);
 
         pr.map(|_| ())
     }
 
-    fn control_in(&mut self, classes: &mut ClassList<'_, U>, req: control::Request) -> Result<()> {
+    fn control_in(&mut self, mut classes: impl UsbClass<U>, req: control::Request) -> Result<()> {
         use crate::control::{Recipient, Request};
 
-        for cls in classes.iter_mut() {
-            cls.control_in(ControlIn::new(&mut self.control, &req));
+        classes.control_in(ControlIn::new(&mut self.control, &req));
 
-            if !self.control.waiting_for_response() {
-                return Ok(());
-            }
+        if !self.control.waiting_for_response() {
+            return Ok(());
         }
 
         if req.request_type == control::RequestType::Standard {
@@ -274,7 +291,7 @@ impl<U: UsbCore> UsbDevice<U> {
                 }
 
                 (Recipient::Device, Request::GET_DESCRIPTOR) => {
-                    UsbDevice::get_descriptor(&self.config, classes, xfer)?;
+                    UsbDevice::get_descriptor(&self.config, &mut classes, xfer)?;
                 }
 
                 (Recipient::Device, Request::GET_CONFIGURATION) => {
@@ -289,7 +306,7 @@ impl<U: UsbCore> UsbDevice<U> {
                 (Recipient::Interface, Request::GET_INTERFACE) => {
                     let mut visitor = GetInterfaceVisitor::new(req.index as u8);
 
-                    let res = Config::visit(classes, &mut visitor);
+                    let res = classes.configure(Config(&mut visitor));
 
                     if let Some(alt_setting) = visitor.result() {
                         xfer.accept_with(&[alt_setting])?;
@@ -314,15 +331,13 @@ impl<U: UsbCore> UsbDevice<U> {
         Ok(())
     }
 
-    fn control_out(&mut self, classes: &mut ClassList<'_, U>, req: control::Request) -> Result<()> {
+    fn control_out(&mut self, mut classes: impl UsbClass<U>, req: control::Request) -> Result<()> {
         use crate::control::{Recipient, Request};
 
-        for cls in classes.iter_mut() {
-            cls.control_out(ControlOut::new(&mut self.control, &req));
+        classes.control_out(ControlOut::new(&mut self.control, &req));
 
-            if !self.control.waiting_for_response() {
-                return Ok(());
-            }
+        if !self.control.waiting_for_response() {
+            return Ok(());
         }
 
         if req.request_type == control::RequestType::Standard {
@@ -377,7 +392,10 @@ impl<U: UsbCore> UsbDevice<U> {
                         || self.device_state == UsbDeviceState::Addressed
                     {
                         if self.device_state == UsbDeviceState::Addressed {
-                            Config::visit(classes, &mut EnableEndpointVisitor::new(None, Some(0)))?;
+                            classes.configure(Config(&mut EnableEndpointVisitor::new(
+                                None,
+                                Some(0),
+                            )))?;
 
                             self.device_state = UsbDeviceState::Configured;
                         }
@@ -394,7 +412,8 @@ impl<U: UsbCore> UsbDevice<U> {
                             xfer.reject()?;
                         }
                         _ => {
-                            Config::visit(classes, &mut EnableEndpointVisitor::new(None, None))?;
+                            classes
+                                .configure(Config(&mut EnableEndpointVisitor::new(None, None)))?;
 
                             self.device_state = UsbDeviceState::Addressed;
                             xfer.accept()?;
@@ -406,20 +425,18 @@ impl<U: UsbCore> UsbDevice<U> {
                     let iface = Some(req.index as u8);
                     let alt_setting = alt_setting as u8;
 
-                    Config::visit(classes, &mut EnableEndpointVisitor::new(iface, None))?;
-                    Config::visit(
-                        classes,
-                        &mut EnableEndpointVisitor::new(iface, Some(alt_setting)),
-                    )?;
+                    classes.configure(Config(&mut EnableEndpointVisitor::new(iface, None)))?;
+                    classes.configure(Config(&mut EnableEndpointVisitor::new(
+                        iface,
+                        Some(alt_setting),
+                    )))?;
 
                     // TODO: Should this check the setting was actually valid?
 
-                    for cls in classes.iter_mut() {
-                        cls.alt_setting_activated(
-                            InterfaceHandle::from_number(req.index as u8),
-                            alt_setting,
-                        );
-                    }
+                    classes.alt_setting_activated(
+                        InterfaceHandle::from_number(req.index as u8),
+                        alt_setting,
+                    );
 
                     xfer.accept()?;
                 }
@@ -437,7 +454,7 @@ impl<U: UsbCore> UsbDevice<U> {
 
     fn get_descriptor(
         config: &DeviceConfig,
-        classes: &mut ClassList<'_, U>,
+        classes: &mut impl UsbClass<U>,
         xfer: ControlIn<U>,
     ) -> Result<()> {
         let req = *xfer.request();
@@ -455,9 +472,7 @@ impl<U: UsbCore> UsbDevice<U> {
             descriptor_type::BOS => accept_writer(xfer, |w| {
                 let mut bw = BosWriter::new(w)?;
 
-                for cls in classes {
-                    cls.get_bos_descriptors(&mut bw)?;
-                }
+                classes.get_bos_descriptors(&mut bw)?;
 
                 bw.finish()
             })?,
@@ -470,7 +485,7 @@ impl<U: UsbCore> UsbDevice<U> {
             descriptor_type::CONFIGURATION => accept_writer(xfer, |w| {
                 let mut cw = ConfigurationDescriptorWriter::new(w, config)?;
 
-                Config::visit(classes, &mut cw)?;
+                classes.configure(Config(&mut cw))?;
 
                 cw.finish()
             })?,
@@ -503,7 +518,7 @@ impl<U: UsbCore> UsbDevice<U> {
                                 xfer: Some(xfer),
                             };
 
-                            let res = Config::visit(classes, &mut visitor);
+                            let res = classes.configure(Config(&mut visitor));
 
                             if let Some(xfer) = visitor.xfer.take() {
                                 xfer.reject()?;
@@ -526,7 +541,7 @@ impl<U: UsbCore> UsbDevice<U> {
         Ok(())
     }
 
-    fn reset(&mut self, classes: &mut ClassList<'_, U>) -> Result<()> {
+    fn reset(&mut self, mut classes: impl UsbClass<U>) -> Result<()> {
         self.usb.reset()?;
 
         self.device_state = UsbDeviceState::Default;
@@ -535,9 +550,7 @@ impl<U: UsbCore> UsbDevice<U> {
 
         self.control.reset()?;
 
-        for cls in classes {
-            cls.reset();
-        }
+        classes.reset();
 
         Ok(())
     }
