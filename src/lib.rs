@@ -37,7 +37,7 @@
 //! let mut usb_dev = UsbDeviceBuilder::new(usb, UsbVidPid(0x5824, 0x27dd))
 //!     .device_class(0xff) // vendor specific
 //!     .product("My product")
-//!     .build(&mut usb_class) // for multiple classes: &mut (&mut c1, &mut c2)
+//!     .build(&mut usb_class) // for multiple classes: .poll((&mut c1, &mut c2))
 //!     .expect("device creation failed");
 //!
 //! // At this point the USB peripheral is enabled and a the host will attempt to enumerate it if
