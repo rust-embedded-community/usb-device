@@ -48,10 +48,16 @@ impl<U: UsbCore> ConfigVisitor<U> for UsbAllocator<'_, U> {
             return Err(UsbError::DuplicateConfig);
         }
 
+        self.ep_alloc.begin_interface()?;
+
         interface.interface = Some(self.next_interface);
         self.next_interface += 1;
 
         Ok(())
+    }
+
+    fn next_alt_setting(&mut self, _interface_number: u8, _desc: &InterfaceDescriptor) -> Result<()> {
+        self.ep_alloc.next_alt_setting()
     }
 
     fn endpoint_out(
