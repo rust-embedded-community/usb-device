@@ -1,6 +1,6 @@
 use crate::allocator::InterfaceHandle;
 use crate::config::{ConfigVisitor, InterfaceDescriptor};
-use crate::device;
+use crate::device::{DeviceConfig, IadMode, CONFIGURATION_VALUE};
 use crate::endpoint::{EndpointAddress, EndpointConfig, EndpointIn, EndpointOut};
 use crate::usbcore::UsbCore;
 use crate::{Result, UsbError};
@@ -13,7 +13,7 @@ pub mod descriptor_type {
     pub const STRING: u8 = 3;
     pub const INTERFACE: u8 = 4;
     pub const ENDPOINT: u8 = 5;
-    pub const IAD: u8 = 11;
+    pub const INTERFACE_ASSOCIATION: u8 = 11;
     pub const BOS: u8 = 15;
     pub const CAPABILITY: u8 = 16;
 }
@@ -78,7 +78,7 @@ impl DescriptorWriter<'_> {
         Ok(())
     }
 
-    pub(crate) fn write_device(&mut self, config: &device::DeviceConfig) -> Result<()> {
+    pub(crate) fn write_device(&mut self, config: &DeviceConfig) -> Result<()> {
         self.write(
             descriptor_type::DEVICE,
             &[
@@ -138,16 +138,19 @@ impl DescriptorWriter<'_> {
 
 pub(crate) struct ConfigurationDescriptorWriter<'b> {
     writer: DescriptorWriter<'b>,
+    enable_iad: bool,
     alt_setting: u8,
     total_length_mark: usize,
     num_interfaces_mark: usize,
+    iad_first_interface_mark: Option<usize>,
+    iad_interface_count_mark: Option<usize>,
     num_endpoints_mark: Option<usize>,
 }
 
 impl ConfigurationDescriptorWriter<'_> {
     pub fn new<'b>(
         mut writer: DescriptorWriter<'b>,
-        config: &device::DeviceConfig,
+        config: &DeviceConfig,
     ) -> Result<ConfigurationDescriptorWriter<'b>> {
         let total_length_mark = writer.pos() + 2;
         let num_interfaces_mark = writer.pos() + 4;
@@ -156,25 +159,28 @@ impl ConfigurationDescriptorWriter<'_> {
             descriptor_type::CONFIGURATION,
             &[
                 0,
-                0,                           // wTotalLength
-                0,                           // bNumInterfaces
-                device::CONFIGURATION_VALUE, // bConfigurationValue
-                0,                           // iConfiguration
+                0,                   // wTotalLength
+                0,                   // bNumInterfaces
+                CONFIGURATION_VALUE, // bConfigurationValue
+                0,                   // iConfiguration
                 0x80 | if config.self_powered { 0x40 } else { 0x00 }
                     | if config.supports_remote_wakeup {
                         0x20
                     } else {
                         0x00
                     }, // bmAttributes
-                config.max_power,            // bMaxPower
+                config.max_power,    // bMaxPower
             ],
         )?;
 
         Ok(ConfigurationDescriptorWriter {
             writer,
+            enable_iad: config.iad_mode == IadMode::Always,
             alt_setting: 0,
             total_length_mark,
             num_interfaces_mark,
+            iad_first_interface_mark: None,
+            iad_interface_count_mark: None,
             num_endpoints_mark: None,
         })
     }
@@ -184,18 +190,44 @@ impl ConfigurationDescriptorWriter<'_> {
         interface_number: u8,
         descriptor: &InterfaceDescriptor,
     ) -> Result<()> {
+        if let Some(mark) = self.iad_first_interface_mark {
+            self.writer.buf()[mark] = interface_number;
+            self.iad_first_interface_mark = None;
+        }
+
+        if let Some(mark) = self.iad_interface_count_mark {
+            self.writer.buf()[mark] += 1;
+        }
+
         self.num_endpoints_mark = Some(self.writer.pos() + 4);
 
         self.writer.write(
             descriptor_type::INTERFACE,
             &[
-                interface_number,                                      // bInterfaceNumber
-                self.alt_setting,                                      // bAlternateSetting
-                0,                                                     // bNumEndpoints
-                descriptor.class,                                      // bInterfaceClass
-                descriptor.sub_class,                                  // bInterfaceSubClass
-                descriptor.protocol,                                   // bInterfaceProtocol
-                descriptor.description.map(|n| n.into()).unwrap_or(0), // iInterface
+                interface_number,       // bInterfaceNumber
+                self.alt_setting,       // bAlternateSetting
+                0,                      // bNumEndpoints
+                descriptor.class,       // bInterfaceClass
+                descriptor.sub_class,   // bInterfaceSubClass
+                descriptor.protocol,    // bInterfaceProtocol
+                descriptor.description, // iInterface
+            ],
+        )
+    }
+
+    fn write_interface_association(&mut self, descriptor: &InterfaceDescriptor) -> Result<()> {
+        self.iad_first_interface_mark = Some(self.writer.pos() + 2);
+        self.iad_interface_count_mark = Some(self.writer.pos() + 3);
+
+        self.writer.write(
+            descriptor_type::INTERFACE_ASSOCIATION,
+            &[
+                0,                      // bFirstInterface
+                0,                      // bInterfaceCount
+                descriptor.class,       // bFunctionClass
+                descriptor.sub_class,   // bFunctionSubClass
+                descriptor.protocol,    // bFunctionProtocol
+                descriptor.description, // iFunction
             ],
         )
     }
@@ -246,14 +278,19 @@ impl ConfigurationDescriptorWriter<'_> {
 impl<U: UsbCore> ConfigVisitor<U> for ConfigurationDescriptorWriter<'_> {
     fn begin_interface(
         &mut self,
-        interface: &mut InterfaceHandle,
+        interface: Option<&mut InterfaceHandle>,
         descriptor: &InterfaceDescriptor,
     ) -> Result<()> {
         self.writer.buf()[self.num_interfaces_mark] += 1;
 
         self.alt_setting = 0;
         self.num_endpoints_mark = Some(self.writer.pos() + 4);
-        self.write_interface(interface.into(), descriptor)?;
+
+        if let Some(interface) = interface {
+            self.write_interface(interface.into(), descriptor)?;
+        } else if self.enable_iad {
+            self.write_interface_association(descriptor)?;
+        }
 
         Ok(())
     }
@@ -269,8 +306,12 @@ impl<U: UsbCore> ConfigVisitor<U> for ConfigurationDescriptorWriter<'_> {
         Ok(())
     }
 
-    fn end_interface(&mut self) -> () {
+    fn end_interface(&mut self, iad: bool) -> () {
         self.num_endpoints_mark = None;
+
+        if iad {
+            self.iad_interface_count_mark = None;
+        }
     }
 
     fn endpoint_in(&mut self, endpoint: &mut EndpointIn<U>, extra: Option<&[u8]>) -> Result<()> {

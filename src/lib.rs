@@ -195,6 +195,6 @@ mod device_builder;
 
 /// Prelude for applications.
 pub mod prelude {
-    pub use crate::device::{UsbDevice, UsbDeviceBuilder, UsbDeviceState, UsbVidPid};
+    pub use crate::device::{IadMode, UsbDevice, UsbDeviceBuilder, UsbDeviceState, UsbVidPid};
     pub use crate::UsbError;
 }

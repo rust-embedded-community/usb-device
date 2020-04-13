@@ -40,7 +40,7 @@ where
 }
 
 macro_rules! tuple_impls {
-    ($($n:tt: $c:ident),+) => {
+    ($multi:expr, $($n:tt: $c:ident),+) => {
         impl<U, $($c),+> UsbClass<U> for ($(&mut $c),+,)
         where
             U: UsbCore,
@@ -91,18 +91,22 @@ macro_rules! tuple_impls {
                     UsbClass::control_in(self.$n, xfer.internal_clone());
                 )*
             }
+
+            fn is_multiple(&self) -> bool {
+                $multi
+            }
         }
     }
 }
 
-tuple_impls!(0: C0);
-tuple_impls!(0: C0, 1: C1);
-tuple_impls!(0: C0, 1: C1, 2: C2);
-tuple_impls!(0: C0, 1: C1, 2: C2, 3: C3);
-tuple_impls!(0: C0, 1: C1, 2: C2, 3: C3, 4: C4);
-tuple_impls!(0: C0, 1: C1, 2: C2, 3: C3, 4: C4, 5: C5);
-tuple_impls!(0: C0, 1: C1, 2: C2, 3: C3, 4: C4, 5: C5, 6: C6);
-tuple_impls!(0: C0, 1: C1, 2: C2, 3: C3, 4: C4, 5: C5, 6: C6, 7: C7);
+tuple_impls!(false, 0: C0);
+tuple_impls!(true, 0: C0, 1: C1);
+tuple_impls!(true, 0: C0, 1: C1, 2: C2);
+tuple_impls!(true, 0: C0, 1: C1, 2: C2, 3: C3);
+tuple_impls!(true, 0: C0, 1: C1, 2: C2, 3: C3, 4: C4);
+tuple_impls!(true, 0: C0, 1: C1, 2: C2, 3: C3, 4: C4, 5: C5);
+tuple_impls!(true, 0: C0, 1: C1, 2: C2, 3: C3, 4: C4, 5: C5, 6: C6);
+tuple_impls!(true, 0: C0, 1: C1, 2: C2, 3: C3, 4: C4, 5: C5, 6: C6, 7: C7);
 
 /// Wrapper type for `UsbClass` trait objects if you want to use dynamic dispatch. Usually this is
 /// not needed.
@@ -156,5 +160,9 @@ where
         for cls in self.0.iter_mut() {
             cls.control_in(xfer.internal_clone());
         }
+    }
+
+    fn is_multiple(&self) -> bool {
+        self.0.len() > 1
     }
 }

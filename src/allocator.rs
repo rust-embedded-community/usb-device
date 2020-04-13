@@ -41,9 +41,14 @@ impl<U: UsbCore> ConfigVisitor<U> for UsbAllocator<'_, U> {
 
     fn begin_interface(
         &mut self,
-        interface: &mut InterfaceHandle,
+        mut interface: Option<&mut InterfaceHandle>,
         _descriptor: &InterfaceDescriptor,
     ) -> Result<()> {
+        let mut interface = match interface.as_mut() {
+            Some(i) => i,
+            None => return Ok(()),
+        };
+
         if cfg!(debug_assertions) && interface.interface.is_some() {
             return Err(UsbError::DuplicateConfig);
         }
@@ -56,7 +61,11 @@ impl<U: UsbCore> ConfigVisitor<U> for UsbAllocator<'_, U> {
         Ok(())
     }
 
-    fn next_alt_setting(&mut self, _interface_number: u8, _desc: &InterfaceDescriptor) -> Result<()> {
+    fn next_alt_setting(
+        &mut self,
+        _interface_number: u8,
+        _desc: &InterfaceDescriptor,
+    ) -> Result<()> {
         self.ep_alloc.next_alt_setting()
     }
 

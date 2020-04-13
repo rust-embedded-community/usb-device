@@ -224,6 +224,13 @@ pub trait UsbClass<U: UsbCore> {
     fn control_in(&mut self, xfer: ControlIn<U>) {
         let _ = xfer;
     }
+
+    /// Returns `true` if the type is actually a wrapper for multiple classes. Implementation
+    /// detail.
+    #[doc(hidden)]
+    fn is_multiple(&self) -> bool {
+        false
+    }
 }
 
 /// Event information for USB class polls.

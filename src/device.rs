@@ -57,6 +57,21 @@ pub(crate) struct DeviceConfig {
     pub supports_remote_wakeup: bool,
     pub composite_with_iads: bool,
     pub max_power: u8,
+    pub iad_mode: IadMode,
+}
+
+/// Interface association descriptor (IAD) mode.
+#[derive(Eq, PartialEq)]
+pub enum IadMode {
+    /// Generate IADs if using multiple classes. In this mode the device class, sub-class and
+    /// protocol are also automatically set to the IAD values if not specified.
+    Auto,
+
+    /// Always generate IADs
+    Always,
+
+    /// Never generate IADs.
+    Never,
 }
 
 /// The bConfiguration value for the not configured state.
@@ -65,12 +80,30 @@ pub const CONFIGURATION_NONE: u8 = 0;
 /// The bConfiguration value for the single configuration supported by this crate.
 pub const CONFIGURATION_VALUE: u8 = 1;
 
+const IAD_DEVICE_CLASS: u8 = 0xef;
+const IAD_DEVICE_SUB_CLASS: u8 = 0x02;
+const IAD_DEVICE_PROTOCOL: u8 = 0x01;
+
 impl<U: UsbCore> UsbDevice<U> {
     pub(crate) fn build(
         mut usb: U,
-        config: DeviceConfig,
+        mut config: DeviceConfig,
         mut classes: impl UsbClass<U>,
     ) -> Result<UsbDevice<U>> {
+        if config.iad_mode == IadMode::Auto {
+            config.iad_mode = if config.device_class == 0x00 && classes.is_multiple() {
+                IadMode::Always
+            } else {
+                IadMode::Never
+            }
+        }
+
+        if config.device_class == 0x00 && config.iad_mode == IadMode::Always {
+            config.device_class = IAD_DEVICE_CLASS;
+            config.device_sub_class = IAD_DEVICE_SUB_CLASS;
+            config.device_protocol = IAD_DEVICE_PROTOCOL;
+        }
+
         let mut ep_alloc = usb.create_allocator();
 
         let control = ControlPipe::new(&mut ep_alloc, config.max_packet_size_0)?;
@@ -604,12 +637,14 @@ impl EnableEndpointVisitor {
 impl<U: UsbCore> ConfigVisitor<U> for EnableEndpointVisitor {
     fn begin_interface(
         &mut self,
-        interface: &mut InterfaceHandle,
+        interface: Option<&mut InterfaceHandle>,
         _descriptor: &InterfaceDescriptor,
     ) -> Result<()> {
-        self.interface_match = self.interface.map(|i| i == *interface).unwrap_or(true);
+        if let Some(interface) = interface {
+            self.interface_match = self.interface.map(|i| i == *interface).unwrap_or(true);
 
-        self.current_alt = 0;
+            self.current_alt = 0;
+        }
 
         Ok(())
     }
@@ -658,12 +693,14 @@ impl GetInterfaceVisitor {
 impl<U: UsbCore> ConfigVisitor<U> for GetInterfaceVisitor {
     fn begin_interface(
         &mut self,
-        interface: &mut InterfaceHandle,
+        interface: Option<&mut InterfaceHandle>,
         _descriptor: &InterfaceDescriptor,
     ) -> Result<()> {
-        if *interface == self.interface {
-            self.result = Some(interface.alt_setting());
-            return Err(UsbError::Break);
+        if let Some(interface) = interface {
+            if *interface == self.interface {
+                self.result = Some(interface.alt_setting());
+                return Err(UsbError::Break);
+            }
         }
 
         Ok(())
