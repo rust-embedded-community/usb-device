@@ -281,12 +281,12 @@ impl<U: UsbCore> ConfigVisitor<U> for ConfigurationDescriptorWriter<'_> {
         interface: Option<&mut InterfaceHandle>,
         descriptor: &InterfaceDescriptor,
     ) -> Result<()> {
-        self.writer.buf()[self.num_interfaces_mark] += 1;
-
-        self.alt_setting = 0;
-        self.num_endpoints_mark = Some(self.writer.pos() + 4);
-
         if let Some(interface) = interface {
+            self.writer.buf()[self.num_interfaces_mark] += 1;
+
+            self.alt_setting = 0;
+            self.num_endpoints_mark = Some(self.writer.pos() + 4);
+
             self.write_interface(interface.into(), descriptor)?;
         } else if self.enable_iad {
             self.write_interface_association(descriptor)?;
