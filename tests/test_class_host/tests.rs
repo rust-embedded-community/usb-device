@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::fmt::Write;
 use std::time::{Duration, Instant};
 use libusb::*;
@@ -150,7 +151,9 @@ fn bulk_loopback(dev, _out) {
                 "bulk write zero-length packet");
         }
 
-        let mut response = vec![0u8; *len];
+        // Prevent libusb from instantaneously reading an empty packet on Windows when
+        // zero-sized buffer is passed.
+        let mut response = vec![0u8; max(*len, 1)];
 
         assert_eq!(
             dev.read_bulk(0x81, &mut response, TIMEOUT)
@@ -158,7 +161,7 @@ fn bulk_loopback(dev, _out) {
             data.len(),
             "bulk read len {}", len);
 
-        assert_eq!(&response, &data);
+        assert_eq!(&response[..*len], &data[..]);
     }
 }
 
@@ -172,7 +175,9 @@ fn interrupt_loopback(dev, _out) {
             data.len(),
             "interrupt write len {}", len);
 
-        let mut response = vec![0u8; *len];
+        // Prevent libusb from instantaneously reading an empty packet on Windows when
+        // zero-sized buffer is passed.
+        let mut response = vec![0u8; max(*len, 1)];
 
         assert_eq!(
             dev.read_interrupt(0x82, &mut response, TIMEOUT)
@@ -180,7 +185,7 @@ fn interrupt_loopback(dev, _out) {
             data.len(),
             "interrupt read len {}", len);
 
-        assert_eq!(&response, &data);
+        assert_eq!(&response[..*len], &data[..]);
     }
 }
 
