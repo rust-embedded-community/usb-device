@@ -143,7 +143,7 @@ fn bulk_loopback(dev, _out) {
             data.len(),
             "bulk write len {}", len);
 
-        if *len % 64 == 0 {
+        if *len > 0 && *len % 64 == 0 {
             assert_eq!(
                 dev.write_bulk(0x01, &[], TIMEOUT)
                     .expect(&format!("bulk write zero-length packet")),
