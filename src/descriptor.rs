@@ -1,5 +1,5 @@
 use crate::{Result, UsbError};
-use crate::bus::{UsbBus, InterfaceNumber};
+use crate::bus::{UsbBus, InterfaceNumber, StringIndex};
 use crate::device;
 use crate::endpoint::{Endpoint, EndpointDirection};
 
@@ -192,6 +192,44 @@ impl DescriptorWriter<'_> {
                 interface_sub_class, // bInterfaceSubClass
                 interface_protocol, // bInterfaceProtocol
                 0, // iInterface
+            ])?;
+
+        Ok(())
+    }
+
+    /// Writes a interface descriptor.
+    ///
+    /// # Arguments
+    ///
+    /// * `number` - Interface number previously allocated with
+    ///   [`UsbBusAllocator::interface`](crate::bus::UsbBusAllocator::interface).
+    /// * `interface_class` - Class code assigned by USB.org. Use `0xff` for vendor-specific devices
+    ///   that do not conform to any class.
+    /// * `interface_sub_class` - Sub-class code. Depends on class.
+    /// * `interface_protocol` - Protocol code. Depends on class and sub-class.
+    /// * `string` - Interface string.
+    pub fn interface_with_string(&mut self, number: InterfaceNumber,
+                     interface_class: u8, interface_sub_class: u8, interface_protocol: u8,
+                     string: StringIndex
+    ) -> Result<()>
+    {
+        match self.num_interfaces_mark {
+            Some(mark) => self.buf[mark] += 1,
+            None => return Err(UsbError::InvalidState),
+        };
+
+        self.num_endpoints_mark = Some(self.position + 4);
+
+        self.write(
+            descriptor_type::INTERFACE,
+            &[
+                number.into(), // bInterfaceNumber
+                device::DEFAULT_ALTERNATE_SETTING, // bAlternateSetting (how to even handle these...)
+                0, // bNumEndpoints
+                interface_class, // bInterfaceClass
+                interface_sub_class, // bInterfaceSubClass
+                interface_protocol, // bInterfaceProtocol
+                u8::from(string), // iInterface
             ])?;
 
         Ok(())
