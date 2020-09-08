@@ -84,6 +84,10 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             },
         };
 
+        // Now that we have properly parsed the setup packet, ensure the end-point is no longer in
+        // a stalled state.
+        self.ep_out.unstall();
+
         /*sprintln!("SETUP {:?} {:?} {:?} req:{} val:{} idx:{} len:{} {:?}",
             req.direction, req.request_type, req.recipient,
             req.request, req.value, req.index, req.length,
