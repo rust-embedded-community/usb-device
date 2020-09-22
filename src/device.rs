@@ -169,6 +169,23 @@ impl<B: UsbBus> UsbDevice<'_, B> {
 
                 // Pending events for endpoint 0?
                 if (eps & 1) != 0 {
+                    // Handle EP0-IN conditions first. When both EP0-IN and EP0-OUT have completed,
+                    // it is possible that EP0-OUT is a zero-sized out packet to complete the STATUS
+                    // phase of the control transfer. We have to process EP0-IN first to update our
+                    // internal state properly.
+                    if (ep_in_complete & 1) != 0 {
+                        let completed = self.control.handle_in_complete();
+
+                        if !B::QUIRK_SET_ADDRESS_BEFORE_STATUS {
+                            if completed && self.pending_address != 0 {
+                                self.bus.set_device_address(self.pending_address);
+                                self.pending_address = 0;
+
+                                self.device_state = UsbDeviceState::Addressed;
+                            }
+                        }
+                    }
+
                     let req = if (ep_setup & 1) != 0 {
                         self.control.handle_setup()
                     } else if (ep_out & 1) != 0 {
@@ -184,19 +201,6 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                             => self.control_out(classes, req),
                         _ => (),
                     };
-
-                    if (ep_in_complete & 1) != 0 {
-                        let completed = self.control.handle_in_complete();
-
-                        if !B::QUIRK_SET_ADDRESS_BEFORE_STATUS {
-                            if completed && self.pending_address != 0 {
-                                self.bus.set_device_address(self.pending_address);
-                                self.pending_address = 0;
-
-                                self.device_state = UsbDeviceState::Addressed;
-                            }
-                        }
-                    }
 
                     eps &= !1;
                 }
