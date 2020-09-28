@@ -53,6 +53,7 @@ pub(crate) struct Config<'a> {
     pub serial_number: Option<&'a str>,
     pub self_powered: bool,
     pub supports_remote_wakeup: bool,
+    pub composite_with_iads: bool,
     pub max_power: u8,
 }
 

@@ -11,6 +11,7 @@ pub mod descriptor_type {
     pub const STRING: u8 = 3;
     pub const INTERFACE: u8 = 4;
     pub const ENDPOINT: u8 = 5;
+    pub const IAD: u8 = 11;
     pub const BOS: u8 = 15;
     pub const CAPABILITY: u8 = 16;
 }
@@ -39,6 +40,7 @@ pub struct DescriptorWriter<'a> {
     position: usize,
     num_interfaces_mark: Option<usize>,
     num_endpoints_mark: Option<usize>,
+    write_iads: bool,
 }
 
 impl DescriptorWriter<'_> {
@@ -48,6 +50,7 @@ impl DescriptorWriter<'_> {
             position: 0,
             num_interfaces_mark: None,
             num_endpoints_mark: None,
+            write_iads: false,
         }
     }
 
@@ -98,6 +101,8 @@ impl DescriptorWriter<'_> {
     pub(crate) fn configuration(&mut self, config: &device::Config) -> Result<()> {
         self.num_interfaces_mark = Some(self.position + 4);
 
+        self.write_iads = config.composite_with_iads;
+
         self.write(
             descriptor_type::CONFIGURATION,
             &[
@@ -119,6 +124,42 @@ impl DescriptorWriter<'_> {
     pub(crate) fn end_configuration(&mut self) {
         let position = self.position as u16;
         self.buf[2..4].copy_from_slice(&position.to_le_bytes());
+    }
+
+    /// Writes a interface association descriptor. Call from `UsbClass::get_configuration_descriptors`
+    /// before writing the USB class or function's interface descriptors if your class has more than
+    /// one interface and wants to play nicely with composite devices on Windows. If the USB device
+    /// hosting the class was not configured as composite with IADs enabled, calling this function
+    /// does nothing, so it is safe to call from libraries.
+    ///
+    /// # Arguments
+    ///
+    /// * `first_interface` - Number of the function's first interface, previously allocated with
+    ///   [`UsbBusAllocator::interface`](crate::bus::UsbBusAllocator::interface).
+    /// * `interface_count` - Number of interfaces in the function.
+    /// * `function_class` - Class code assigned by USB.org. Use `0xff` for vendor-specific devices
+    ///   that do not conform to any class.
+    /// * `function_sub_class` - Sub-class code. Depends on class.
+    /// * `function_protocol` - Protocol code. Depends on class and sub-class.
+    pub fn iad(&mut self, first_interface: InterfaceNumber, interface_count: u8,
+        function_class: u8, function_sub_class: u8, function_protocol: u8) -> Result<()>
+    {
+        if !self.write_iads {
+            return Ok(());
+        }
+
+        self.write(
+            descriptor_type::IAD,
+            &[
+                first_interface.into(), // bFirstInterface
+                interface_count, // bInterfaceCount
+                function_class,
+                function_sub_class,
+                function_protocol,
+                0
+            ])?;
+
+        Ok(())
     }
 
     /// Writes a interface descriptor.

@@ -43,6 +43,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
                 serial_number: None,
                 self_powered: false,
                 supports_remote_wakeup: false,
+                composite_with_iads: false,
                 max_power: 50,
             }
         }
@@ -89,6 +90,17 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
         ///
         /// Default: `false`
         supports_remote_wakeup: bool,
+    }
+
+    /// Configures the device as a composite device with interface association descriptors.
+    pub fn composite_with_iads(mut self) -> Self {
+        // Magic values specified in USB-IF ECN on IADs.
+        self.config.device_class = 0xEF;
+        self.config.device_sub_class = 0x02;
+        self.config.device_protocol = 0x01;
+
+        self.config.composite_with_iads = true;
+        self
     }
 
     /// Sets the manufacturer name string descriptor.
