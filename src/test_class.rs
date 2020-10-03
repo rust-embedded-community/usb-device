@@ -9,6 +9,7 @@ use crate::descriptor;
 #[cfg(feature = "test-class-high-speed")]
 mod sizes {
     pub const BUFFER: usize = 1024;
+    pub const CONTROL_ENDPOINT: u8 = 64;
     pub const BULK_ENDPOINT: u16 = 512;
     pub const INTERRUPT_ENDPOINT: u16 = 1024;
 }
@@ -16,6 +17,7 @@ mod sizes {
 #[cfg(not(feature = "test-class-high-speed"))]
 mod sizes {
     pub const BUFFER: usize = 256;
+    pub const CONTROL_ENDPOINT: u8 = 8;
     pub const BULK_ENDPOINT: u16 = 64;
     pub const INTERRUPT_ENDPOINT: u16 = 31;
 }
@@ -87,6 +89,7 @@ impl<B: UsbBus> TestClass<'_, B> {
             .manufacturer(MANUFACTURER)
             .product(PRODUCT)
             .serial_number(SERIAL_NUMBER)
+            .max_packet_size_0(sizes::CONTROL_ENDPOINT)
             .build()
     }
 
