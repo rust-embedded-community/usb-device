@@ -1,10 +1,9 @@
+use crate::device::*;
 use std::cmp::max;
 use std::fmt::Write;
 use std::time::{Duration, Instant};
 use libusb::*;
 use rand::prelude::*;
-use std::fmt::Write;
-use std::time::{Duration, Instant};
 use usb_device::test_class;
 
 pub type TestFn = fn(&mut DeviceHandles, &mut String) -> ();
