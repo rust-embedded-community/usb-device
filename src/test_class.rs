@@ -6,14 +6,14 @@ use crate::class_prelude::*;
 use crate::device::{UsbDevice, UsbDeviceBuilder, UsbVidPid};
 use crate::descriptor;
 
-#[cfg(feature = "test-class-highspeed")]
+#[cfg(feature = "test-class-high-speed")]
 mod sizes {
     pub const BUFFER: usize = 1024;
     pub const BULK_ENDPOINT: u16 = 512;
     pub const INTERRUPT_ENDPOINT: u16 = 1024;
 }
 
-#[cfg(not(feature = "test-class-highspeed"))]
+#[cfg(not(feature = "test-class-high-speed"))]
 mod sizes {
     pub const BUFFER: usize = 256;
     pub const BULK_ENDPOINT: u16 = 64;
