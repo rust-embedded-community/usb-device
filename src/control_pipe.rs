@@ -147,7 +147,10 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                     return Some(req);
                 }
             },
-            ControlState::StatusOut => {
+            ControlState::DataIn
+            | ControlState::DataInLast
+            | ControlState::DataInZlp
+            | ControlState::StatusOut => {
                 self.ep_out.read(&mut []).ok();
                 self.state = ControlState::Idle;
             },
