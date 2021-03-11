@@ -324,7 +324,7 @@ impl DescriptorWriter<'_> {
             let mps = endpoint.max_packet_size();
 
             buf[0] = endpoint.address().into();
-            buf[1] = endpoint.ep_type() as u8;
+            buf[1] = endpoint.ep_type().to_bm_attributes();
             buf[2] = mps as u8;
             buf[3] = (mps >> 8) as u8;
             buf[4] = endpoint.interval();
