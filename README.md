@@ -26,6 +26,9 @@ Hardware driver crates
 * [atsamd](https://github.com/atsamd-rs/atsamd) - device-driver implementation for samd21 & samd51 microcontrollers. An example for the
   itsybitsy_m4 board from Adafruit can be found [here](https://github.com/atsamd-rs/atsamd/blob/master/boards/itsybitsy_m4/examples/usb_serial.rs).
 
+* [imxrt-usbd](https://github.com/imxrt-rs/imxrt-usbd) - device-driver implementation for NXP i.MX RT microcontrollers. Examples for
+  i.MX RT boards, like the Teensy 4, are maintained with the driver.
+
 Class crates
 ------------
 
