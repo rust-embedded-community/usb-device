@@ -175,7 +175,7 @@ impl DescriptorWriter<'_> {
     pub fn interface(&mut self, number: InterfaceNumber,
         interface_class: u8, interface_sub_class: u8, interface_protocol: u8) -> Result<()>
     {
-        self.interface_alternate_setting(
+        self.interface_alt(
             number,
             device::DEFAULT_ALTERNATE_SETTING,
             interface_class,
@@ -192,14 +192,14 @@ impl DescriptorWriter<'_> {
     ///
     /// * `number` - Interface number previously allocated with
     ///   [`UsbBusAllocator::interface`](crate::bus::UsbBusAllocator::interface).
-    /// * `alternate_setting` - number of the alternate setting
+    /// * `alternate_setting` - Number of the alternate setting
     /// * `interface_class` - Class code assigned by USB.org. Use `0xff` for vendor-specific devices
     ///   that do not conform to any class.
     /// * `interface_sub_class` - Sub-class code. Depends on class.
     /// * `interface_protocol` - Protocol code. Depends on class and sub-class.
     /// * `interface_string` - Index of string descriptor describing this interface
 
-    pub fn interface_alternate_setting(
+    pub fn interface_alt(
         &mut self,
         number: InterfaceNumber,
         alternate_setting: u8,
@@ -208,10 +208,6 @@ impl DescriptorWriter<'_> {
         interface_protocol: u8,
         interface_string: Option<StringIndex>,
     ) -> Result<()> {
-        let ifndx = match interface_string {
-            Some(si) => si.into(),
-            None => 0,
-        };
         if alternate_setting == device::DEFAULT_ALTERNATE_SETTING {
             match self.num_interfaces_mark {
                 Some(mark) => self.buf[mark] += 1,
@@ -219,18 +215,20 @@ impl DescriptorWriter<'_> {
             };
         }
 
+        let str_index = interface_string.map_or(0, Into::into);
+
         self.num_endpoints_mark = Some(self.position + 4);
 
         self.write(
             descriptor_type::INTERFACE,
             &[
                 number.into(),       // bInterfaceNumber
-                alternate_setting,   // bAlternateSetting (how to even handle these...)
+                alternate_setting,   // bAlternateSetting
                 0,                   // bNumEndpoints
                 interface_class,     // bInterfaceClass
                 interface_sub_class, // bInterfaceSubClass
                 interface_protocol,  // bInterfaceProtocol
-                ifndx,               // iInterface
+                str_index,           // iInterface
             ],
         )?;
 
