@@ -47,8 +47,11 @@ pub trait UsbBus: Sync + Sized {
     /// there is no need to perform a USB reset in this method.
     fn enable(&mut self);
 
-    /// Performs a USB reset. This method should reset the platform-specific peripheral as well as
-    /// ensure that all endpoints previously allocate with alloc_ep are initialized as specified.
+    /// Called when the host resets the device. This will be soon called after
+    /// [`poll`](crate::device::UsbDevice::poll) returns [`PollResult::Reset`]. This method should
+    /// reset the state of all endpoints and peripheral flags back to a state suitable for
+    /// enumeration, as well as ensure that all endpoints previously allocated with alloc_ep are
+    /// initialized as specified.
     fn reset(&self);
 
     /// Sets the device USB address to `addr`.

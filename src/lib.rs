@@ -156,7 +156,7 @@ pub mod endpoint;
 /// loop {
 ///     // Must be called more often than once every 10ms to handle events and stay USB compilant,
 ///     // or from a device-specific interrupt handler.
-///     if (usb_dev.poll(&mut [&mut serial])) {}
+///     if (usb_dev.poll(&mut [&mut serial])) {
 ///         // Call class-specific methods here
 ///         serial.read(...);
 ///     }
