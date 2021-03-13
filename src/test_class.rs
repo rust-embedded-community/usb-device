@@ -83,11 +83,23 @@ impl<B: UsbBus> TestClass<'_, B> {
 
     /// Convenience method to create a UsbDevice that is configured correctly for TestClass.
     pub fn make_device<'a, 'b>(&'a self, usb_bus: &'b UsbBusAllocator<B>) -> UsbDevice<'b, B> {
+        self.make_device_builder(usb_bus).build()
+    }
+
+    /// Convenience method to create a UsbDeviceBuilder that is configured correctly for TestClass.
+    ///
+    /// The methods sets
+    ///
+    /// - manufacturer
+    /// - product
+    /// - serial number
+    ///
+    /// on the returned builder. You should not change these values.
+    pub fn make_device_builder<'a, 'b> (&'a self, usb_bus: &'b UsbBusAllocator<B>) -> UsbDeviceBuilder<'b, B> {
         UsbDeviceBuilder::new(&usb_bus, UsbVidPid(VID, PID))
             .manufacturer(MANUFACTURER)
             .product(PRODUCT)
             .serial_number(SERIAL_NUMBER)
-            .build()
     }
 
     /// Must be called after polling the UsbDevice.
