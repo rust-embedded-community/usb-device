@@ -8,7 +8,7 @@ use crate::descriptor;
 
 #[cfg(feature = "test-class-high-speed")]
 mod sizes {
-    pub const BUFFER: usize = 1024;
+    pub const BUFFER: usize = 2048;
     pub const CONTROL_ENDPOINT: u8 = 64;
     pub const BULK_ENDPOINT: u16 = 512;
     pub const INTERRUPT_ENDPOINT: u16 = 1024;
