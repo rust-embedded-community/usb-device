@@ -6,16 +6,18 @@ use crate::class_prelude::*;
 use crate::device::{UsbDevice, UsbDeviceBuilder, UsbVidPid};
 use crate::descriptor;
 
-#[cfg(feature = "test-class-highspeed")]
+#[cfg(feature = "test-class-high-speed")]
 mod sizes {
-    pub const BUFFER: usize = 1024;
+    pub const BUFFER: usize = 2048;
+    pub const CONTROL_ENDPOINT: u8 = 64;
     pub const BULK_ENDPOINT: u16 = 512;
     pub const INTERRUPT_ENDPOINT: u16 = 1024;
 }
 
-#[cfg(not(feature = "test-class-highspeed"))]
+#[cfg(not(feature = "test-class-high-speed"))]
 mod sizes {
     pub const BUFFER: usize = 256;
+    pub const CONTROL_ENDPOINT: u8 = 8;
     pub const BULK_ENDPOINT: u16 = 64;
     pub const INTERRUPT_ENDPOINT: u16 = 31;
 }
@@ -96,13 +98,16 @@ impl<B: UsbBus> TestClass<'_, B> {
     /// - manufacturer
     /// - product
     /// - serial number
+    /// - max_packet_size_0
     ///
-    /// on the returned builder. You should not change these values.
+    /// on the returned builder. If you change the manufacturer, product, or serial number fields,
+    /// the test host may misbehave.
     pub fn make_device_builder<'a, 'b> (&'a self, usb_bus: &'b UsbBusAllocator<B>) -> UsbDeviceBuilder<'b, B> {
         UsbDeviceBuilder::new(&usb_bus, UsbVidPid(VID, PID))
             .manufacturer(MANUFACTURER)
             .product(PRODUCT)
             .serial_number(SERIAL_NUMBER)
+            .max_packet_size_0(sizes::CONTROL_ENDPOINT)
     }
 
     /// Must be called after polling the UsbDevice.
