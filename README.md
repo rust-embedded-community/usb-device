@@ -21,7 +21,7 @@ Hardware driver crates
 ----------------------
 
 * [stm32-usbd](https://github.com/stm32-rs/stm32-usbd) - device-driver implementation for multiple STM32 microcontroller families.
-  Examples can be found in [stm32-usbd-examples](https://github.com/stm32-rs/stm32-usbd-examples).
+  Examples can be found in each individual HAL crate that implements the USB peripheral.
 
 * [atsamd](https://github.com/atsamd-rs/atsamd) - device-driver implementation for samd21 & samd51 microcontrollers. An example for the
   itsybitsy_m4 board from Adafruit can be found [here](https://github.com/atsamd-rs/atsamd/blob/master/boards/itsybitsy_m4/examples/usb_serial.rs).
