@@ -24,6 +24,7 @@ mod sizes {
 /// requests for testing USB peripheral drivers on actual hardware.
 pub struct TestClass<'a, B: UsbBus> {
     custom_string: StringIndex,
+    interface_string: StringIndex,
     iface: InterfaceNumber,
     ep_bulk_in: EndpointIn<'a, B>,
     ep_bulk_out: EndpointOut<'a, B>,
@@ -47,6 +48,7 @@ pub const MANUFACTURER: &'static str = "TestClass Manufacturer";
 pub const PRODUCT: &'static str = "virkkunen.net usb-device TestClass";
 pub const SERIAL_NUMBER: &'static str = "TestClass Serial";
 pub const CUSTOM_STRING: &'static str = "TestClass Custom String";
+pub const INTERFACE_STRING: &'static str = "TestClass Interface";
 
 pub const REQ_STORE_REQUEST: u8 = 1;
 pub const REQ_READ_BUFFER: u8 = 2;
@@ -63,6 +65,7 @@ impl<B: UsbBus> TestClass<'_, B> {
     pub fn new(alloc: &UsbBusAllocator<B>) -> TestClass<'_, B> {
         TestClass {
             custom_string: alloc.string(),
+            interface_string: alloc.string(),
             iface: alloc.interface(),
             ep_bulk_in: alloc.bulk(sizes::BULK_ENDPOINT),
             ep_bulk_out: alloc.bulk(sizes::BULK_ENDPOINT),
@@ -197,16 +200,21 @@ impl<B: UsbBus> UsbClass<B> for TestClass<'_, B> {
         writer.endpoint(&self.ep_bulk_out)?;
         writer.endpoint(&self.ep_interrupt_in)?;
         writer.endpoint(&self.ep_interrupt_out)?;
+        writer.interface_alt(self.iface, 1, 0xff, 0x01, 0x00, Some(self.interface_string))?;
 
         Ok(())
     }
 
     fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&str> {
-        if index == self.custom_string && lang_id == descriptor::lang_id::ENGLISH_US {
-            Some(CUSTOM_STRING)
-        } else {
-            None
+        if lang_id == descriptor::lang_id::ENGLISH_US {
+            if index == self.custom_string {
+                return Some(CUSTOM_STRING)
+            } else if index == self.interface_string {
+                return Some(INTERFACE_STRING);
+            }
         }
+
+        None
     }
 
     fn endpoint_in_complete(&mut self, addr: EndpointAddress) {
