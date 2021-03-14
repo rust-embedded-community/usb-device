@@ -38,12 +38,9 @@ Class crates
 TODO
 ----
 
-Features planned but not implemented yet:
+Features
 
 - Interface alternate settings
 - Multilingual string descriptors
 - Isochronous endpoints
-
-Features not planning to support at the moment:
-
-- More than one configuration descriptor (uncommon in practice)
+- More than one configuration descriptor
