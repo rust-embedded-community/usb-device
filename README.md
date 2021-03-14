@@ -34,13 +34,3 @@ Class crates
 
 * [usbd-serial](https://github.com/mvirkkunen/usbd-serial) [![Crates.io](https://img.shields.io/crates/v/usbd-serial.svg)](https://crates.io/crates/usbd-serial) - CDC-ACM serial port class
 * [usbd-hid](https://github.com/twitchyliquid64/usbd-hid) [![Crates.io](https://img.shields.io/crates/v/usbd-hid.svg)](https://crates.io/crates/usbd-hid) - HID class
-
-TODO
-----
-
-Features
-
-- Interface alternate settings
-- Multilingual string descriptors
-- Isochronous endpoints
-- More than one configuration descriptor
