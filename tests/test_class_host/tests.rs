@@ -1,7 +1,7 @@
 use std::cmp::max;
 use std::fmt::Write;
 use std::time::{Duration, Instant};
-use libusb::*;
+use rusb::*;
 use rand::prelude::*;
 use usb_device::test_class;
 use crate::device::*;
@@ -16,7 +16,7 @@ macro_rules! tests {
             let mut tests: Vec<(&'static str, TestFn)> = Vec::new();
 
             $(
-                fn $name($dev: &mut DeviceHandles<'_>, $out: &mut String) {
+                fn $name($dev: &mut DeviceHandles, $out: &mut String) {
                     $body
                 }
 
