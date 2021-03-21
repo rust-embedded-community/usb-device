@@ -16,6 +16,8 @@ rand = "0.6.1"
 [features]
 # Use a 256 byte buffer for control transfers instead of 128.
 control-buffer-256 = []
+control-buffer-512 = []
+control-buffer-1024 = []
 
 # Use larger endpoint buffers for highspeed operation (default fullspeed)
 #
