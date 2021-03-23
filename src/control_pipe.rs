@@ -1,8 +1,8 @@
-use core::cmp::min;
-use crate::{Result, UsbDirection, UsbError};
 use crate::bus::UsbBus;
 use crate::control::Request;
 use crate::endpoint::{EndpointIn, EndpointOut};
+use crate::{Result, UsbDirection, UsbError};
+use core::cmp::min;
 
 #[derive(Debug)]
 #[allow(unused)]
@@ -81,7 +81,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                 // Failed to parse SETUP packet
                 self.set_error();
                 return None;
-            },
+            }
         };
 
         // Now that we have properly parsed the setup packet, ensure the end-point is no longer in
@@ -89,9 +89,9 @@ impl<B: UsbBus> ControlPipe<'_, B> {
         self.ep_out.unstall();
 
         /*sprintln!("SETUP {:?} {:?} {:?} req:{} val:{} idx:{} len:{} {:?}",
-            req.direction, req.request_type, req.recipient,
-            req.request, req.value, req.index, req.length,
-            self.state);*/
+        req.direction, req.request_type, req.recipient,
+        req.request, req.value, req.index, req.length,
+        self.state);*/
 
         if req.direction == UsbDirection::Out {
             // OUT transfer
@@ -137,7 +137,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                         // sends more data than it indicated in the SETUP request)
                         self.set_error();
                         return None;
-                    },
+                    }
                 };
 
                 self.i += count;
@@ -146,18 +146,18 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                     self.state = ControlState::CompleteOut;
                     return Some(req);
                 }
-            },
+            }
             ControlState::StatusOut => {
                 self.ep_out.read(&mut []).ok();
                 self.state = ControlState::Idle;
-            },
+            }
             _ => {
                 // Discard the packet
                 self.ep_out.read(&mut []).ok();
 
                 // Unexpected OUT packet
                 self.set_error()
-            },
+            }
         }
 
         return None;
@@ -167,7 +167,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
         match self.state {
             ControlState::DataIn => {
                 self.write_in_chunk();
-            },
+            }
             ControlState::DataInZlp => {
                 if self.ep_in.write(&[]).is_err() {
                     // There isn't much we can do if the write fails, except to wait for another
@@ -176,15 +176,15 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                 }
 
                 self.state = ControlState::DataInLast;
-            },
+            }
             ControlState::DataInLast => {
                 self.ep_out.unstall();
                 self.state = ControlState::StatusOut;
-            },
+            }
             ControlState::StatusIn => {
                 self.state = ControlState::Idle;
                 return true;
-            },
+            }
             _ => {
                 // Unexpected IN packet
                 self.set_error();
@@ -198,7 +198,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
         let count = min(self.len - self.i, self.ep_in.max_packet_size() as usize);
 
         let buffer = self.static_in_buf.unwrap_or(&self.buf);
-        let count = match self.ep_in.write(&buffer[self.i..(self.i+count)]) {
+        let count = match self.ep_in.write(&buffer[self.i..(self.i + count)]) {
             Ok(c) => c,
             // There isn't much we can do if the write fails, except to wait for another poll or for
             // the host to resend the request.
@@ -220,7 +220,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
 
     pub fn accept_out(&mut self) -> Result<()> {
         match self.state {
-            ControlState::CompleteOut => {},
+            ControlState::CompleteOut => {}
             _ => return Err(UsbError::InvalidState),
         };
 

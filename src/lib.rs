@@ -178,22 +178,22 @@ mod device_builder;
 
 /// Prelude for device implementors.
 pub mod prelude {
-    pub use crate::UsbError;
     pub use crate::device::{UsbDevice, UsbDeviceBuilder, UsbDeviceState, UsbVidPid};
+    pub use crate::UsbError;
 }
 
 /// Prelude for class implementors.
 pub mod class_prelude {
-    pub use crate::UsbError;
-    pub use crate::bus::{UsbBus, UsbBusAllocator, InterfaceNumber, StringIndex};
-    pub use crate::descriptor::{DescriptorWriter, BosWriter};
-    pub use crate::endpoint::{EndpointType, EndpointIn, EndpointOut, EndpointAddress};
-    pub use crate::class::{UsbClass, ControlIn, ControlOut};
+    pub use crate::bus::{InterfaceNumber, StringIndex, UsbBus, UsbBusAllocator};
+    pub use crate::class::{ControlIn, ControlOut, UsbClass};
     pub use crate::control;
+    pub use crate::descriptor::{BosWriter, DescriptorWriter};
+    pub use crate::endpoint::{EndpointAddress, EndpointIn, EndpointOut, EndpointType};
+    pub use crate::UsbError;
 }
 
 fn _ensure_sync() {
-    use crate::bus::{UsbBus, UsbBusAllocator, PollResult};
+    use crate::bus::{PollResult, UsbBus, UsbBusAllocator};
     use crate::class_prelude::*;
 
     struct DummyBus<'a> {
@@ -207,15 +207,15 @@ fn _ensure_sync() {
             _ep_addr: Option<EndpointAddress>,
             _ep_type: EndpointType,
             _max_packet_size: u16,
-            _interval: u8) -> Result<EndpointAddress>
-        {
+            _interval: u8,
+        ) -> Result<EndpointAddress> {
             Err(UsbError::EndpointOverflow)
         }
 
-        fn enable(&mut self) { }
+        fn enable(&mut self) {}
 
-        fn reset(&self) { }
-        fn set_device_address(&self, _addr: u8) { }
+        fn reset(&self) {}
+        fn set_device_address(&self, _addr: u8) {}
 
         fn write(&self, _ep_addr: EndpointAddress, _buf: &[u8]) -> Result<usize> {
             Err(UsbError::InvalidEndpoint)
@@ -225,11 +225,15 @@ fn _ensure_sync() {
             Err(UsbError::InvalidEndpoint)
         }
 
-        fn set_stalled(&self, _ep_addr: EndpointAddress, _stalled: bool) { }
-        fn is_stalled(&self, _ep_addr: EndpointAddress) -> bool { false }
-        fn suspend(&self) { }
-        fn resume(&self) { }
-        fn poll(&self) -> PollResult { PollResult::None }
+        fn set_stalled(&self, _ep_addr: EndpointAddress, _stalled: bool) {}
+        fn is_stalled(&self, _ep_addr: EndpointAddress) -> bool {
+            false
+        }
+        fn suspend(&self) {}
+        fn resume(&self) {}
+        fn poll(&self) -> PollResult {
+            PollResult::None
+        }
     }
 
     struct DummyClass<'a, B: UsbBus> {
@@ -238,15 +242,11 @@ fn _ensure_sync() {
 
     impl<B: UsbBus> DummyClass<'_, B> {
         fn new(alloc: &UsbBusAllocator<B>) -> DummyClass<'_, B> {
-            DummyClass {
-                ep: alloc.bulk(64),
-            }
+            DummyClass { ep: alloc.bulk(64) }
         }
     }
 
-    impl<B: UsbBus> UsbClass<B> for DummyClass<'_, B> {
-
-    }
+    impl<B: UsbBus> UsbClass<B> for DummyClass<'_, B> {}
 
     fn ensure_sync<T: Sync + Send>() {}
 

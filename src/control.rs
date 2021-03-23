@@ -105,9 +105,11 @@ impl Request {
         Ok(Request {
             direction: rt.into(),
             request_type: unsafe { mem::transmute((rt >> 5) & 0b11) },
-            recipient:
-                if recipient <= 3 { unsafe { mem::transmute(recipient) } }
-                else { Recipient::Reserved },
+            recipient: if recipient <= 3 {
+                unsafe { mem::transmute(recipient) }
+            } else {
+                Recipient::Reserved
+            },
             request: buf[1],
             value: (buf[2] as u16) | ((buf[3] as u16) << 8),
             index: (buf[4] as u16) | ((buf[5] as u16) << 8),

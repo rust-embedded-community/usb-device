@@ -1,5 +1,5 @@
+use rusb::{ConfigDescriptor, Context, DeviceDescriptor, DeviceHandle, Language, UsbContext as _};
 use std::time::Duration;
-use rusb::{DeviceDescriptor, ConfigDescriptor, DeviceHandle, Context, Language, UsbContext as _};
 use usb_device::test_class;
 
 pub const TIMEOUT: Duration = Duration::from_secs(1);
@@ -31,7 +31,8 @@ pub fn open_device(ctx: &Context) -> rusb::Result<DeviceHandles> {
         let device_descriptor = device.device_descriptor()?;
 
         if !(device_descriptor.vendor_id() == test_class::VID
-            && device_descriptor.product_id() == test_class::PID) {
+            && device_descriptor.product_id() == test_class::PID)
+        {
             continue;
         }
 
@@ -53,7 +54,7 @@ pub fn open_device(ctx: &Context) -> rusb::Result<DeviceHandles> {
                 device_descriptor,
                 config_descriptor,
                 handle,
-                en_us: langs[0]
+                en_us: langs[0],
             });
         }
     }

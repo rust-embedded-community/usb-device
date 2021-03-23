@@ -1,7 +1,7 @@
-use crate::{Result, UsbError};
-use crate::bus::{UsbBus, InterfaceNumber, StringIndex};
+use crate::bus::{InterfaceNumber, StringIndex, UsbBus};
 use crate::device;
 use crate::endpoint::{Endpoint, EndpointDirection};
+use crate::{Result, UsbError};
 
 /// Standard descriptor types
 #[allow(missing_docs)]
@@ -83,19 +83,24 @@ impl DescriptorWriter<'_> {
         self.write(
             descriptor_type::DEVICE,
             &[
-                0x10, 0x02, // bcdUSB 2.1
-                config.device_class, // bDeviceClass
-                config.device_sub_class, // bDeviceSubClass
-                config.device_protocol, // bDeviceProtocol
+                0x10,
+                0x02,                     // bcdUSB 2.1
+                config.device_class,      // bDeviceClass
+                config.device_sub_class,  // bDeviceSubClass
+                config.device_protocol,   // bDeviceProtocol
                 config.max_packet_size_0, // bMaxPacketSize0
-                config.vendor_id as u8, (config.vendor_id >> 8) as u8, // idVendor
-                config.product_id as u8, (config.product_id >> 8) as u8, // idProduct
-                config.device_release as u8, (config.device_release >> 8) as u8, // bcdDevice
-                config.manufacturer.map_or(0, |_| 1), // iManufacturer
-                config.product.map_or(0, |_| 2), // iProduct
+                config.vendor_id as u8,
+                (config.vendor_id >> 8) as u8, // idVendor
+                config.product_id as u8,
+                (config.product_id >> 8) as u8, // idProduct
+                config.device_release as u8,
+                (config.device_release >> 8) as u8,    // bcdDevice
+                config.manufacturer.map_or(0, |_| 1),  // iManufacturer
+                config.product.map_or(0, |_| 2),       // iProduct
                 config.serial_number.map_or(0, |_| 3), // iSerialNumber
-                1, // bNumConfigurations
-            ])
+                1,                                     // bNumConfigurations
+            ],
+        )
     }
 
     pub(crate) fn configuration(&mut self, config: &device::Config) -> Result<()> {
@@ -106,15 +111,20 @@ impl DescriptorWriter<'_> {
         self.write(
             descriptor_type::CONFIGURATION,
             &[
-                0, 0, // wTotalLength
-                0, // bNumInterfaces
+                0,
+                0,                           // wTotalLength
+                0,                           // bNumInterfaces
                 device::CONFIGURATION_VALUE, // bConfigurationValue
-                0, // iConfiguration
-                0x80
-                    | if config.self_powered { 0x40 } else { 0x00 }
-                    | if config.supports_remote_wakeup { 0x20 } else { 0x00 }, // bmAttributes
-                config.max_power // bMaxPower
-            ])
+                0,                           // iConfiguration
+                0x80 | if config.self_powered { 0x40 } else { 0x00 }
+                    | if config.supports_remote_wakeup {
+                        0x20
+                    } else {
+                        0x00
+                    }, // bmAttributes
+                config.max_power,            // bMaxPower
+            ],
+        )
     }
 
     pub(crate) fn end_class(&mut self) {
@@ -141,9 +151,14 @@ impl DescriptorWriter<'_> {
     ///   that do not conform to any class.
     /// * `function_sub_class` - Sub-class code. Depends on class.
     /// * `function_protocol` - Protocol code. Depends on class and sub-class.
-    pub fn iad(&mut self, first_interface: InterfaceNumber, interface_count: u8,
-        function_class: u8, function_sub_class: u8, function_protocol: u8) -> Result<()>
-    {
+    pub fn iad(
+        &mut self,
+        first_interface: InterfaceNumber,
+        interface_count: u8,
+        function_class: u8,
+        function_sub_class: u8,
+        function_protocol: u8,
+    ) -> Result<()> {
         if !self.write_iads {
             return Ok(());
         }
@@ -152,12 +167,13 @@ impl DescriptorWriter<'_> {
             descriptor_type::IAD,
             &[
                 first_interface.into(), // bFirstInterface
-                interface_count, // bInterfaceCount
+                interface_count,        // bInterfaceCount
                 function_class,
                 function_sub_class,
                 function_protocol,
-                0
-            ])?;
+                0,
+            ],
+        )?;
 
         Ok(())
     }
@@ -172,9 +188,13 @@ impl DescriptorWriter<'_> {
     ///   that do not conform to any class.
     /// * `interface_sub_class` - Sub-class code. Depends on class.
     /// * `interface_protocol` - Protocol code. Depends on class and sub-class.
-    pub fn interface(&mut self, number: InterfaceNumber,
-        interface_class: u8, interface_sub_class: u8, interface_protocol: u8) -> Result<()>
-    {
+    pub fn interface(
+        &mut self,
+        number: InterfaceNumber,
+        interface_class: u8,
+        interface_sub_class: u8,
+        interface_protocol: u8,
+    ) -> Result<()> {
         self.interface_alt(
             number,
             device::DEFAULT_ALTERNATE_SETTING,
@@ -241,9 +261,10 @@ impl DescriptorWriter<'_> {
     ///
     /// * `endpoint` - Endpoint previously allocated with
     ///   [`UsbBusAllocator`](crate::bus::UsbBusAllocator).
-    pub fn endpoint<'e, B: UsbBus, D: EndpointDirection>(&mut self, endpoint: &Endpoint<'e, B, D>)
-        -> Result<()>
-    {
+    pub fn endpoint<'e, B: UsbBus, D: EndpointDirection>(
+        &mut self,
+        endpoint: &Endpoint<'e, B, D>,
+    ) -> Result<()> {
         match self.num_endpoints_mark {
             Some(mark) => self.buf[mark] += 1,
             None => return Err(UsbError::InvalidState),
@@ -255,10 +276,12 @@ impl DescriptorWriter<'_> {
             descriptor_type::ENDPOINT,
             &[
                 endpoint.address().into(), // bEndpointAddress
-                endpoint.ep_type() as u8, // bmAttributes
-                mps as u8, (mps >> 8) as u8, // wMaxPacketSize
+                endpoint.ep_type() as u8,  // bmAttributes
+                mps as u8,
+                (mps >> 8) as u8,    // wMaxPacketSize
                 endpoint.interval(), // bInterval
-            ])?;
+            ],
+        )?;
 
         Ok(())
     }
@@ -308,13 +331,14 @@ impl<'w, 'a: 'w> BosWriter<'w, 'a> {
     }
 
     pub(crate) fn bos(&mut self) -> Result<()> {
-        self.num_caps_mark= Some(self.writer.position + 4);
+        self.num_caps_mark = Some(self.writer.position + 4);
         self.writer.write(
             descriptor_type::BOS,
             &[
                 0x00, 0x00, // wTotalLength
                 0x00, // bNumDeviceCaps
-            ])?;
+            ],
+        )?;
 
         self.capability(capability_type::USB_2_0_EXTENSION, &[0; 4])?;
 
@@ -328,7 +352,7 @@ impl<'w, 'a: 'w> BosWriter<'w, 'a> {
     /// * `capability_type` - Type of a capability
     /// * `data` - Binary data of the descriptor
     pub fn capability(&mut self, capability_type: u8, data: &[u8]) -> Result<()> {
-        match self.num_caps_mark{
+        match self.num_caps_mark {
             Some(mark) => self.writer.buf[mark] += 1,
             None => return Err(UsbError::InvalidState),
         }
@@ -341,18 +365,18 @@ impl<'w, 'a: 'w> BosWriter<'w, 'a> {
         }
 
         self.writer.buf[start] = (blen + 3) as u8;
-        self.writer.buf[start+1] = descriptor_type::CAPABILITY;
-        self.writer.buf[start+2] = capability_type;
+        self.writer.buf[start + 1] = descriptor_type::CAPABILITY;
+        self.writer.buf[start + 2] = capability_type;
 
         start += 3;
-        self.writer.buf[start..start+blen].copy_from_slice(data);
+        self.writer.buf[start..start + blen].copy_from_slice(data);
         self.writer.position = start + blen;
 
         Ok(())
     }
 
     pub(crate) fn end_bos(&mut self) {
-        self.num_caps_mark= None;
+        self.num_caps_mark = None;
         let position = self.writer.position as u16;
         self.writer.buf[2..4].copy_from_slice(&position.to_le_bytes());
     }
