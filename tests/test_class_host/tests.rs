@@ -1,7 +1,7 @@
 use std::cmp::max;
 use std::fmt::Write;
 use std::time::{Duration, Instant};
-use rusb::*;
+use rusb::{request_type, Direction, RequestType, Recipient};
 use rand::prelude::*;
 use usb_device::test_class;
 use crate::device::*;

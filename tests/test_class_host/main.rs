@@ -12,7 +12,6 @@ use std::io::prelude::*;
 use std::thread;
 use std::time::Duration;
 use std::panic;
-use rusb::*;
 use usb_device::device::CONFIGURATION_VALUE;
 use crate::device::open_device;
 use crate::tests::{TestFn, get_tests};
@@ -28,7 +27,7 @@ fn run_tests(tests: &[(&str, TestFn)]) {
     println!("test_class_host starting");
     println!("looking for device...");
 
-    let ctx = Context::new().expect("create libusb context");
+    let ctx = rusb::Context::new().expect("create libusb context");
 
     // Look for the device for about 5 seconds in case it hasn't finished enumerating yet
     let mut dev = Err(rusb::Error::NoDevice);

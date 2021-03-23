@@ -1,5 +1,5 @@
 use std::time::Duration;
-use rusb::*;
+use rusb::{DeviceDescriptor, ConfigDescriptor, DeviceHandle, Context, Language, UsbContext as _};
 use usb_device::test_class;
 
 pub const TIMEOUT: Duration = Duration::from_secs(1);
