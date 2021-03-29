@@ -1,4 +1,4 @@
-use crate::bus::{StringIndex, UsbBus};
+use crate::bus::{InterfaceNumber, StringIndex, UsbBus};
 use crate::control;
 use crate::control_pipe::ControlPipe;
 use crate::descriptor::{BosWriter, DescriptorWriter};
@@ -115,6 +115,24 @@ pub trait UsbClass<B: UsbBus> {
     /// case you should ignore the event.
     fn endpoint_in_complete(&mut self, addr: EndpointAddress) {
         let _ = addr;
+    }
+
+    /// Called when the interfaces alternate setting state is requested.
+    ///
+    /// Note: This method may be called on interfaces, that are not relevant to this class.
+    /// You should return `None, if `interface` belongs to an interface you don't know.
+    fn get_alt_setting(&mut self, interface: InterfaceNumber) -> Option<u8> {
+        let _ = interface;
+        None
+    }
+
+    /// Called when the interfaces alternate setting state is altered.
+    ///
+    /// Note: This method may be called on interfaces, that are not relevant to this class.
+    /// You should return `false`, if `interface` belongs to an interface you don't know.
+    fn set_alt_setting(&mut self, interface: InterfaceNumber, alternative: u8) -> bool {
+        let _ = (interface, alternative);
+        false
     }
 }
 

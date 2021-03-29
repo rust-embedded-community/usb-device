@@ -1,4 +1,4 @@
-use crate::bus::{PollResult, StringIndex, UsbBus, UsbBusAllocator};
+use crate::bus::{InterfaceNumber, PollResult, StringIndex, UsbBus, UsbBusAllocator};
 use crate::class::{ControlIn, ControlOut, UsbClass};
 use crate::control;
 use crate::control_pipe::ControlPipe;
@@ -338,7 +338,25 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 }
 
                 (Recipient::Interface, Request::GET_INTERFACE) => {
-                    // TODO: change when alternate settings are implemented
+                    // Reject interface numbers bigger than 255
+                    if req.index > core::u8::MAX.into() {
+                        xfer.reject().ok();
+                        return;
+                    }
+
+                    // Ask class implementations, whether they know the alternate setting
+                    // of the interface in question
+                    for cls in classes {
+                        match cls.get_alt_setting(InterfaceNumber(req.index as u8)) {
+                            Some(setting) => {
+                                xfer.accept_with(&setting.to_le_bytes()).ok();
+                                return;
+                            }
+                            None => (),
+                        }
+                    }
+
+                    // If no class returned an alternate setting, return the default value
                     xfer.accept_with(&DEFAULT_ALTERNATE_SETTING.to_le_bytes())
                         .ok();
                 }
@@ -355,7 +373,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
     fn control_out(&mut self, classes: &mut ClassList<'_, B>, req: control::Request) {
         use crate::control::{Recipient, Request};
 
-        for cls in classes {
+        for cls in classes.iter_mut() {
             cls.control_out(ControlOut::new(&mut self.control, &req));
 
             if !self.control.waiting_for_response() {
@@ -428,9 +446,28 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     }
                 }
 
-                (Recipient::Interface, Request::SET_INTERFACE, DEFAULT_ALTERNATE_SETTING_U16) => {
-                    // TODO: do something when alternate settings are implemented
-                    xfer.accept().ok();
+                (Recipient::Interface, Request::SET_INTERFACE, alt_setting) => {
+                    // Reject interface numbers and alt settings bigger than 255
+                    if req.index > core::u8::MAX.into() || alt_setting > core::u8::MAX.into() {
+                        xfer.reject().ok();
+                        return;
+                    }
+
+                    // Ask class implementations, whether they accept the alternate interface setting.
+                    for cls in classes {
+                        if cls.set_alt_setting(InterfaceNumber(req.index as u8), alt_setting as u8)
+                        {
+                            xfer.accept().ok();
+                            return;
+                        }
+                    }
+
+                    // Default behaviour, if no class implementation accepted the alternate setting.
+                    if alt_setting == DEFAULT_ALTERNATE_SETTING_U16 {
+                        xfer.accept().ok();
+                    } else {
+                        xfer.reject().ok();
+                    }
                 }
 
                 _ => {
