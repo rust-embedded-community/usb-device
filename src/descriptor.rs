@@ -1,3 +1,5 @@
+use core::cmp::min;
+
 use crate::bus::{InterfaceNumber, StringIndex, UsbBus};
 use crate::device;
 use crate::endpoint::{Endpoint, EndpointDirection};
@@ -61,20 +63,45 @@ impl DescriptorWriter<'_> {
 
     /// Writes an arbitrary (usually class-specific) descriptor.
     pub fn write(&mut self, descriptor_type: u8, descriptor: &[u8]) -> Result<()> {
-        let length = descriptor.len();
+        self.write_with(descriptor_type, |buf| {
+            if descriptor.len() > buf.len() {
+                return Err(UsbError::BufferOverflow);
+            }
 
-        if (self.position + 2 + length) > self.buf.len() || (length + 2) > 255 {
+            buf[..descriptor.len()].copy_from_slice(descriptor);
+
+            Ok(descriptor.len())
+        })
+    }
+
+    /// Writes an arbitrary (usually class-specific) descriptor by using a callback function.
+    ///
+    /// The callback function gets a reference to the remaining buffer space, and it should write
+    /// the descriptor into it and return the number of bytes written. If the descriptor doesn't
+    /// fit, the function should return `Err(UsbError::BufferOverflow)`. That and any error returned
+    /// by it will be propagated up.
+    pub fn write_with(
+        &mut self,
+        descriptor_type: u8,
+        f: impl FnOnce(&mut [u8]) -> Result<usize>,
+    ) -> Result<()> {
+        if self.position + 2 > self.buf.len() {
             return Err(UsbError::BufferOverflow);
         }
 
-        self.buf[self.position] = (length + 2) as u8;
+        let data_end = min(self.buf.len(), self.position + 256);
+        let data_buf = &mut self.buf[self.position + 2..data_end];
+
+        let total_len = f(data_buf)? + 2;
+
+        if self.position + total_len > self.buf.len() {
+            return Err(UsbError::BufferOverflow);
+        }
+
+        self.buf[self.position] = total_len as u8;
         self.buf[self.position + 1] = descriptor_type;
 
-        let start = self.position + 2;
-
-        self.buf[start..start + length].copy_from_slice(descriptor);
-
-        self.position = start + length;
+        self.position += total_len;
 
         Ok(())
     }
@@ -265,25 +292,45 @@ impl DescriptorWriter<'_> {
         &mut self,
         endpoint: &Endpoint<'e, B, D>,
     ) -> Result<()> {
+        self.endpoint_ex(endpoint, |_| Ok(0))
+    }
+
+    /// Writes an endpoint descriptor with extra trailing data.
+    ///
+    /// This is rarely needed and shouldn't be used except for compatibility with standard USB
+    /// classes that require it. Extra data is normally written in a separate class specific
+    /// descriptor.
+    ///
+    /// # Arguments
+    ///
+    /// * `endpoint` - Endpoint previously allocated with
+    ///   [`UsbBusAllocator`](crate::bus::UsbBusAllocator).
+    /// * `f` - Callback for the extra data. See `write_with` for more information.
+    pub fn endpoint_ex<'e, B: UsbBus, D: EndpointDirection>(
+        &mut self,
+        endpoint: &Endpoint<'e, B, D>,
+        f: impl FnOnce(&mut [u8]) -> Result<usize>,
+    ) -> Result<()> {
         match self.num_endpoints_mark {
             Some(mark) => self.buf[mark] += 1,
             None => return Err(UsbError::InvalidState),
         };
 
-        let mps = endpoint.max_packet_size();
+        self.write_with(descriptor_type::ENDPOINT, |buf| {
+            if buf.len() < 5 {
+                return Err(UsbError::BufferOverflow);
+            }
 
-        self.write(
-            descriptor_type::ENDPOINT,
-            &[
-                endpoint.address().into(), // bEndpointAddress
-                endpoint.ep_type() as u8,  // bmAttributes
-                mps as u8,
-                (mps >> 8) as u8,    // wMaxPacketSize
-                endpoint.interval(), // bInterval
-            ],
-        )?;
+            let mps = endpoint.max_packet_size();
 
-        Ok(())
+            buf[0] = endpoint.address().into();
+            buf[1] = endpoint.ep_type() as u8;
+            buf[2] = mps as u8;
+            buf[3] = (mps >> 8) as u8;
+            buf[4] = endpoint.interval();
+
+            Ok(f(&mut buf[5..])? + 5)
+        })
     }
 
     /// Writes a string descriptor.
