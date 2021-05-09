@@ -117,6 +117,9 @@ pub mod bus;
 /// and `write` to read and write data.
 pub mod class;
 
+/// USB device configuration.
+mod config;
+
 /// USB endpoints.
 pub mod endpoint;
 
@@ -146,10 +149,10 @@ pub mod endpoint;
 /// // pair. Additional builder arguments can specify parameters such as device class code or
 /// // product name. If using an existing class, remember to check the class crate documentation
 /// // for correct values.
-/// let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x5824, 0x27dd))
+/// let usb_config = UsbDeviceConfig::new(UsbVidPid(0x5824, 0x27dd))
 ///     .product("Serial port")
-///     .device_class(usb_serial::DEVICE_CLASS)
-///     .build();
+///     .device_class(usb_serial::DEVICE_CLASS);
+/// let mut usb_dev = UsbDevice::build(&usb_bus, usb_config);
 ///
 /// // At this point the USB peripheral is enabled and a connected host will attempt to enumerate
 /// // it.
@@ -178,7 +181,7 @@ mod device_builder;
 
 /// Prelude for device implementors.
 pub mod prelude {
-    pub use crate::device::{UsbDevice, UsbDeviceBuilder, UsbDeviceState, UsbVidPid};
+    pub use crate::device::{UsbDevice, Config as UsbDeviceConfig, UsbDeviceBuilder, UsbDeviceState, UsbVidPid};
     pub use crate::UsbError;
 }
 

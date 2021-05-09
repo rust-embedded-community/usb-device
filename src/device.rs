@@ -1,9 +1,10 @@
 use crate::bus::{PollResult, StringIndex, UsbBus, UsbBusAllocator};
 use crate::class::{ControlIn, ControlOut, UsbClass};
+pub use crate::config::{Config, UsbVidPid};
 use crate::control;
 use crate::control_pipe::ControlPipe;
 use crate::descriptor::{descriptor_type, lang_id, BosWriter, DescriptorWriter};
-pub use crate::device_builder::{UsbDeviceBuilder, UsbVidPid};
+pub use crate::device_builder::UsbDeviceBuilder;
 use crate::endpoint::{EndpointAddress, EndpointType};
 use crate::{Result, UsbDirection};
 
@@ -40,23 +41,6 @@ pub struct UsbDevice<'a, B: UsbBus> {
     pending_address: u8,
 }
 
-pub(crate) struct Config<'a> {
-    pub device_class: u8,
-    pub device_sub_class: u8,
-    pub device_protocol: u8,
-    pub max_packet_size_0: u8,
-    pub vendor_id: u16,
-    pub product_id: u16,
-    pub device_release: u16,
-    pub manufacturer: Option<&'a str>,
-    pub product: Option<&'a str>,
-    pub serial_number: Option<&'a str>,
-    pub self_powered: bool,
-    pub supports_remote_wakeup: bool,
-    pub composite_with_iads: bool,
-    pub max_power: u8,
-}
-
 /// The bConfiguration value for the not configured state.
 pub const CONFIGURATION_NONE: u8 = 0;
 
@@ -69,7 +53,8 @@ pub const DEFAULT_ALTERNATE_SETTING: u8 = 0;
 type ClassList<'a, B> = [&'a mut dyn UsbClass<B>];
 
 impl<B: UsbBus> UsbDevice<'_, B> {
-    pub(crate) fn build<'a>(alloc: &'a UsbBusAllocator<B>, config: Config<'a>) -> UsbDevice<'a, B> {
+    /// Build USB device with given allocator and configuration.
+    pub fn build<'a>(alloc: &'a UsbBusAllocator<B>, config: Config<'a>) -> UsbDevice<'a, B> {
         let control_out = alloc
             .alloc(
                 Some(0x00.into()),

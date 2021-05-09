@@ -1,52 +1,72 @@
-use crate::bus::{UsbBus, UsbBusAllocator};
-pub use crate::config::UsbVidPid;
-use crate::{config::Config, device::UsbDevice};
-
-/// Used to build new [`UsbDevice`]s.
-pub struct UsbDeviceBuilder<'a, B: UsbBus> {
-    alloc: &'a UsbBusAllocator<B>,
-    config: Config<'a>,
-}
+/// A USB vendor ID and product ID pair.
+pub struct UsbVidPid(pub u16, pub u16);
 
 macro_rules! builder_fields {
     ( $( $(#[$meta:meta])* $name:ident: $type:ty, )* ) => {
         $(
             $(#[$meta])*
             pub fn $name(mut self, $name: $type) -> Self {
-                self.config.$name = $name;
+                self.$name = $name;
                 self
             }
         )*
     }
 }
 
-impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
-    /// Creates a builder for constructing a new [`UsbDevice`].
-    pub fn new(alloc: &'a UsbBusAllocator<B>, vid_pid: UsbVidPid) -> UsbDeviceBuilder<'a, B> {
-        UsbDeviceBuilder {
-            alloc,
-            config: Config {
-                device_class: 0x00,
-                device_sub_class: 0x00,
-                device_protocol: 0x00,
-                max_packet_size_0: 8,
-                vendor_id: vid_pid.0,
-                product_id: vid_pid.1,
-                device_release: 0x0010,
-                manufacturer: None,
-                product: None,
-                serial_number: None,
-                self_powered: false,
-                supports_remote_wakeup: false,
-                composite_with_iads: false,
-                max_power: 50,
-            },
-        }
-    }
+/// A USB device configuration.
+#[derive(Clone, Copy, Debug)]
+pub struct Config<'a> {
+    /// USB device class
+    pub device_class: u8,
+    /// USB device subclass
+    pub device_sub_class: u8,
+    /// USB device protocol
+    pub device_protocol: u8,
+    /// USB control endpoint maximum packet size
+    pub max_packet_size_0: u8,
+    /// USB vendor ID
+    pub vendor_id: u16,
+    /// USB product ID
+    pub product_id: u16,
+    /// BCD encoded device release
+    pub device_release: u16,
+    /// Manufacturer string
+    pub manufacturer: Option<&'a str>,
+    /// Product string
+    pub product: Option<&'a str>,
+    /// Serial number
+    pub serial_number: Option<&'a str>,
+    /// Is device self-powered?
+    pub self_powered: bool,
+    /// Does device support remote wakeup?
+    pub supports_remote_wakeup: bool,
+    /// Is device composite with IADs?
+    pub composite_with_iads: bool,
+    /// Maximum power consumption of device
+    pub max_power: u8,
+}
 
-    /// Creates the [`UsbDevice`] instance with the configuration in this builder.
-    pub fn build(self) -> UsbDevice<'a, B> {
-        UsbDevice::build(self.alloc, self.config)
+impl<'a> Config<'a> {
+
+    /// Create a USB device configuration with given vendor and product ID,
+    /// using defaults.
+    pub fn new(vid_pid: UsbVidPid) -> Self {
+        Self {
+            device_class: 0x00,
+            device_sub_class: 0x00,
+            device_protocol: 0x00,
+            max_packet_size_0: 8,
+            vendor_id: vid_pid.0,
+            product_id: vid_pid.1,
+            device_release: 0x0010,
+            manufacturer: None,
+            product: None,
+            serial_number: None,
+            self_powered: false,
+            supports_remote_wakeup: false,
+            composite_with_iads: false,
+            max_power: 50,
+        }
     }
 
     builder_fields! {
@@ -90,11 +110,11 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
     /// Configures the device as a composite device with interface association descriptors.
     pub fn composite_with_iads(mut self) -> Self {
         // Magic values specified in USB-IF ECN on IADs.
-        self.config.device_class = 0xEF;
-        self.config.device_sub_class = 0x02;
-        self.config.device_protocol = 0x01;
+        self.device_class = 0xEF;
+        self.device_sub_class = 0x02;
+        self.device_protocol = 0x01;
 
-        self.config.composite_with_iads = true;
+        self.composite_with_iads = true;
         self
     }
 
@@ -102,7 +122,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
     ///
     /// Default: (none)
     pub fn manufacturer(mut self, manufacturer: &'a str) -> Self {
-        self.config.manufacturer = Some(manufacturer);
+        self.manufacturer = Some(manufacturer);
         self
     }
 
@@ -110,7 +130,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
     ///
     /// Default: (none)
     pub fn product(mut self, product: &'a str) -> Self {
-        self.config.product = Some(product);
+        self.product = Some(product);
         self
     }
 
@@ -118,7 +138,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
     ///
     /// Default: (none)
     pub fn serial_number(mut self, serial_number: &'a str) -> Self {
-        self.config.serial_number = Some(serial_number);
+        self.serial_number = Some(serial_number);
         self
     }
 
@@ -135,7 +155,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
             _ => panic!("invalid max_packet_size_0"),
         }
 
-        self.config.max_packet_size_0 = max_packet_size_0;
+        self.max_packet_size_0 = max_packet_size_0;
         self
     }
 
@@ -152,7 +172,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
             panic!("max_power is too much")
         }
 
-        self.config.max_power = (max_power_ma / 2) as u8;
+        self.max_power = (max_power_ma / 2) as u8;
         self
     }
 }
