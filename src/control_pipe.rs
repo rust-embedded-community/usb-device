@@ -51,10 +51,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
     }
 
     pub fn waiting_for_response(&self) -> bool {
-        match self.state {
-            ControlState::CompleteOut | ControlState::CompleteIn(_) => true,
-            _ => false,
-        }
+        matches!(self.state, ControlState::CompleteOut | ControlState::CompleteIn(_))
     }
 
     pub fn data(&self) -> &[u8] {
@@ -65,7 +62,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
         self.state = ControlState::Idle;
     }
 
-    pub fn handle_setup<'p>(&'p mut self) -> Option<Request> {
+    pub fn handle_setup(&mut self) -> Option<Request> {
         let count = match self.ep_out.read(&mut self.buf[..]) {
             Ok(count) => count,
             Err(UsbError::WouldBlock) => return None,
@@ -122,10 +119,10 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             return Some(req);
         }
 
-        return None;
+        None
     }
 
-    pub fn handle_out<'p>(&'p mut self) -> Option<Request> {
+    pub fn handle_out(&mut self) -> Option<Request> {
         match self.state {
             ControlState::DataOut(req) => {
                 let i = self.i;
@@ -160,7 +157,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             }
         }
 
-        return None;
+        None
     }
 
     pub fn handle_in_complete(&mut self) -> bool {
@@ -191,7 +188,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             }
         };
 
-        return false;
+        false
     }
 
     fn write_in_chunk(&mut self) {
