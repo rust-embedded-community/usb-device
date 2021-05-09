@@ -20,8 +20,7 @@ each device's USB peripheral.
 Hardware driver crates
 ----------------------
 
-* [stm32-usbd](https://github.com/stm32-rs/stm32-usbd) - device-driver implementation for multiple STM32 microcontroller families.
-  Examples can be found in each individual HAL crate that implements the USB peripheral.
+* [atsam4](https://github.com/atsam-rs/atsam4-hal) - device-driver implementation for atsam4e & atsam4s microcontrollers (UDP). Examples can be found [here](https://github.com/atsam-rs/sam_xplained). While not expressly supported with this crate, atsam3s and atsam55g could also be supported with a similar code-base.
 
 * [atsamd](https://github.com/atsamd-rs/atsamd) - device-driver implementation for samd21 & samd51 microcontrollers. An example for the
   itsybitsy_m4 board from Adafruit can be found [here](https://github.com/atsamd-rs/atsamd/blob/master/boards/itsybitsy_m4/examples/usb_serial.rs).
@@ -29,8 +28,11 @@ Hardware driver crates
 * [imxrt-usbd](https://github.com/imxrt-rs/imxrt-usbd) - device-driver implementation for NXP i.MX RT microcontrollers. Examples for
   i.MX RT boards, like the Teensy 4, are maintained with the driver.
 
+* [stm32-usbd](https://github.com/stm32-rs/stm32-usbd) - device-driver implementation for multiple STM32 microcontroller families.
+  Examples can be found in each individual HAL crate that implements the USB peripheral.
+
 Class crates
 ------------
 
-* [usbd-serial](https://github.com/mvirkkunen/usbd-serial) [![Crates.io](https://img.shields.io/crates/v/usbd-serial.svg)](https://crates.io/crates/usbd-serial) - CDC-ACM serial port class
 * [usbd-hid](https://github.com/twitchyliquid64/usbd-hid) [![Crates.io](https://img.shields.io/crates/v/usbd-hid.svg)](https://crates.io/crates/usbd-hid) - HID class
+* [usbd-serial](https://github.com/mvirkkunen/usbd-serial) [![Crates.io](https://img.shields.io/crates/v/usbd-serial.svg)](https://crates.io/crates/usbd-serial) - CDC-ACM serial port class
