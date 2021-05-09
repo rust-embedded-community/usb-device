@@ -66,6 +66,9 @@ pub enum UsbError {
 
     /// Operation is not valid in the current state of the object.
     InvalidState,
+
+    /// Operation requires bus to be suspended
+    NotSuspended,
 }
 
 /// Direction of USB traffic. Note that in the USB standard the direction is always indicated from

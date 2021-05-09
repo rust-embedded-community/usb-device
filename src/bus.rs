@@ -120,6 +120,21 @@ pub trait UsbBus: Sync + Sized {
     /// interrupt handler. See the [`PollResult`] struct for more information.
     fn poll(&self) -> PollResult;
 
+    /// Initiates the remote wakeup sequence
+    /// Implementation can vary wildly as some hardware handles the timing, others do not.
+    ///
+    /// The default implementation just returns `Unsupported`.
+    ///
+    /// # Errors
+    ///
+    /// * [`Unsupported`](crate::UsbError::Unsupported) - This UsbBus implementation doesn't support
+    ///   remote wakeup.
+    /// * [`NotSuspended`](crate::UsbError::NotSuspended) - Remote wakeup can only be called if the
+    ///   bus has been suspended.
+    fn remote_wakeup(&self) -> Result<()> {
+        Err(UsbError::Unsupported)
+    }
+
     /// Simulates a disconnect from the USB bus, causing the host to reset and re-enumerate the
     /// device.
     ///

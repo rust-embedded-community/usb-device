@@ -5,7 +5,7 @@ use crate::control_pipe::ControlPipe;
 use crate::descriptor::{descriptor_type, lang_id, BosWriter, DescriptorWriter};
 pub use crate::device_builder::{UsbDeviceBuilder, UsbVidPid};
 use crate::endpoint::{EndpointAddress, EndpointType};
-use crate::{Result, UsbDirection};
+use crate::{Result, UsbDirection, UsbError};
 
 /// The global state of the USB device.
 ///
@@ -130,6 +130,17 @@ impl<B: UsbBus> UsbDevice<'_, B> {
     /// Sets whether the device is currently self powered.
     pub fn set_self_powered(&mut self, is_self_powered: bool) {
         self.self_powered = is_self_powered;
+    }
+
+    /// Initiates a remote wakeup sequence
+    /// Used to wake the host device from sleep when enabled.
+    pub fn remote_wakeup(&self) -> Result<()> {
+        // Make sure remote wakeup has been enabled
+        if !self.remote_wakeup_enabled() {
+            return Err(UsbError::InvalidState);
+        }
+
+        self.bus.remote_wakeup()
     }
 
     /// Simulates a disconnect from the USB bus, causing the host to reset and re-enumerate the
