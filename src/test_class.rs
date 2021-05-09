@@ -46,11 +46,11 @@ pub struct TestClass<'a, B: UsbBus> {
 
 pub const VID: u16 = 0x16c0;
 pub const PID: u16 = 0x05dc;
-pub const MANUFACTURER: &'static str = "TestClass Manufacturer";
-pub const PRODUCT: &'static str = "virkkunen.net usb-device TestClass";
-pub const SERIAL_NUMBER: &'static str = "TestClass Serial";
-pub const CUSTOM_STRING: &'static str = "TestClass Custom String";
-pub const INTERFACE_STRING: &'static str = "TestClass Interface";
+pub const MANUFACTURER: &str = "TestClass Manufacturer";
+pub const PRODUCT: &str = "virkkunen.net usb-device TestClass";
+pub const SERIAL_NUMBER: &str = "TestClass Serial";
+pub const CUSTOM_STRING: &str = "TestClass Custom String";
+pub const INTERFACE_STRING: &str = "TestClass Interface";
 
 pub const REQ_STORE_REQUEST: u8 = 1;
 pub const REQ_READ_BUFFER: u8 = 2;
@@ -59,7 +59,7 @@ pub const REQ_SET_BENCH_ENABLED: u8 = 4;
 pub const REQ_READ_LONG_DATA: u8 = 5;
 pub const REQ_UNKNOWN: u8 = 42;
 
-pub const LONG_DATA: &'static [u8] = &[0x17; 257];
+pub const LONG_DATA: &[u8] = &[0x17; 257];
 
 impl<B: UsbBus> TestClass<'_, B> {
     /// Creates a new TestClass.

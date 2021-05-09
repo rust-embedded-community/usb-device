@@ -325,7 +325,7 @@ pub struct BosWriter<'w, 'a: 'w> {
 impl<'w, 'a: 'w> BosWriter<'w, 'a> {
     pub(crate) fn new(writer: &'w mut DescriptorWriter<'a>) -> Self {
         Self {
-            writer: writer,
+            writer,
             num_caps_mark: None,
         }
     }
