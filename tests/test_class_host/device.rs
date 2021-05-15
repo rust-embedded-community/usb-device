@@ -1,37 +1,38 @@
+use rusb::{ConfigDescriptor, Context, DeviceDescriptor, DeviceHandle, Language, UsbContext as _};
 use std::time::Duration;
-use libusb::*;
 use usb_device::test_class;
 
 pub const TIMEOUT: Duration = Duration::from_secs(1);
 pub const EN_US: u16 = 0x0409;
 
-pub struct DeviceHandles<'a> {
+pub struct DeviceHandles {
     pub device_descriptor: DeviceDescriptor,
     pub config_descriptor: ConfigDescriptor,
-    pub handle: DeviceHandle<'a>,
+    pub handle: DeviceHandle<Context>,
     pub en_us: Language,
 }
 
-impl<'a> ::std::ops::Deref for DeviceHandles<'a> {
-    type Target = DeviceHandle<'a>;
+impl ::std::ops::Deref for DeviceHandles {
+    type Target = DeviceHandle<Context>;
 
-    fn deref(&self) -> &DeviceHandle<'a> {
+    fn deref(&self) -> &DeviceHandle<Context> {
         &self.handle
     }
 }
 
-impl<'a> ::std::ops::DerefMut for DeviceHandles<'a> {
-    fn deref_mut(&mut self) -> &mut DeviceHandle<'a> {
+impl ::std::ops::DerefMut for DeviceHandles {
+    fn deref_mut(&mut self) -> &mut DeviceHandle<Context> {
         &mut self.handle
     }
 }
 
-pub fn open_device(ctx: &Context) -> libusb::Result<DeviceHandles<'_>> {
+pub fn open_device(ctx: &Context) -> rusb::Result<DeviceHandles> {
     for device in ctx.devices()?.iter() {
         let device_descriptor = device.device_descriptor()?;
 
         if !(device_descriptor.vendor_id() == test_class::VID
-            && device_descriptor.product_id() == test_class::PID) {
+            && device_descriptor.product_id() == test_class::PID)
+        {
             continue;
         }
 
@@ -53,10 +54,10 @@ pub fn open_device(ctx: &Context) -> libusb::Result<DeviceHandles<'_>> {
                 device_descriptor,
                 config_descriptor,
                 handle,
-                en_us: langs[0]
+                en_us: langs[0],
             });
         }
     }
 
-    Err(libusb::Error::NoDevice)
+    Err(rusb::Error::NoDevice)
 }

@@ -1,10 +1,10 @@
+use crate::device::*;
+use rand::prelude::*;
+use rusb::{request_type, Direction, Recipient, RequestType};
 use std::cmp::max;
 use std::fmt::Write;
 use std::time::{Duration, Instant};
-use libusb::*;
-use rand::prelude::*;
 use usb_device::test_class;
-use crate::device::*;
 
 pub type TestFn = fn(&mut DeviceHandles, &mut String) -> ();
 
@@ -16,7 +16,7 @@ macro_rules! tests {
             let mut tests: Vec<(&'static str, TestFn)> = Vec::new();
 
             $(
-                fn $name($dev: &mut DeviceHandles<'_>, $out: &mut String) {
+                fn $name($dev: &mut DeviceHandles, $out: &mut String) {
                     $body
                 }
 
@@ -29,28 +29,6 @@ macro_rules! tests {
 }
 
 tests! {
-
-fn string_descriptors(dev, _out) {
-    assert_eq!(
-        dev.read_product_string(dev.en_us, &dev.device_descriptor, TIMEOUT)
-            .expect("read product string"),
-        test_class::PRODUCT);
-
-    assert_eq!(
-        dev.read_manufacturer_string(dev.en_us, &dev.device_descriptor, TIMEOUT)
-            .expect("read manufacturer string"),
-        test_class::MANUFACTURER);
-
-    assert_eq!(
-        dev.read_serial_number_string(dev.en_us, &dev.device_descriptor, TIMEOUT)
-            .expect("read serial number string"),
-        test_class::SERIAL_NUMBER);
-
-    assert_eq!(
-        dev.read_string_descriptor(dev.en_us, 4, TIMEOUT)
-            .expect("read custom string"),
-        test_class::CUSTOM_STRING);
-}
 
 fn control_request(dev, _out) {
     let mut rng = rand::thread_rng();
@@ -131,6 +109,58 @@ fn control_error(dev, _out) {
     if res.is_ok() {
         panic!("unknown control request succeeded");
     }
+}
+
+fn string_descriptors(dev, _out) {
+    assert_eq!(
+        dev.read_product_string(dev.en_us, &dev.device_descriptor, TIMEOUT)
+            .expect("read product string"),
+        test_class::PRODUCT);
+
+    assert_eq!(
+        dev.read_manufacturer_string(dev.en_us, &dev.device_descriptor, TIMEOUT)
+            .expect("read manufacturer string"),
+        test_class::MANUFACTURER);
+
+    assert_eq!(
+        dev.read_serial_number_string(dev.en_us, &dev.device_descriptor, TIMEOUT)
+            .expect("read serial number string"),
+        test_class::SERIAL_NUMBER);
+
+    assert_eq!(
+        dev.read_string_descriptor(dev.en_us, 4, TIMEOUT)
+            .expect("read custom string"),
+        test_class::CUSTOM_STRING);
+}
+
+fn interface_descriptor(dev, _out) {
+    let iface = dev.config_descriptor
+        .interfaces()
+        .find(|i| i.number() == 0)
+        .expect("interface not found");
+
+    let default_alt_setting = iface.descriptors()
+        .find(|i| i.setting_number() == 0)
+        .expect("default alt setting not found");
+
+    assert_eq!(default_alt_setting.description_string_index(), None);
+    assert_eq!(default_alt_setting.class_code(), 0xff);
+    assert_eq!(default_alt_setting.sub_class_code(), 0x00);
+
+    let second_alt_setting = iface.descriptors()
+        .find(|i| i.setting_number() == 1)
+        .expect("second alt setting not found");
+
+    assert_eq!(second_alt_setting.class_code(), 0xff);
+    assert_eq!(second_alt_setting.sub_class_code(), 0x01);
+
+    let string_index = second_alt_setting.description_string_index()
+        .expect("second alt setting string is undefined");
+
+    assert_eq!(
+        dev.read_string_descriptor(dev.en_us, string_index, TIMEOUT)
+            .expect("read interface string"),
+        test_class::INTERFACE_STRING);
 }
 
 fn bulk_loopback(dev, _out) {
@@ -218,8 +248,13 @@ fn run_bench(dev: &DeviceHandles, out: &mut String, f: impl Fn(&mut [u8]) -> ())
 
     dev.write_control(
         request_type(Direction::Out, RequestType::Vendor, Recipient::Device),
-        test_class::REQ_SET_BENCH_ENABLED, 1, 0,
-        &[], TIMEOUT).expect("enable bench mode");
+        test_class::REQ_SET_BENCH_ENABLED,
+        1,
+        0,
+        &[],
+        TIMEOUT,
+    )
+    .expect("enable bench mode");
 
     let mut data = random_data(TRANSFER_BYTES);
 
@@ -236,10 +271,9 @@ fn run_bench(dev: &DeviceHandles, out: &mut String, f: impl Fn(&mut [u8]) -> ())
     writeln!(
         out,
         "  {} transfers of {} bytes in {:.3}s -> {:.3}Mbit/s",
-        TRANSFERS,
-        TRANSFER_BYTES,
-        elapsed,
-        throughput).expect("write failed");
+        TRANSFERS, TRANSFER_BYTES, elapsed, throughput
+    )
+    .expect("write failed");
 }
 
 fn random_data(len: usize) -> Vec<u8> {

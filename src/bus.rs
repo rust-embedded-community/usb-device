@@ -1,9 +1,9 @@
+use crate::endpoint::{Endpoint, EndpointAddress, EndpointDirection, EndpointType};
+use crate::{Result, UsbDirection, UsbError};
 use core::cell::RefCell;
-use core::sync::atomic::{AtomicPtr, Ordering};
 use core::mem;
 use core::ptr;
-use crate::{Result, UsbDirection, UsbError};
-use crate::endpoint::{Endpoint, EndpointDirection, EndpointType, EndpointAddress};
+use core::sync::atomic::{AtomicPtr, Ordering};
 
 /// A trait for device-specific USB peripherals. Implement this to add support for a new hardware
 /// platform.
@@ -41,14 +41,18 @@ pub trait UsbBus: Sync + Sized {
         ep_addr: Option<EndpointAddress>,
         ep_type: EndpointType,
         max_packet_size: u16,
-        interval: u8) -> Result<EndpointAddress>;
+        interval: u8,
+    ) -> Result<EndpointAddress>;
 
     /// Enables and initializes the USB peripheral. Soon after enabling the device will be reset, so
     /// there is no need to perform a USB reset in this method.
     fn enable(&mut self);
 
-    /// Performs a USB reset. This method should reset the platform-specific peripheral as well as
-    /// ensure that all endpoints previously allocate with alloc_ep are initialized as specified.
+    /// Called when the host resets the device. This will be soon called after
+    /// [`poll`](crate::device::UsbDevice::poll) returns [`PollResult::Reset`]. This method should
+    /// reset the state of all endpoints and peripheral flags back to a state suitable for
+    /// enumeration, as well as ensure that all endpoints previously allocated with alloc_ep are
+    /// initialized as specified.
     fn reset(&self);
 
     /// Sets the device USB address to `addr`.
@@ -212,14 +216,11 @@ impl<B: UsbBus> UsbBusAllocator<B> {
         ep_addr: Option<EndpointAddress>,
         ep_type: EndpointType,
         max_packet_size: u16,
-        interval: u8) -> Result<Endpoint<'_, B, D>>
-    {
-        self.bus.borrow_mut()
-            .alloc_ep(
-                D::DIRECTION,
-                ep_addr, ep_type,
-                max_packet_size,
-                interval)
+        interval: u8,
+    ) -> Result<Endpoint<'_, B, D>> {
+        self.bus
+            .borrow_mut()
+            .alloc_ep(D::DIRECTION, ep_addr, ep_type, max_packet_size, interval)
             .map(|a| Endpoint::new(&self.bus_ptr, a, ep_type, max_packet_size, interval))
     }
 
@@ -239,7 +240,8 @@ impl<B: UsbBus> UsbBusAllocator<B> {
     /// feasibly recoverable.
     #[inline]
     pub fn control<D: EndpointDirection>(&self, max_packet_size: u16) -> Endpoint<'_, B, D> {
-        self.alloc(None, EndpointType::Control, max_packet_size, 0).expect("alloc_ep failed")
+        self.alloc(None, EndpointType::Control, max_packet_size, 0)
+            .expect("alloc_ep failed")
     }
 
     /// Allocates a bulk endpoint.
@@ -254,7 +256,8 @@ impl<B: UsbBus> UsbBusAllocator<B> {
     /// feasibly recoverable.
     #[inline]
     pub fn bulk<D: EndpointDirection>(&self, max_packet_size: u16) -> Endpoint<'_, B, D> {
-        self.alloc(None, EndpointType::Bulk, max_packet_size, 0).expect("alloc_ep failed")
+        self.alloc(None, EndpointType::Bulk, max_packet_size, 0)
+            .expect("alloc_ep failed")
     }
 
     /// Allocates an interrupt endpoint.
@@ -266,11 +269,12 @@ impl<B: UsbBus> UsbBusAllocator<B> {
     /// Panics if endpoint allocation fails, because running out of endpoints or memory is not
     /// feasibly recoverable.
     #[inline]
-    pub fn interrupt<D: EndpointDirection>(&self, max_packet_size: u16, interval: u8)
-        -> Endpoint<'_, B, D>
-    {
-        self
-            .alloc(None, EndpointType::Interrupt, max_packet_size, interval)
+    pub fn interrupt<D: EndpointDirection>(
+        &self,
+        max_packet_size: u16,
+        interval: u8,
+    ) -> Endpoint<'_, B, D> {
+        self.alloc(None, EndpointType::Interrupt, max_packet_size, interval)
             .expect("alloc_ep failed")
     }
 }
@@ -280,7 +284,9 @@ impl<B: UsbBus> UsbBusAllocator<B> {
 pub struct InterfaceNumber(u8);
 
 impl From<InterfaceNumber> for u8 {
-    fn from(n: InterfaceNumber) -> u8 { n.0 }
+    fn from(n: InterfaceNumber) -> u8 {
+        n.0
+    }
 }
 
 /// A handle for a USB string descriptor that contains its index.
@@ -294,7 +300,9 @@ impl StringIndex {
 }
 
 impl From<StringIndex> for u8 {
-    fn from(i: StringIndex) -> u8 { i.0 }
+    fn from(i: StringIndex) -> u8 {
+        i.0
+    }
 }
 
 /// Event and incoming packet information returned by [`UsbBus::poll`].
@@ -319,7 +327,7 @@ pub enum PollResult {
 
         /// A SETUP packet has been received. This event should continue to be reported until the
         /// packet is read. The corresponding bit in `ep_out` may also be set but is ignored.
-        ep_setup: u16
+        ep_setup: u16,
     },
 
     /// A USB suspend request has been detected or, in the case of self-powered devices, the device
