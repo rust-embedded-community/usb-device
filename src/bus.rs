@@ -53,6 +53,30 @@ impl<B> BusPtr<B> {
     }
 }
 
+/// A trait with a `Sync` bound if the `sync` feature is enabled.
+///
+/// This is necessary because bounds can't be made conditional based on feature flags. Otherwise,
+/// the definition of `UsbBus` could be simpler, like:
+///
+/// ```compile_fail
+/// pub trait UsbBus: #[cfg(feature = "sync")] Sync + Sized {
+///     /* ... */
+/// }
+/// ```
+//
+// Another alternative would be to duplicate the `UsbBus` definition, one with the `Sync` bound and
+// one without, and conditionally select them based on the `sync` feature. But that's not feasible
+// to maintain by hand, because of how complex the `UsbBus` trait is. However, it may be possible
+// to do with a macro to automatically generate both definitions from one body.
+#[cfg(feature = "sync")]
+pub trait ConditionalSync: Sync {}
+
+#[cfg(feature = "sync")]
+impl<T: Sync> ConditionalSync for T {}
+
+#[cfg(not(feature = "sync"))]
+pub trait ConditionalSync {}
+
 /// A trait for device-specific USB peripherals. Implement this to add support for a new hardware
 /// platform.
 ///
@@ -62,7 +86,7 @@ impl<B> BusPtr<B> {
 /// take place before [`enable`](UsbBus::enable) is called. After the bus is enabled, in practice
 /// most access won't mutate the object itself but only endpoint-specific registers and buffers, the
 /// access to which is mostly arbitrated by endpoint handles.
-pub trait UsbBus: Sync + Sized {
+pub trait UsbBus: ConditionalSync + Sized {
     /// Allocates an endpoint and specified endpoint parameters. This method is called by the device
     /// and class implementations to allocate endpoints, and can only be called before
     /// [`enable`](UsbBus::enable) is called.
