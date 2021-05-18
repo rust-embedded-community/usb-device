@@ -192,6 +192,9 @@ pub mod class_prelude {
     pub use crate::UsbError;
 }
 
+#[cfg(all(feature = "sync", target_arch = "avr"))]
+compile_error!("`sync` feature is not supported on AVR targets.");
+
 #[cfg(feature = "sync")]
 fn _ensure_sync() {
     use crate::bus::{PollResult, UsbBus, UsbBusAllocator};

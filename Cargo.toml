@@ -32,7 +32,6 @@ control-buffer-256 = []
 # speed device, but the descriptors will be invalid.
 test-class-high-speed = []
 
-
 [[test]]
 name = "test_class_host"
 path = "tests/test_class_host/main.rs"
