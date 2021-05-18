@@ -6,6 +6,7 @@ use core::ptr;
 
 #[cfg(feature = "sync")]
 use core::sync::atomic::{AtomicPtr, Ordering};
+
 #[cfg(not(feature = "sync"))]
 use core::cell::Cell;
 
@@ -29,20 +30,24 @@ impl<B> BusPtr<B> {
     }
 
     fn set(&self, ptr: *mut B) {
-        #[cfg(feature = "sync")] {
+        #[cfg(feature = "sync")]
+        {
             self.inner.store(ptr, Ordering::SeqCst);
         }
-        #[cfg(not(feature = "sync"))] {
+        #[cfg(not(feature = "sync"))]
+        {
             self.inner.set(ptr);
         }
     }
 
     pub(crate) fn get(&self) -> *mut B {
-        #[cfg(feature = "sync")] {
+        #[cfg(feature = "sync")]
+        {
             self.inner.load(Ordering::SeqCst)
         }
 
-        #[cfg(not(feature = "sync"))] {
+        #[cfg(not(feature = "sync"))]
+        {
             self.inner.get()
         }
     }

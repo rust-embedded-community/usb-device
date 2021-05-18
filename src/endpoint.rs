@@ -1,4 +1,4 @@
-use crate::bus::{UsbBus, BusPtr};
+use crate::bus::{BusPtr, UsbBus};
 use crate::{Result, UsbDirection};
 use core::marker::PhantomData;
 use core::ptr;
