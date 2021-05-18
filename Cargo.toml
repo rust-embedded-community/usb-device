@@ -14,6 +14,14 @@ rusb = "0.8.0"
 rand = "0.6.1"
 
 [features]
+default = ["sync"]
+
+# Enable support for using this library across multiple threads.
+#
+# Enabled by default, but made optional for compatibility with AVR targets
+# which are single-core and do not have atomic operations.
+sync = []
+
 # Use a 256 byte buffer for control transfers instead of 128.
 control-buffer-256 = []
 
@@ -23,6 +31,7 @@ control-buffer-256 = []
 # TestClass only compliant with high speed mode. It may still manage to be enumerated as a full
 # speed device, but the descriptors will be invalid.
 test-class-high-speed = []
+
 
 [[test]]
 name = "test_class_host"

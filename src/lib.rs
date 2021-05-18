@@ -192,6 +192,7 @@ pub mod class_prelude {
     pub use crate::UsbError;
 }
 
+#[cfg(feature = "sync")]
 fn _ensure_sync() {
     use crate::bus::{PollResult, UsbBus, UsbBusAllocator};
     use crate::class_prelude::*;

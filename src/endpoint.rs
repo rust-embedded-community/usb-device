@@ -1,8 +1,7 @@
-use crate::bus::UsbBus;
+use crate::bus::{UsbBus, BusPtr};
 use crate::{Result, UsbDirection};
 use core::marker::PhantomData;
 use core::ptr;
-use core::sync::atomic::{AtomicPtr, Ordering};
 
 /// Trait for endpoint type markers.
 pub trait EndpointDirection {
@@ -49,7 +48,7 @@ pub enum EndpointType {
 /// Handle for a USB endpoint. The endpoint direction is constrained by the `D` type argument, which
 /// must be either `In` or `Out`.
 pub struct Endpoint<'a, B: UsbBus, D: EndpointDirection> {
-    bus_ptr: &'a AtomicPtr<B>,
+    bus_ptr: &'a BusPtr<B>,
     address: EndpointAddress,
     ep_type: EndpointType,
     max_packet_size: u16,
@@ -59,7 +58,7 @@ pub struct Endpoint<'a, B: UsbBus, D: EndpointDirection> {
 
 impl<B: UsbBus, D: EndpointDirection> Endpoint<'_, B, D> {
     pub(crate) fn new<'a>(
-        bus_ptr: &'a AtomicPtr<B>,
+        bus_ptr: &'a BusPtr<B>,
         address: EndpointAddress,
         ep_type: EndpointType,
         max_packet_size: u16,
@@ -76,7 +75,7 @@ impl<B: UsbBus, D: EndpointDirection> Endpoint<'_, B, D> {
     }
 
     fn bus(&self) -> &B {
-        let bus_ptr = self.bus_ptr.load(Ordering::SeqCst);
+        let bus_ptr = self.bus_ptr.get();
         if bus_ptr == ptr::null_mut() {
             panic!("UsbBus initialization not complete");
         }
