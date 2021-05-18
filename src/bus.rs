@@ -77,6 +77,9 @@ impl<T: Sync> ConditionalSync for T {}
 #[cfg(not(feature = "sync"))]
 pub trait ConditionalSync {}
 
+#[cfg(not(feature = "sync"))]
+impl<T> ConditionalSync for T {}
+
 /// A trait for device-specific USB peripherals. Implement this to add support for a new hardware
 /// platform.
 ///
