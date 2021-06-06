@@ -14,11 +14,9 @@ rusb = "0.8.0"
 rand = "0.6.1"
 
 [features]
-default = ["sync"]
-
 # Enable support for using this library across multiple threads.
 #
-# Enabled by default, but made optional for compatibility with AVR targets
+# Made optional / opt-in for compatibility with AVR targets
 # which are single-core and do not have atomic operations.
 sync = []
 
