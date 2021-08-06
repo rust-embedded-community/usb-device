@@ -1,3 +1,5 @@
+use embedded_time::duration::Generic;
+
 use crate::bus::UsbBus;
 use crate::{Result, UsbDirection};
 use core::marker::PhantomData;
@@ -53,17 +55,17 @@ pub struct Endpoint<'a, B: UsbBus, D: EndpointDirection> {
     address: EndpointAddress,
     ep_type: EndpointType,
     max_packet_size: u16,
-    interval: u8,
+    interval: Generic<u32>,
     _marker: PhantomData<D>,
 }
 
 impl<B: UsbBus, D: EndpointDirection> Endpoint<'_, B, D> {
-    pub(crate) fn new<'a>(
-        bus_ptr: &'a AtomicPtr<B>,
+    pub(crate) fn new(
+        bus_ptr: &AtomicPtr<B>,
         address: EndpointAddress,
         ep_type: EndpointType,
         max_packet_size: u16,
-        interval: u8,
+        interval: Generic<u32>,
     ) -> Endpoint<'_, B, D> {
         Endpoint {
             bus_ptr,
@@ -100,7 +102,7 @@ impl<B: UsbBus, D: EndpointDirection> Endpoint<'_, B, D> {
     }
 
     /// Gets the poll interval for interrupt endpoints.
-    pub fn interval(&self) -> u8 {
+    pub fn interval(&self) -> Generic<u32> {
         self.interval
     }
 

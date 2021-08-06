@@ -1,3 +1,5 @@
+use embedded_time::duration::*;
+
 use crate::bus::{PollResult, StringIndex, UsbBus, UsbBusAllocator};
 use crate::class::{ControlIn, ControlOut, UsbClass};
 use crate::control;
@@ -75,7 +77,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 Some(0x00.into()),
                 EndpointType::Control,
                 config.max_packet_size_0 as u16,
-                0,
+                0.milliseconds().into(),
             )
             .expect("failed to alloc control endpoint");
 
@@ -84,7 +86,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 Some(0x80.into()),
                 EndpointType::Control,
                 config.max_packet_size_0 as u16,
-                0,
+                0.milliseconds().into(),
             )
             .expect("failed to alloc control endpoint");
 
@@ -193,14 +195,13 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     if (ep_in_complete & 1) != 0 {
                         let completed = self.control.handle_in_complete();
 
-                        if !B::QUIRK_SET_ADDRESS_BEFORE_STATUS {
-                            if completed && self.pending_address != 0 {
-                                self.bus.set_device_address(self.pending_address);
-                                self.pending_address = 0;
+                        if !B::QUIRK_SET_ADDRESS_BEFORE_STATUS && ( completed && self.pending_address != 0 ) {
+                            self.bus.set_device_address(self.pending_address);
+                            self.pending_address = 0;
 
-                                self.device_state = UsbDeviceState::Addressed;
-                            }
+                            self.device_state = UsbDeviceState::Addressed;
                         }
+                        
                     }
 
                     let req = if (ep_setup & 1) != 0 {
@@ -275,7 +276,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
             }
         }
 
-        return false;
+        false
     }
 
     fn control_in(&mut self, classes: &mut ClassList<'_, B>, req: control::Request) {
@@ -508,7 +509,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                             classes
                                 .iter()
                                 .filter_map(|cls| cls.get_string(index, lang_id))
-                                .nth(0)
+                                .next()
                         }
                     };
 

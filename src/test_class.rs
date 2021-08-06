@@ -1,5 +1,7 @@
 #![allow(missing_docs)]
 
+use embedded_time::duration::Extensions;
+
 use crate::class_prelude::*;
 use crate::descriptor;
 use crate::device::{UsbDevice, UsbDeviceBuilder, UsbVidPid};
@@ -70,8 +72,9 @@ impl<B: UsbBus> TestClass<'_, B> {
             iface: alloc.interface(),
             ep_bulk_in: alloc.bulk(sizes::BULK_ENDPOINT),
             ep_bulk_out: alloc.bulk(sizes::BULK_ENDPOINT),
-            ep_interrupt_in: alloc.interrupt(sizes::INTERRUPT_ENDPOINT, 1),
-            ep_interrupt_out: alloc.interrupt(sizes::INTERRUPT_ENDPOINT, 1),
+            ep_interrupt_in: alloc.interrupt(sizes::INTERRUPT_ENDPOINT, 1u32.milliseconds().into()),
+            ep_interrupt_out: alloc
+                .interrupt(sizes::INTERRUPT_ENDPOINT, 1u32.milliseconds().into()),
             control_buf: [0; sizes::BUFFER],
             bulk_buf: [0; sizes::BUFFER],
             interrupt_buf: [0; sizes::BUFFER],
@@ -105,7 +108,7 @@ impl<B: UsbBus> TestClass<'_, B> {
         &'a self,
         usb_bus: &'b UsbBusAllocator<B>,
     ) -> UsbDeviceBuilder<'b, B> {
-        UsbDeviceBuilder::new(&usb_bus, UsbVidPid(VID, PID))
+        UsbDeviceBuilder::new(usb_bus, UsbVidPid(VID, PID))
             .manufacturer(MANUFACTURER)
             .product(PRODUCT)
             .serial_number(SERIAL_NUMBER)

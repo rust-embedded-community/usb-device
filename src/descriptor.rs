@@ -1,3 +1,8 @@
+use core::convert::TryFrom;
+
+use embedded_time::duration::Milliseconds;
+use embedded_time::fixed_point::FixedPoint;
+
 use crate::bus::{InterfaceNumber, StringIndex, UsbBus};
 use crate::device;
 use crate::endpoint::{Endpoint, EndpointDirection};
@@ -278,8 +283,10 @@ impl DescriptorWriter<'_> {
                 endpoint.address().into(), // bEndpointAddress
                 endpoint.ep_type() as u8,  // bmAttributes
                 mps as u8,
-                (mps >> 8) as u8,    // wMaxPacketSize
-                endpoint.interval(), // bInterval
+                (mps >> 8) as u8, // wMaxPacketSize
+                Milliseconds::<u32>::try_from(endpoint.interval())
+                    .unwrap()
+                    .integer() as u8, // bInterval
             ],
         )?;
 
@@ -325,7 +332,7 @@ pub struct BosWriter<'w, 'a: 'w> {
 impl<'w, 'a: 'w> BosWriter<'w, 'a> {
     pub(crate) fn new(writer: &'w mut DescriptorWriter<'a>) -> Self {
         Self {
-            writer: writer,
+            writer,
             num_caps_mark: None,
         }
     }
