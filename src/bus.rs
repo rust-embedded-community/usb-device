@@ -1,3 +1,5 @@
+use embedded_time::duration::{Extensions, Generic};
+
 use crate::endpoint::{Endpoint, EndpointAddress, EndpointDirection, EndpointType};
 use crate::{Result, UsbDirection, UsbError};
 use core::cell::RefCell;
@@ -41,7 +43,7 @@ pub trait UsbBus: Sync + Sized {
         ep_addr: Option<EndpointAddress>,
         ep_type: EndpointType,
         max_packet_size: u16,
-        interval: u8,
+        interval: Generic<u32>,
     ) -> Result<EndpointAddress>;
 
     /// Enables and initializes the USB peripheral. Soon after enabling the device will be reset, so
@@ -211,12 +213,12 @@ impl<B: UsbBus> UsbBusAllocator<B> {
     ///
     /// This directly delegates to [`UsbBus::alloc_ep`], so see that method for details. In most
     /// cases classes should call the endpoint type specific methods instead.
-    pub fn alloc<'a, D: EndpointDirection>(
+    pub fn alloc<D: EndpointDirection>(
         &self,
         ep_addr: Option<EndpointAddress>,
         ep_type: EndpointType,
         max_packet_size: u16,
-        interval: u8,
+        interval: Generic<u32>,
     ) -> Result<Endpoint<'_, B, D>> {
         self.bus
             .borrow_mut()
@@ -240,8 +242,13 @@ impl<B: UsbBus> UsbBusAllocator<B> {
     /// feasibly recoverable.
     #[inline]
     pub fn control<D: EndpointDirection>(&self, max_packet_size: u16) -> Endpoint<'_, B, D> {
-        self.alloc(None, EndpointType::Control, max_packet_size, 0)
-            .expect("alloc_ep failed")
+        self.alloc(
+            None,
+            EndpointType::Control,
+            max_packet_size,
+            0u32.milliseconds().into(),
+        )
+        .expect("alloc_ep failed")
     }
 
     /// Allocates a bulk endpoint.
@@ -256,8 +263,13 @@ impl<B: UsbBus> UsbBusAllocator<B> {
     /// feasibly recoverable.
     #[inline]
     pub fn bulk<D: EndpointDirection>(&self, max_packet_size: u16) -> Endpoint<'_, B, D> {
-        self.alloc(None, EndpointType::Bulk, max_packet_size, 0)
-            .expect("alloc_ep failed")
+        self.alloc(
+            None,
+            EndpointType::Bulk,
+            max_packet_size,
+            0u32.milliseconds().into(),
+        )
+        .expect("alloc_ep failed")
     }
 
     /// Allocates an interrupt endpoint.
@@ -272,7 +284,7 @@ impl<B: UsbBus> UsbBusAllocator<B> {
     pub fn interrupt<D: EndpointDirection>(
         &self,
         max_packet_size: u16,
-        interval: u8,
+        interval: Generic<u32>,
     ) -> Endpoint<'_, B, D> {
         self.alloc(None, EndpointType::Interrupt, max_packet_size, interval)
             .expect("alloc_ep failed")

@@ -36,6 +36,8 @@
 #![no_std]
 #![warn(missing_docs)]
 
+use embedded_time::duration::Generic;
+
 /// A USB stack error.
 #[derive(Debug)]
 pub enum UsbError {
@@ -207,7 +209,7 @@ fn _ensure_sync() {
             _ep_addr: Option<EndpointAddress>,
             _ep_type: EndpointType,
             _max_packet_size: u16,
-            _interval: u8,
+            _interval: Generic<u32>,
         ) -> Result<EndpointAddress> {
             Err(UsbError::EndpointOverflow)
         }
