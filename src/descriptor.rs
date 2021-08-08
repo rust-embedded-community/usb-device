@@ -338,7 +338,7 @@ impl DescriptorWriter<'_> {
     ///
     /// * `UsbError::InvalidState` if the writer position has not yet gone past the position of the
     /// handle.
-    pub fn get_deferred_mut<Idx>(&mut self, handle: &DeferHandle<Idx>) -> &mut Idx::Output
+    pub fn get_deferred_mut<Idx>(&mut self, handle: &DeferHandle<Idx>) -> Result<&mut Idx::Output>
     where
         Idx: DeferIndex,
     {
