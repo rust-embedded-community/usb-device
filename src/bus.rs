@@ -281,6 +281,7 @@ impl<B: UsbBus> UsbBusAllocator<B> {
 
 /// A handle for a USB interface that contains its number.
 #[derive(Copy, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct InterfaceNumber(u8);
 
 impl From<InterfaceNumber> for u8 {
@@ -291,6 +292,7 @@ impl From<InterfaceNumber> for u8 {
 
 /// A handle for a USB string descriptor that contains its index.
 #[derive(Copy, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct StringIndex(u8);
 
 impl StringIndex {

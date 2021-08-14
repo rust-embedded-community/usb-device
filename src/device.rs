@@ -12,6 +12,7 @@ use crate::{Result, UsbDirection};
 /// In general class traffic is only possible in the `Configured` state.
 #[repr(u8)]
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum UsbDeviceState {
     /// The USB device has just been created or reset.
     Default,
