@@ -134,6 +134,28 @@ impl<B: UsbBus> Endpoint<'_, B, In> {
     pub fn write(&self, data: &[u8]) -> Result<usize> {
         self.bus().write(self.address, data)
     }
+
+    /// Writes a single packet of data to the specified endpoint and returns number of bytes
+    /// actually written. The buffer must not be longer than the `max_packet_size` specified when
+    /// allocating the endpoint.
+    ///
+    /// If the underlying device [`WouldBlock`](crate::UsbError::WouldBlock), the underlying
+    /// methods return `None` instead of invoking `producer`.
+    ///
+    /// # Errors
+    ///
+    /// Note: USB bus implementation errors are directly passed through, so be prepared to handle
+    /// other errors as well.
+    ///
+    /// * [`BufferOverflow`](crate::UsbError::BufferOverflow) - The data is longer than the
+    ///   `max_packet_size` specified when allocating the endpoint. This is generally an error in
+    ///   the class implementation.
+    pub fn maybe_write<'a>(
+        &self,
+        producer: impl FnOnce() -> Result<&'a [u8]>,
+    ) -> Option<Result<usize>> {
+        self.bus().maybe_write(self.address, producer)
+    }
 }
 
 impl<B: UsbBus> Endpoint<'_, B, Out> {
