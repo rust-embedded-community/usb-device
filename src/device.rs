@@ -31,9 +31,9 @@ const MAX_ENDPOINTS: usize = 16;
 
 /// A USB device consisting of one or more device classes.
 pub struct UsbDevice<'a, B: UsbBus> {
-    bus: &'a B,
+    bus: B,
     config: Config<'a>,
-    control: ControlPipe<'a, B>,
+    control: ControlPipe,
     device_state: UsbDeviceState,
     remote_wakeup_enabled: bool,
     self_powered: bool,
@@ -69,7 +69,7 @@ pub const DEFAULT_ALTERNATE_SETTING: u8 = 0;
 type ClassList<'a, B> = [&'a mut dyn UsbClass<B>];
 
 impl<B: UsbBus> UsbDevice<'_, B> {
-    pub(crate) fn build<'a>(alloc: &'a UsbBusAllocator<B>, config: Config<'a>) -> UsbDevice<'a, B> {
+    pub(crate) fn build<'a>(mut alloc: UsbBusAllocator<B>, config: Config<'a>) -> UsbDevice<'a, B> {
         let control_out = alloc
             .alloc(
                 Some(0x00.into()),
@@ -88,7 +88,9 @@ impl<B: UsbBus> UsbDevice<'_, B> {
             )
             .expect("failed to alloc control endpoint");
 
-        let bus = alloc.freeze();
+        let mut bus = alloc.freeze();
+
+        bus.enable();
 
         UsbDevice {
             bus,
@@ -103,11 +105,17 @@ impl<B: UsbBus> UsbDevice<'_, B> {
 
     /// Gets a reference to the [`UsbBus`] implementation used by this `UsbDevice`. You can use this
     /// to call platform-specific methods on the `UsbBus`.
+    pub fn bus(&self) -> &B {
+        &self.bus
+    }
+
+    /// Gets a mutable reference to the [`UsbBus`] implementation used by this `UsbDevice`. You can use this
+    /// to call platform-specific methods on the `UsbBus`.
     ///
     /// While it is also possible to call the standard `UsbBus` trait methods through this
     /// reference, this is not recommended as it can cause the device to misbehave.
-    pub fn bus(&self) -> &B {
-        self.bus
+    pub fn bus_mut(&mut self) -> &mut B {
+        &mut self.bus
     }
 
     /// Gets the current state of the device.
@@ -191,7 +199,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     // phase of the control transfer. We have to process EP0-IN first to update our
                     // internal state properly.
                     if (ep_in_complete & 1) != 0 {
-                        let completed = self.control.handle_in_complete();
+                        let completed = self.control.handle_in_complete(&mut self.bus);
 
                         if !B::QUIRK_SET_ADDRESS_BEFORE_STATUS {
                             if completed && self.pending_address != 0 {
@@ -204,9 +212,9 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     }
 
                     let req = if (ep_setup & 1) != 0 {
-                        self.control.handle_setup()
+                        self.control.handle_setup(&mut self.bus)
                     } else if (ep_out & 1) != 0 {
-                        self.control.handle_out()
+                        self.control.handle_out(&mut self.bus)
                     } else {
                         None
                     };
@@ -231,23 +239,26 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     for i in 1..MAX_ENDPOINTS {
                         if (ep_setup & bit) != 0 {
                             for cls in classes.iter_mut() {
-                                cls.endpoint_setup(EndpointAddress::from_parts(
-                                    i,
-                                    UsbDirection::Out,
-                                ));
+                                cls.endpoint_setup(
+                                    &mut self.bus,
+                                    EndpointAddress::from_parts(i, UsbDirection::Out),
+                                );
                             }
                         } else if (ep_out & bit) != 0 {
                             for cls in classes.iter_mut() {
-                                cls.endpoint_out(EndpointAddress::from_parts(i, UsbDirection::Out));
+                                cls.endpoint_out(
+                                    &mut self.bus,
+                                    EndpointAddress::from_parts(i, UsbDirection::Out),
+                                );
                             }
                         }
 
                         if (ep_in_complete & bit) != 0 {
                             for cls in classes.iter_mut() {
-                                cls.endpoint_in_complete(EndpointAddress::from_parts(
-                                    i,
-                                    UsbDirection::In,
-                                ));
+                                cls.endpoint_in_complete(
+                                    &mut self.bus,
+                                    EndpointAddress::from_parts(i, UsbDirection::In),
+                                );
                             }
                         }
 
@@ -282,7 +293,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         use crate::control::{Recipient, Request};
 
         for cls in classes.iter_mut() {
-            cls.control_in(ControlIn::new(&mut self.control, &req));
+            cls.control_in(ControlIn::new(&mut self.bus, &mut self.control, &req));
 
             if !self.control.waiting_for_response() {
                 return;
@@ -290,7 +301,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         }
 
         if req.request_type == control::RequestType::Standard {
-            let xfer = ControlIn::new(&mut self.control, &req);
+            let xfer = ControlIn::new(&mut self.bus, &mut self.control, &req);
 
             match (req.recipient, req.request) {
                 (Recipient::Device, Request::GET_STATUS) => {
@@ -315,7 +326,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     let ep_addr = ((req.index as u8) & 0x8f).into();
 
                     let status: u16 = 0x0000
-                        | if self.bus.is_stalled(ep_addr) {
+                        | if xfer.bus.is_stalled(ep_addr) {
                             0x0001
                         } else {
                             0x0000
@@ -348,7 +359,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         }
 
         if self.control.waiting_for_response() {
-            self.control.reject().ok();
+            self.control.reject(&mut self.bus).ok();
         }
     }
 
@@ -356,7 +367,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         use crate::control::{Recipient, Request};
 
         for cls in classes {
-            cls.control_out(ControlOut::new(&mut self.control, &req));
+            cls.control_out(ControlOut::new(&mut self.bus, &mut self.control, &req));
 
             if !self.control.waiting_for_response() {
                 return;
@@ -364,7 +375,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         }
 
         if req.request_type == control::RequestType::Standard {
-            let xfer = ControlOut::new(&mut self.control, &req);
+            let xfer = ControlOut::new(&mut self.bus, &mut self.control, &req);
 
             const CONFIGURATION_NONE_U16: u16 = CONFIGURATION_NONE as u16;
             const CONFIGURATION_VALUE_U16: u16 = CONFIGURATION_VALUE as u16;
@@ -381,7 +392,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 }
 
                 (Recipient::Endpoint, Request::CLEAR_FEATURE, Request::FEATURE_ENDPOINT_HALT) => {
-                    self.bus
+                    xfer.bus
                         .set_stalled(((req.index as u8) & 0x8f).into(), false);
                     xfer.accept().ok();
                 }
@@ -396,14 +407,14 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 }
 
                 (Recipient::Endpoint, Request::SET_FEATURE, Request::FEATURE_ENDPOINT_HALT) => {
-                    self.bus
+                    xfer.bus
                         .set_stalled(((req.index as u8) & 0x8f).into(), true);
                     xfer.accept().ok();
                 }
 
                 (Recipient::Device, Request::SET_ADDRESS, 1..=127) => {
                     if B::QUIRK_SET_ADDRESS_BEFORE_STATUS {
-                        self.bus.set_device_address(req.value as u8);
+                        xfer.bus.set_device_address(req.value as u8);
                         self.device_state = UsbDeviceState::Addressed;
                     } else {
                         self.pending_address = req.value as u8;
@@ -441,7 +452,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         }
 
         if self.control.waiting_for_response() {
-            self.control.reject().ok();
+            self.control.reject(&mut self.bus).ok();
         }
     }
 

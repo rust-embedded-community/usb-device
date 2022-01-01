@@ -1,9 +1,5 @@
 use crate::endpoint::{Endpoint, EndpointAddress, EndpointDirection, EndpointType};
 use crate::{Result, UsbDirection, UsbError};
-use core::cell::RefCell;
-use core::mem;
-use core::ptr;
-use core::sync::atomic::{AtomicPtr, Ordering};
 
 /// A trait for device-specific USB peripherals. Implement this to add support for a new hardware
 /// platform.
@@ -14,7 +10,7 @@ use core::sync::atomic::{AtomicPtr, Ordering};
 /// take place before [`enable`](UsbBus::enable) is called. After the bus is enabled, in practice
 /// most access won't mutate the object itself but only endpoint-specific registers and buffers, the
 /// access to which is mostly arbitrated by endpoint handles.
-pub trait UsbBus: Sync + Sized {
+pub trait UsbBus: Sized {
     /// Allocates an endpoint and specified endpoint parameters. This method is called by the device
     /// and class implementations to allocate endpoints, and can only be called before
     /// [`enable`](UsbBus::enable) is called.
@@ -53,10 +49,10 @@ pub trait UsbBus: Sync + Sized {
     /// reset the state of all endpoints and peripheral flags back to a state suitable for
     /// enumeration, as well as ensure that all endpoints previously allocated with alloc_ep are
     /// initialized as specified.
-    fn reset(&self);
+    fn reset(&mut self);
 
     /// Sets the device USB address to `addr`.
-    fn set_device_address(&self, addr: u8);
+    fn set_device_address(&mut self, addr: u8);
 
     /// Writes a single packet of data to the specified endpoint and returns number of bytes
     /// actually written.
@@ -76,7 +72,7 @@ pub trait UsbBus: Sync + Sized {
     ///   the endpoint.
     ///
     /// Implementations may also return other errors if applicable.
-    fn write(&self, ep_addr: EndpointAddress, buf: &[u8]) -> Result<usize>;
+    fn write(&mut self, ep_addr: EndpointAddress, buf: &[u8]) -> Result<usize>;
 
     /// Reads a single packet of data from the specified endpoint and returns the actual length of
     /// the packet.
@@ -96,29 +92,29 @@ pub trait UsbBus: Sync + Sized {
     ///   allocating the endpoint.
     ///
     /// Implementations may also return other errors if applicable.
-    fn read(&self, ep_addr: EndpointAddress, buf: &mut [u8]) -> Result<usize>;
+    fn read(&mut self, ep_addr: EndpointAddress, buf: &mut [u8]) -> Result<usize>;
 
     /// Sets or clears the STALL condition for an endpoint. If the endpoint is an OUT endpoint, it
     /// should be prepared to receive data again.
-    fn set_stalled(&self, ep_addr: EndpointAddress, stalled: bool);
+    fn set_stalled(&mut self, ep_addr: EndpointAddress, stalled: bool);
 
     /// Gets whether the STALL condition is set for an endpoint.
-    fn is_stalled(&self, ep_addr: EndpointAddress) -> bool;
+    fn is_stalled(&mut self, ep_addr: EndpointAddress) -> bool;
 
     /// Causes the USB peripheral to enter USB suspend mode, lowering power consumption and
     /// preparing to detect a USB wakeup event. This will be called after
     /// [`poll`](crate::device::UsbDevice::poll) returns [`PollResult::Suspend`]. The device will
     /// continue be polled, and it shall return a value other than `Suspend` from `poll` when it no
     /// longer detects the suspend condition.
-    fn suspend(&self);
+    fn suspend(&mut self);
 
     /// Resumes from suspend mode. This may only be called after the peripheral has been previously
     /// suspended.
-    fn resume(&self);
+    fn resume(&mut self);
 
     /// Gets information about events and incoming data. Usually called in a loop or from an
     /// interrupt handler. See the [`PollResult`] struct for more information.
-    fn poll(&self) -> PollResult;
+    fn poll(&mut self) -> PollResult;
 
     /// Simulates a disconnect from the USB bus, causing the host to reset and re-enumerate the
     /// device.
@@ -129,7 +125,7 @@ pub trait UsbBus: Sync + Sized {
     ///
     /// * [`Unsupported`](crate::UsbError::Unsupported) - This UsbBus implementation doesn't support
     ///   simulating a disconnect or it has not been enabled at creation time.
-    fn force_reset(&self) -> Result<()> {
+    fn force_reset(&mut self) -> Result<()> {
         Err(UsbError::Unsupported)
     }
 
@@ -140,69 +136,40 @@ pub trait UsbBus: Sync + Sized {
     const QUIRK_SET_ADDRESS_BEFORE_STATUS: bool = false;
 }
 
-struct AllocatorState {
-    next_interface_number: u8,
-    next_string_index: u8,
-}
-
 /// Helper type used for UsbBus resource allocation and initialization.
 pub struct UsbBusAllocator<B: UsbBus> {
-    bus: RefCell<B>,
-    bus_ptr: AtomicPtr<B>,
-    state: RefCell<AllocatorState>,
+    bus: B,
+    next_interface_number: u8,
+    next_string_index: u8,
 }
 
 impl<B: UsbBus> UsbBusAllocator<B> {
     /// Creates a new [`UsbBusAllocator`] that wraps the provided [`UsbBus`]. Usually only called by
     /// USB driver implementations.
-    pub fn new(bus: B) -> UsbBusAllocator<B> {
-        UsbBusAllocator {
-            bus: RefCell::new(bus),
-            bus_ptr: AtomicPtr::new(ptr::null_mut()),
-            state: RefCell::new(AllocatorState {
-                next_interface_number: 0,
-                next_string_index: 4,
-            }),
+    pub fn new(bus: B) -> Self {
+        Self {
+            bus,
+            next_interface_number: 0,
+            next_string_index: 4,
         }
     }
 
-    pub(crate) fn freeze(&self) -> &B {
-        // Prevent further allocation by borrowing the allocation state permanently.
-        mem::forget(self.state.borrow_mut());
-
-        // Enable the USB bus
-        self.bus.borrow_mut().enable();
-
-        // An AtomicPtr is used for the reference from Endpoints to UsbBus, in order to ensure that
-        // Endpoints stay Sync (if the Endpoints had a reference to a RefCell, they would not be
-        // Sync) Set the pointer used by the Endpoints to access the UsbBus to point to the UsbBus
-        // in the RefCell.
-        let mut bus_ref = self.bus.borrow_mut();
-        let bus_ptr_v = &mut *bus_ref as *mut B;
-        self.bus_ptr.store(bus_ptr_v, Ordering::SeqCst);
-
-        // And then leave the RefCell borrowed permanently so that it cannot be borrowed mutably
-        // anymore.
-        mem::forget(bus_ref);
-
-        // Return the reference to the UsbBus, for use by UsbDevice.
-        unsafe { &*bus_ptr_v }
+    pub(crate) fn freeze(self) -> B {
+        self.bus
     }
 
     /// Allocates a new interface number.
-    pub fn interface(&self) -> InterfaceNumber {
-        let mut state = self.state.borrow_mut();
-        let number = state.next_interface_number;
-        state.next_interface_number += 1;
+    pub fn interface(&mut self) -> InterfaceNumber {
+        let number = self.next_interface_number;
+        self.next_interface_number += 1;
 
         InterfaceNumber(number)
     }
 
     /// Allocates a new string index.
-    pub fn string(&self) -> StringIndex {
-        let mut state = self.state.borrow_mut();
-        let index = state.next_string_index;
-        state.next_string_index += 1;
+    pub fn string(&mut self) -> StringIndex {
+        let index = self.next_string_index;
+        self.next_string_index += 1;
 
         StringIndex(index)
     }
@@ -212,16 +179,15 @@ impl<B: UsbBus> UsbBusAllocator<B> {
     /// This directly delegates to [`UsbBus::alloc_ep`], so see that method for details. In most
     /// cases classes should call the endpoint type specific methods instead.
     pub fn alloc<'a, D: EndpointDirection>(
-        &self,
+        &mut self,
         ep_addr: Option<EndpointAddress>,
         ep_type: EndpointType,
         max_packet_size: u16,
         interval: u8,
-    ) -> Result<Endpoint<'_, B, D>> {
+    ) -> Result<Endpoint<D>> {
         self.bus
-            .borrow_mut()
             .alloc_ep(D::DIRECTION, ep_addr, ep_type, max_packet_size, interval)
-            .map(|a| Endpoint::new(&self.bus_ptr, a, ep_type, max_packet_size, interval))
+            .map(|a| Endpoint::new(a, ep_type, max_packet_size, interval))
     }
 
     /// Allocates a control endpoint.
@@ -239,7 +205,7 @@ impl<B: UsbBus> UsbBusAllocator<B> {
     /// Panics if endpoint allocation fails, because running out of endpoints or memory is not
     /// feasibly recoverable.
     #[inline]
-    pub fn control<D: EndpointDirection>(&self, max_packet_size: u16) -> Endpoint<'_, B, D> {
+    pub fn control<D: EndpointDirection>(&mut self, max_packet_size: u16) -> Endpoint<D> {
         self.alloc(None, EndpointType::Control, max_packet_size, 0)
             .expect("alloc_ep failed")
     }
@@ -255,7 +221,7 @@ impl<B: UsbBus> UsbBusAllocator<B> {
     /// Panics if endpoint allocation fails, because running out of endpoints or memory is not
     /// feasibly recoverable.
     #[inline]
-    pub fn bulk<D: EndpointDirection>(&self, max_packet_size: u16) -> Endpoint<'_, B, D> {
+    pub fn bulk<D: EndpointDirection>(&mut self, max_packet_size: u16) -> Endpoint<D> {
         self.alloc(None, EndpointType::Bulk, max_packet_size, 0)
             .expect("alloc_ep failed")
     }
@@ -270,10 +236,10 @@ impl<B: UsbBus> UsbBusAllocator<B> {
     /// feasibly recoverable.
     #[inline]
     pub fn interrupt<D: EndpointDirection>(
-        &self,
+        &mut self,
         max_packet_size: u16,
         interval: u8,
-    ) -> Endpoint<'_, B, D> {
+    ) -> Endpoint<D> {
         self.alloc(None, EndpointType::Interrupt, max_packet_size, interval)
             .expect("alloc_ep failed")
     }

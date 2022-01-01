@@ -6,7 +6,7 @@ pub struct UsbVidPid(pub u16, pub u16);
 
 /// Used to build new [`UsbDevice`]s.
 pub struct UsbDeviceBuilder<'a, B: UsbBus> {
-    alloc: &'a UsbBusAllocator<B>,
+    alloc: UsbBusAllocator<B>,
     config: Config<'a>,
 }
 
@@ -24,9 +24,9 @@ macro_rules! builder_fields {
 
 impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
     /// Creates a builder for constructing a new [`UsbDevice`].
-    pub fn new(alloc: &'a UsbBusAllocator<B>, vid_pid: UsbVidPid) -> UsbDeviceBuilder<'a, B> {
+    pub fn new(bus: UsbBusAllocator<B>, vid_pid: UsbVidPid) -> Self {
         UsbDeviceBuilder {
-            alloc,
+            alloc: bus,
             config: Config {
                 device_class: 0x00,
                 device_sub_class: 0x00,

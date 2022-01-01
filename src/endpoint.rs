@@ -1,8 +1,6 @@
 use crate::bus::UsbBus;
 use crate::{Result, UsbDirection};
 use core::marker::PhantomData;
-use core::ptr;
-use core::sync::atomic::{AtomicPtr, Ordering};
 
 /// Trait for endpoint type markers.
 pub trait EndpointDirection {
@@ -25,10 +23,10 @@ impl EndpointDirection for In {
 }
 
 /// A host-to-device (OUT) endpoint.
-pub type EndpointOut<'a, B> = Endpoint<'a, B, Out>;
+pub type EndpointOut = Endpoint<Out>;
 
 /// A device-to-host (IN) endpoint.
-pub type EndpointIn<'a, B> = Endpoint<'a, B, In>;
+pub type EndpointIn = Endpoint<In>;
 
 /// USB endpoint transfer type. The values of this enum can be directly cast into `u8` to get the
 /// transfer bmAttributes transfer type bits.
@@ -48,8 +46,7 @@ pub enum EndpointType {
 
 /// Handle for a USB endpoint. The endpoint direction is constrained by the `D` type argument, which
 /// must be either `In` or `Out`.
-pub struct Endpoint<'a, B: UsbBus, D: EndpointDirection> {
-    bus_ptr: &'a AtomicPtr<B>,
+pub struct Endpoint<D: EndpointDirection> {
     address: EndpointAddress,
     ep_type: EndpointType,
     max_packet_size: u16,
@@ -57,31 +54,20 @@ pub struct Endpoint<'a, B: UsbBus, D: EndpointDirection> {
     _marker: PhantomData<D>,
 }
 
-impl<B: UsbBus, D: EndpointDirection> Endpoint<'_, B, D> {
+impl<D: EndpointDirection> Endpoint<D> {
     pub(crate) fn new<'a>(
-        bus_ptr: &'a AtomicPtr<B>,
         address: EndpointAddress,
         ep_type: EndpointType,
         max_packet_size: u16,
         interval: u8,
-    ) -> Endpoint<'_, B, D> {
+    ) -> Endpoint<D> {
         Endpoint {
-            bus_ptr,
             address,
             ep_type,
             max_packet_size,
             interval,
             _marker: PhantomData,
         }
-    }
-
-    fn bus(&self) -> &B {
-        let bus_ptr = self.bus_ptr.load(Ordering::SeqCst);
-        if bus_ptr == ptr::null_mut() {
-            panic!("UsbBus initialization not complete");
-        }
-
-        unsafe { &*bus_ptr }
     }
 
     /// Gets the endpoint address including direction bit.
@@ -105,17 +91,17 @@ impl<B: UsbBus, D: EndpointDirection> Endpoint<'_, B, D> {
     }
 
     /// Sets the STALL condition for the endpoint.
-    pub fn stall(&self) {
-        self.bus().set_stalled(self.address, true);
+    pub fn stall<B: UsbBus>(&self, bus: &mut B) {
+        bus.set_stalled(self.address, true);
     }
 
     /// Clears the STALL condition of the endpoint.
-    pub fn unstall(&self) {
-        self.bus().set_stalled(self.address, false);
+    pub fn unstall<B: UsbBus>(&self, bus: &mut B) {
+        bus.set_stalled(self.address, false);
     }
 }
 
-impl<B: UsbBus> Endpoint<'_, B, In> {
+impl Endpoint<In> {
     /// Writes a single packet of data to the specified endpoint and returns number of bytes
     /// actually written. The buffer must not be longer than the `max_packet_size` specified when
     /// allocating the endpoint.
@@ -131,12 +117,12 @@ impl<B: UsbBus> Endpoint<'_, B, In> {
     /// * [`BufferOverflow`](crate::UsbError::BufferOverflow) - The data is longer than the
     ///   `max_packet_size` specified when allocating the endpoint. This is generally an error in
     ///   the class implementation.
-    pub fn write(&self, data: &[u8]) -> Result<usize> {
-        self.bus().write(self.address, data)
+    pub fn write<B: UsbBus>(&self, bus: &mut B, data: &[u8]) -> Result<usize> {
+        bus.write(self.address, data)
     }
 }
 
-impl<B: UsbBus> Endpoint<'_, B, Out> {
+impl Endpoint<Out> {
     /// Reads a single packet of data from the specified endpoint and returns the actual length of
     /// the packet. The buffer should be large enough to fit at least as many bytes as the
     /// `max_packet_size` specified when allocating the endpoint.
@@ -151,8 +137,8 @@ impl<B: UsbBus> Endpoint<'_, B, Out> {
     ///   USB. A zero-length packet will return `Ok(0)`.
     /// * [`BufferOverflow`](crate::UsbError::BufferOverflow) - The received packet is too long to
     ///   fit in `data`. This is generally an error in the class implementation.
-    pub fn read(&self, data: &mut [u8]) -> Result<usize> {
-        self.bus().read(self.address, data)
+    pub fn read<B: UsbBus>(&self, bus: &mut B, data: &mut [u8]) -> Result<usize> {
+        bus.read(self.address, data)
     }
 }
 

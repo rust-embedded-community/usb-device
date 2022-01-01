@@ -69,7 +69,7 @@ pub trait UsbClass<B: UsbBus> {
     ///
     /// * `req` - The request from the SETUP packet.
     /// * `xfer` - A handle to the transfer.
-    fn control_out(&mut self, xfer: ControlOut<B>) {
+    fn control_out(&mut self, xfer: ControlOut<'_, B>) {
         let _ = xfer;
     }
 
@@ -88,7 +88,7 @@ pub trait UsbClass<B: UsbBus> {
     ///
     /// * `req` - The request from the SETUP packet.
     /// * `data` - Data to send in the DATA stage of the control transfer.
-    fn control_in(&mut self, xfer: ControlIn<B>) {
+    fn control_in(&mut self, xfer: ControlIn<'_, B>) {
         let _ = xfer;
     }
 
@@ -97,7 +97,8 @@ pub trait UsbClass<B: UsbBus> {
     ///
     /// Note: This method may be called for an endpoint address you didn't allocate, and in that
     /// case you should ignore the event.
-    fn endpoint_setup(&mut self, addr: EndpointAddress) {
+    fn endpoint_setup(&mut self, bus: &mut B, addr: EndpointAddress) {
+        let _ = bus;
         let _ = addr;
     }
 
@@ -105,7 +106,8 @@ pub trait UsbClass<B: UsbBus> {
     ///
     /// Note: This method may be called for an endpoint address you didn't allocate, and in that
     /// case you should ignore the event.
-    fn endpoint_out(&mut self, addr: EndpointAddress) {
+    fn endpoint_out(&mut self, bus: &mut B, addr: EndpointAddress) {
+        let _ = bus;
         let _ = addr;
     }
 
@@ -113,7 +115,8 @@ pub trait UsbClass<B: UsbBus> {
     ///
     /// Note: This method may be called for an endpoint address you didn't allocate, and in that
     /// case you should ignore the event.
-    fn endpoint_in_complete(&mut self, addr: EndpointAddress) {
+    fn endpoint_in_complete(&mut self, bus: &mut B, addr: EndpointAddress) {
+        let _ = bus;
         let _ = addr;
     }
 }
@@ -121,14 +124,19 @@ pub trait UsbClass<B: UsbBus> {
 /// Handle for a control IN transfer. When implementing a class, use the methods of this object to
 /// response to the transfer with either data or an error (STALL condition). To ignore the request
 /// and pass it on to the next class, simply don't call any method.
-pub struct ControlIn<'a, 'p, 'r, B: UsbBus> {
-    pipe: &'p mut ControlPipe<'a, B>,
-    req: &'r control::Request,
+pub struct ControlIn<'a, B: UsbBus> {
+    pub(crate) bus: &'a mut B,
+    pub(crate) pipe: &'a mut ControlPipe,
+    pub(crate) req: &'a control::Request,
 }
 
-impl<'a, 'p, 'r, B: UsbBus> ControlIn<'a, 'p, 'r, B> {
-    pub(crate) fn new(pipe: &'p mut ControlPipe<'a, B>, req: &'r control::Request) -> Self {
-        ControlIn { pipe, req }
+impl<'a, B: UsbBus> ControlIn<'a, B> {
+    pub(crate) fn new(
+        bus: &'a mut B,
+        pipe: &'a mut ControlPipe,
+        req: &'a control::Request,
+    ) -> Self {
+        Self { bus, pipe, req }
     }
 
     /// Gets the request from the SETUP packet.
@@ -138,7 +146,7 @@ impl<'a, 'p, 'r, B: UsbBus> ControlIn<'a, 'p, 'r, B> {
 
     /// Accepts the transfer with the supplied buffer.
     pub fn accept_with(self, data: &[u8]) -> Result<()> {
-        self.pipe.accept_in(|buf| {
+        self.pipe.accept_in(self.bus, |buf| {
             if data.len() > buf.len() {
                 return Err(UsbError::BufferOverflow);
             }
@@ -152,32 +160,37 @@ impl<'a, 'p, 'r, B: UsbBus> ControlIn<'a, 'p, 'r, B> {
     /// Accepts the transfer with the supplied static buffer.
     /// This method is useful when you have a large static descriptor to send as one packet.
     pub fn accept_with_static(self, data: &'static [u8]) -> Result<()> {
-        self.pipe.accept_in_static(data)
+        self.pipe.accept_in_static(self.bus, data)
     }
 
     /// Accepts the transfer with a callback that can write to the internal buffer of the control
     /// pipe. Can be used to avoid an extra copy.
     pub fn accept(self, f: impl FnOnce(&mut [u8]) -> Result<usize>) -> Result<()> {
-        self.pipe.accept_in(f)
+        self.pipe.accept_in(self.bus, f)
     }
 
     /// Rejects the transfer by stalling the pipe.
     pub fn reject(self) -> Result<()> {
-        self.pipe.reject()
+        self.pipe.reject(self.bus)
     }
 }
 
 /// Handle for a control OUT transfer. When implementing a class, use the methods of this object to
 /// response to the transfer with an ACT or an error (STALL condition). To ignore the request and
 /// pass it on to the next class, simply don't call any method.
-pub struct ControlOut<'a, 'p, 'r, B: UsbBus> {
-    pipe: &'p mut ControlPipe<'a, B>,
-    req: &'r control::Request,
+pub struct ControlOut<'a, B: UsbBus> {
+    pub(crate) bus: &'a mut B,
+    pub(crate) pipe: &'a mut ControlPipe,
+    pub(crate) req: &'a control::Request,
 }
 
-impl<'a, 'p, 'r, B: UsbBus> ControlOut<'a, 'p, 'r, B> {
-    pub(crate) fn new(pipe: &'p mut ControlPipe<'a, B>, req: &'r control::Request) -> Self {
-        ControlOut { pipe, req }
+impl<'a, B: UsbBus> ControlOut<'a, B> {
+    pub(crate) fn new(
+        bus: &'a mut B,
+        pipe: &'a mut ControlPipe,
+        req: &'a control::Request,
+    ) -> Self {
+        Self { bus, pipe, req }
     }
 
     /// Gets the request from the SETUP packet.
@@ -192,11 +205,11 @@ impl<'a, 'p, 'r, B: UsbBus> ControlOut<'a, 'p, 'r, B> {
 
     /// Accepts the transfer by succesfully responding to the status stage.
     pub fn accept(self) -> Result<()> {
-        self.pipe.accept_out()
+        self.pipe.accept_out(self.bus)
     }
 
     /// Rejects the transfer by stalling the pipe.
     pub fn reject(self) -> Result<()> {
-        self.pipe.reject()
+        self.pipe.reject(self.bus)
     }
 }

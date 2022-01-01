@@ -27,9 +27,9 @@ const CONTROL_BUF_LEN: usize = 128;
 const CONTROL_BUF_LEN: usize = 256;
 
 /// Buffers and parses USB control transfers.
-pub struct ControlPipe<'a, B: UsbBus> {
-    ep_out: EndpointOut<'a, B>,
-    ep_in: EndpointIn<'a, B>,
+pub struct ControlPipe {
+    ep_out: EndpointOut,
+    ep_in: EndpointIn,
     state: ControlState,
     buf: [u8; CONTROL_BUF_LEN],
     static_in_buf: Option<&'static [u8]>,
@@ -37,8 +37,8 @@ pub struct ControlPipe<'a, B: UsbBus> {
     len: usize,
 }
 
-impl<B: UsbBus> ControlPipe<'_, B> {
-    pub fn new<'a>(ep_out: EndpointOut<'a, B>, ep_in: EndpointIn<'a, B>) -> ControlPipe<'a, B> {
+impl ControlPipe {
+    pub fn new<'a>(ep_out: EndpointOut, ep_in: EndpointIn) -> ControlPipe {
         ControlPipe {
             ep_out,
             ep_in,
@@ -65,12 +65,12 @@ impl<B: UsbBus> ControlPipe<'_, B> {
         self.state = ControlState::Idle;
     }
 
-    pub fn handle_setup<'p>(&'p mut self) -> Option<Request> {
-        let count = match self.ep_out.read(&mut self.buf[..]) {
+    pub fn handle_setup<B: UsbBus>(&mut self, bus: &mut B) -> Option<Request> {
+        let count = match self.ep_out.read(bus, &mut self.buf[..]) {
             Ok(count) => count,
             Err(UsbError::WouldBlock) => return None,
             Err(_) => {
-                self.set_error();
+                self.set_error(bus);
                 return None;
             }
         };
@@ -79,14 +79,14 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             Ok(req) => req,
             Err(_) => {
                 // Failed to parse SETUP packet
-                self.set_error();
+                self.set_error(bus);
                 return None;
             }
         };
 
         // Now that we have properly parsed the setup packet, ensure the end-point is no longer in
         // a stalled state.
-        self.ep_out.unstall();
+        self.ep_out.unstall(bus);
 
         /*sprintln!("SETUP {:?} {:?} {:?} req:{} val:{} idx:{} len:{} {:?}",
         req.direction, req.request_type, req.recipient,
@@ -101,7 +101,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
 
                 if req.length as usize > self.buf.len() {
                     // Data stage won't fit in buffer
-                    self.set_error();
+                    self.set_error(bus);
                     return None;
                 }
 
@@ -125,17 +125,17 @@ impl<B: UsbBus> ControlPipe<'_, B> {
         return None;
     }
 
-    pub fn handle_out<'p>(&'p mut self) -> Option<Request> {
+    pub fn handle_out<B: UsbBus>(&mut self, bus: &mut B) -> Option<Request> {
         match self.state {
             ControlState::DataOut(req) => {
                 let i = self.i;
-                let count = match self.ep_out.read(&mut self.buf[i..]) {
+                let count = match self.ep_out.read(bus, &mut self.buf[i..]) {
                     Ok(count) => count,
                     Err(UsbError::WouldBlock) => return None,
                     Err(_) => {
                         // Failed to read or buffer overflow (overflow is only possible if the host
                         // sends more data than it indicated in the SETUP request)
-                        self.set_error();
+                        self.set_error(bus);
                         return None;
                     }
                 };
@@ -148,28 +148,28 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                 }
             }
             ControlState::StatusOut => {
-                self.ep_out.read(&mut []).ok();
+                self.ep_out.read(bus, &mut []).ok();
                 self.state = ControlState::Idle;
             }
             _ => {
                 // Discard the packet
-                self.ep_out.read(&mut []).ok();
+                self.ep_out.read(bus, &mut []).ok();
 
                 // Unexpected OUT packet
-                self.set_error()
+                self.set_error(bus)
             }
         }
 
         return None;
     }
 
-    pub fn handle_in_complete(&mut self) -> bool {
+    pub fn handle_in_complete<B: UsbBus>(&mut self, bus: &mut B) -> bool {
         match self.state {
             ControlState::DataIn => {
-                self.write_in_chunk();
+                self.write_in_chunk(bus);
             }
             ControlState::DataInZlp => {
-                if self.ep_in.write(&[]).is_err() {
+                if self.ep_in.write(bus, &[]).is_err() {
                     // There isn't much we can do if the write fails, except to wait for another
                     // poll or for the host to resend the request.
                     return false;
@@ -178,7 +178,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                 self.state = ControlState::DataInLast;
             }
             ControlState::DataInLast => {
-                self.ep_out.unstall();
+                self.ep_out.unstall(bus);
                 self.state = ControlState::StatusOut;
             }
             ControlState::StatusIn => {
@@ -187,18 +187,18 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             }
             _ => {
                 // Unexpected IN packet
-                self.set_error();
+                self.set_error(bus);
             }
         };
 
         return false;
     }
 
-    fn write_in_chunk(&mut self) {
+    fn write_in_chunk<B: UsbBus>(&mut self, bus: &mut B) {
         let count = min(self.len - self.i, self.ep_in.max_packet_size() as usize);
 
         let buffer = self.static_in_buf.unwrap_or(&self.buf);
-        let count = match self.ep_in.write(&buffer[self.i..(self.i + count)]) {
+        let count = match self.ep_in.write(bus, &buffer[self.i..(self.i + count)]) {
             Ok(c) => c,
             // There isn't much we can do if the write fails, except to wait for another poll or for
             // the host to resend the request.
@@ -218,18 +218,22 @@ impl<B: UsbBus> ControlPipe<'_, B> {
         }
     }
 
-    pub fn accept_out(&mut self) -> Result<()> {
+    pub fn accept_out<B: UsbBus>(&mut self, bus: &mut B) -> Result<()> {
         match self.state {
             ControlState::CompleteOut => {}
             _ => return Err(UsbError::InvalidState),
         };
 
-        self.ep_in.write(&[]).ok();
+        self.ep_in.write(bus, &[]).ok();
         self.state = ControlState::StatusIn;
         Ok(())
     }
 
-    pub fn accept_in(&mut self, f: impl FnOnce(&mut [u8]) -> Result<usize>) -> Result<()> {
+    pub fn accept_in<B: UsbBus>(
+        &mut self,
+        bus: &mut B,
+        f: impl FnOnce(&mut [u8]) -> Result<usize>,
+    ) -> Result<()> {
         let req = match self.state {
             ControlState::CompleteIn(req) => req,
             _ => return Err(UsbError::InvalidState),
@@ -238,14 +242,14 @@ impl<B: UsbBus> ControlPipe<'_, B> {
         let len = f(&mut self.buf[..])?;
 
         if len > self.buf.len() {
-            self.set_error();
+            self.set_error(bus);
             return Err(UsbError::BufferOverflow);
         }
 
-        self.start_in_transfer(req, len)
+        self.start_in_transfer(bus, req, len)
     }
 
-    pub fn accept_in_static(&mut self, data: &'static [u8]) -> Result<()> {
+    pub fn accept_in_static<B: UsbBus>(&mut self, bus: &mut B, data: &'static [u8]) -> Result<()> {
         let req = match self.state {
             ControlState::CompleteIn(req) => req,
             _ => return Err(UsbError::InvalidState),
@@ -253,30 +257,35 @@ impl<B: UsbBus> ControlPipe<'_, B> {
 
         self.static_in_buf = Some(data);
 
-        self.start_in_transfer(req, data.len())
+        self.start_in_transfer(bus, req, data.len())
     }
 
-    fn start_in_transfer(&mut self, req: Request, data_len: usize) -> Result<()> {
+    fn start_in_transfer<B: UsbBus>(
+        &mut self,
+        bus: &mut B,
+        req: Request,
+        data_len: usize,
+    ) -> Result<()> {
         self.len = min(data_len, req.length as usize);
         self.i = 0;
         self.state = ControlState::DataIn;
-        self.write_in_chunk();
+        self.write_in_chunk(bus);
 
         Ok(())
     }
 
-    pub fn reject(&mut self) -> Result<()> {
+    pub fn reject<B: UsbBus>(&mut self, bus: &mut B) -> Result<()> {
         if !self.waiting_for_response() {
             return Err(UsbError::InvalidState);
         }
 
-        self.set_error();
+        self.set_error(bus);
         Ok(())
     }
 
-    fn set_error(&mut self) {
+    fn set_error<B: UsbBus>(&mut self, bus: &mut B) {
         self.state = ControlState::Error;
-        self.ep_out.stall();
-        self.ep_in.stall();
+        self.ep_out.stall(bus);
+        self.ep_in.stall(bus);
     }
 }

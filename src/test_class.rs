@@ -24,14 +24,14 @@ mod sizes {
 
 /// Test USB class for testing USB driver implementations. Supports various endpoint types and
 /// requests for testing USB peripheral drivers on actual hardware.
-pub struct TestClass<'a, B: UsbBus> {
+pub struct TestClass {
     custom_string: StringIndex,
     interface_string: StringIndex,
     iface: InterfaceNumber,
-    ep_bulk_in: EndpointIn<'a, B>,
-    ep_bulk_out: EndpointOut<'a, B>,
-    ep_interrupt_in: EndpointIn<'a, B>,
-    ep_interrupt_out: EndpointOut<'a, B>,
+    ep_bulk_in: EndpointIn,
+    ep_bulk_out: EndpointOut,
+    ep_interrupt_in: EndpointIn,
+    ep_interrupt_out: EndpointOut,
     control_buf: [u8; sizes::BUFFER],
     bulk_buf: [u8; sizes::BUFFER],
     interrupt_buf: [u8; sizes::BUFFER],
@@ -61,9 +61,9 @@ pub const REQ_UNKNOWN: u8 = 42;
 
 pub const LONG_DATA: &'static [u8] = &[0x17; 257];
 
-impl<B: UsbBus> TestClass<'_, B> {
+impl TestClass {
     /// Creates a new TestClass.
-    pub fn new(alloc: &UsbBusAllocator<B>) -> TestClass<'_, B> {
+    pub fn new<B: UsbBus>(alloc: &mut UsbBusAllocator<B>) -> TestClass {
         TestClass {
             custom_string: alloc.string(),
             interface_string: alloc.string(),
@@ -86,8 +86,8 @@ impl<B: UsbBus> TestClass<'_, B> {
     }
 
     /// Convenience method to create a UsbDevice that is configured correctly for TestClass.
-    pub fn make_device<'a, 'b>(&'a self, usb_bus: &'b UsbBusAllocator<B>) -> UsbDevice<'b, B> {
-        self.make_device_builder(usb_bus).build()
+    pub fn make_device<'a, 'b, B: UsbBus>(&'a self, bus: UsbBusAllocator<B>) -> UsbDevice<'b, B> {
+        self.make_device_builder(bus).build()
     }
 
     /// Convenience method to create a UsbDeviceBuilder that is configured correctly for TestClass.
@@ -101,11 +101,11 @@ impl<B: UsbBus> TestClass<'_, B> {
     ///
     /// on the returned builder. If you change the manufacturer, product, or serial number fields,
     /// the test host may misbehave.
-    pub fn make_device_builder<'a, 'b>(
+    pub fn make_device_builder<'a, 'b, B: UsbBus>(
         &'a self,
-        usb_bus: &'b UsbBusAllocator<B>,
+        bus: UsbBusAllocator<B>,
     ) -> UsbDeviceBuilder<'b, B> {
-        UsbDeviceBuilder::new(&usb_bus, UsbVidPid(VID, PID))
+        UsbDeviceBuilder::new(bus, UsbVidPid(VID, PID))
             .manufacturer(MANUFACTURER)
             .product(PRODUCT)
             .serial_number(SERIAL_NUMBER)
@@ -113,17 +113,17 @@ impl<B: UsbBus> TestClass<'_, B> {
     }
 
     /// Must be called after polling the UsbDevice.
-    pub fn poll(&mut self) {
+    pub fn poll<B: UsbBus>(&mut self, bus: &mut B) {
         if self.bench {
-            match self.ep_bulk_out.read(&mut self.bulk_buf) {
+            match self.ep_bulk_out.read(bus, &mut self.bulk_buf) {
                 Ok(_) | Err(UsbError::WouldBlock) => {}
                 Err(err) => panic!("bulk bench read {:?}", err),
             };
 
-            match self
-                .ep_bulk_in
-                .write(&self.bulk_buf[0..self.ep_bulk_in.max_packet_size() as usize])
-            {
+            match self.ep_bulk_in.write(
+                bus,
+                &self.bulk_buf[0..self.ep_bulk_in.max_packet_size() as usize],
+            ) {
                 Ok(_) | Err(UsbError::WouldBlock) => {}
                 Err(err) => panic!("bulk bench write {:?}", err),
             };
@@ -132,7 +132,7 @@ impl<B: UsbBus> TestClass<'_, B> {
         }
 
         let temp_i = self.i;
-        match self.ep_bulk_out.read(&mut self.bulk_buf[temp_i..]) {
+        match self.ep_bulk_out.read(bus, &mut self.bulk_buf[temp_i..]) {
             Ok(count) => {
                 if self.expect_bulk_out {
                     self.expect_bulk_out = false;
@@ -146,14 +146,14 @@ impl<B: UsbBus> TestClass<'_, B> {
                     self.len = self.i;
                     self.i = 0;
 
-                    self.write_bulk_in(count == 0);
+                    self.write_bulk_in(bus, count == 0);
                 }
             }
             Err(UsbError::WouldBlock) => {}
             Err(err) => panic!("bulk read {:?}", err),
         };
 
-        match self.ep_interrupt_out.read(&mut self.interrupt_buf) {
+        match self.ep_interrupt_out.read(bus, &mut self.interrupt_buf) {
             Ok(count) => {
                 if self.expect_interrupt_out {
                     self.expect_interrupt_out = false;
@@ -162,7 +162,7 @@ impl<B: UsbBus> TestClass<'_, B> {
                 }
 
                 self.ep_interrupt_in
-                    .write(&self.interrupt_buf[0..count])
+                    .write(bus, &self.interrupt_buf[0..count])
                     .expect("interrupt write");
 
                 self.expect_interrupt_in_complete = true;
@@ -172,7 +172,7 @@ impl<B: UsbBus> TestClass<'_, B> {
         };
     }
 
-    fn write_bulk_in(&mut self, write_empty: bool) {
+    fn write_bulk_in<B: UsbBus>(&mut self, bus: &mut B, write_empty: bool) {
         let to_write = cmp::min(
             self.len - self.i,
             self.ep_bulk_in.max_packet_size() as usize,
@@ -187,7 +187,7 @@ impl<B: UsbBus> TestClass<'_, B> {
 
         match self
             .ep_bulk_in
-            .write(&self.bulk_buf[self.i..self.i + to_write])
+            .write(bus, &self.bulk_buf[self.i..self.i + to_write])
         {
             Ok(count) => {
                 assert_eq!(count, to_write);
@@ -200,7 +200,7 @@ impl<B: UsbBus> TestClass<'_, B> {
     }
 }
 
-impl<B: UsbBus> UsbClass<B> for TestClass<'_, B> {
+impl<B: UsbBus> UsbClass<B> for TestClass {
     fn reset(&mut self) {
         self.len = 0;
         self.i = 0;
@@ -234,7 +234,7 @@ impl<B: UsbBus> UsbClass<B> for TestClass<'_, B> {
         None
     }
 
-    fn endpoint_in_complete(&mut self, addr: EndpointAddress) {
+    fn endpoint_in_complete(&mut self, bus: &mut B, addr: EndpointAddress) {
         if self.bench {
             return;
         }
@@ -243,7 +243,7 @@ impl<B: UsbBus> UsbClass<B> for TestClass<'_, B> {
             if self.expect_bulk_in_complete {
                 self.expect_bulk_in_complete = false;
 
-                self.write_bulk_in(false);
+                self.write_bulk_in(bus, false);
             } else {
                 panic!("unexpected endpoint_in_complete");
             }
@@ -256,7 +256,8 @@ impl<B: UsbBus> UsbClass<B> for TestClass<'_, B> {
         }
     }
 
-    fn endpoint_out(&mut self, addr: EndpointAddress) {
+    fn endpoint_out(&mut self, bus: &mut B, addr: EndpointAddress) {
+        let _ = bus;
         if addr == self.ep_bulk_out.address() {
             self.expect_bulk_out = true;
         } else if addr == self.ep_interrupt_out.address() {
