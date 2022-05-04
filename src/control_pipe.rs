@@ -51,7 +51,10 @@ impl<B: UsbBus> ControlPipe<'_, B> {
     }
 
     pub fn waiting_for_response(&self) -> bool {
-        matches!(self.state, ControlState::CompleteOut | ControlState::CompleteIn(_))
+        matches!(
+            self.state,
+            ControlState::CompleteOut | ControlState::CompleteIn(_)
+        )
     }
 
     pub fn data(&self) -> &[u8] {

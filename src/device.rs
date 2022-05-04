@@ -315,10 +315,10 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     let ep_addr = ((req.index as u8) & 0x8f).into();
 
                     let status: u16 = if self.bus.is_stalled(ep_addr) {
-                            0x0001
-                        } else {
-                            0x0000
-                        };
+                        0x0001
+                    } else {
+                        0x0000
+                    };
 
                     xfer.accept_with(&status.to_le_bytes()).ok();
                 }
