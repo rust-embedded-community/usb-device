@@ -211,7 +211,7 @@ impl<B: UsbBus> UsbBusAllocator<B> {
     ///
     /// This directly delegates to [`UsbBus::alloc_ep`], so see that method for details. In most
     /// cases classes should call the endpoint type specific methods instead.
-    pub fn alloc<'a, D: EndpointDirection>(
+    pub fn alloc<D: EndpointDirection>(
         &self,
         ep_addr: Option<EndpointAddress>,
         ep_type: EndpointType,
