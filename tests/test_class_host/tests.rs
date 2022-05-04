@@ -38,7 +38,7 @@ fn control_request(dev, _out) {
     let data = random_data(rng.gen_range(0, 16));
 
     let mut expected = [0u8; 8];
-    expected[0] = (0x02 as u8) << 5;
+    expected[0] = 0x02_u8 << 5;
     expected[1] = test_class::REQ_STORE_REQUEST;
     expected[2..4].copy_from_slice(&value.to_le_bytes());
     expected[4..6].copy_from_slice(&index.to_le_bytes());
@@ -71,7 +71,7 @@ fn control_data(dev, _out) {
             dev.write_control(
                 request_type(Direction::Out, RequestType::Vendor, Recipient::Device),
                 test_class::REQ_WRITE_BUFFER, 0, 0,
-                &data, TIMEOUT).expect(&format!("control write len {}", len)),
+                &data, TIMEOUT).unwrap_or_else(|_| panic!("control write len {}", len)),
             data.len());
 
         let mut response = vec![0u8; *len];
@@ -80,7 +80,7 @@ fn control_data(dev, _out) {
             dev.read_control(
                 request_type(Direction::In, RequestType::Vendor, Recipient::Device),
                 test_class::REQ_READ_BUFFER, 0, 0,
-                &mut response, TIMEOUT).expect(&format!("control read len {}", len)),
+                &mut response, TIMEOUT).unwrap_or_else(|_| panic!("control read len {}", len)),
             data.len());
 
         assert_eq!(&response, &data);
@@ -169,14 +169,14 @@ fn bulk_loopback(dev, _out) {
 
         assert_eq!(
             dev.write_bulk(0x01, &data, TIMEOUT)
-                .expect(&format!("bulk write len {}", len)),
+                .unwrap_or_else(|_| panic!("bulk write len {}", len)),
             data.len(),
             "bulk write len {}", len);
 
         if *len > 0 && *len % 64 == 0 {
             assert_eq!(
                 dev.write_bulk(0x01, &[], TIMEOUT)
-                    .expect(&format!("bulk write zero-length packet")),
+                    .expect("bulk write zero-length packet"),
                 0,
                 "bulk write zero-length packet");
         }
@@ -187,7 +187,7 @@ fn bulk_loopback(dev, _out) {
 
         assert_eq!(
             dev.read_bulk(0x81, &mut response, TIMEOUT)
-                .expect(&format!("bulk read len {}", len)),
+                .unwrap_or_else(|_| panic!("bulk read len {}", len)),
             data.len(),
             "bulk read len {}", len);
 
@@ -201,7 +201,7 @@ fn interrupt_loopback(dev, _out) {
 
         assert_eq!(
             dev.write_interrupt(0x02, &data, TIMEOUT)
-                .expect(&format!("interrupt write len {}", len)),
+                .unwrap_or_else(|_| panic!("interrupt write len {}", len)),
             data.len(),
             "interrupt write len {}", len);
 
@@ -211,7 +211,7 @@ fn interrupt_loopback(dev, _out) {
 
         assert_eq!(
             dev.read_interrupt(0x82, &mut response, TIMEOUT)
-                .expect(&format!("interrupt read len {}", len)),
+                .unwrap_or_else(|_| panic!("interrupt read len {}", len)),
             data.len(),
             "interrupt read len {}", len);
 
@@ -241,7 +241,7 @@ fn bench_bulk_read(dev, out) {
 
 }
 
-fn run_bench(dev: &DeviceHandles, out: &mut String, f: impl Fn(&mut [u8]) -> ()) {
+fn run_bench(dev: &DeviceHandles, out: &mut String, f: impl Fn(&mut [u8])) {
     const TRANSFER_BYTES: usize = 64 * 1024;
     const TRANSFERS: usize = 16;
     const TOTAL_BYTES: usize = TRANSFER_BYTES * TRANSFERS;
