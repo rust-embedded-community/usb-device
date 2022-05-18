@@ -1,9 +1,9 @@
-use crate::{Result, UsbError};
-use crate::bus::{UsbBus, StringIndex};
-use crate::descriptor::{DescriptorWriter, BosWriter};
+use crate::bus::{StringIndex, UsbBus};
 use crate::control;
 use crate::control_pipe::ControlPipe;
+use crate::descriptor::{BosWriter, DescriptorWriter};
 use crate::endpoint::EndpointAddress;
+use crate::{Result, UsbError};
 
 /// A trait for implementing USB classes.
 ///
@@ -21,7 +21,7 @@ pub trait UsbClass<B: UsbBus> {
     /// using `?`.
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
         let _ = writer;
-        Ok (())
+        Ok(())
     }
 
     /// Called when a GET_DESCRIPTOR request is received for a BOS descriptor.
@@ -30,7 +30,7 @@ pub trait UsbClass<B: UsbBus> {
     /// [UsbDevice](crate::device::UsbDevice) and shouldn't be written by classes.
     fn get_bos_descriptors(&self, writer: &mut BosWriter) -> Result<()> {
         let _ = writer;
-        Ok (())
+        Ok(())
     }
 
     /// Gets a class-specific string descriptor.
@@ -49,10 +49,10 @@ pub trait UsbClass<B: UsbBus> {
     }
 
     /// Called after a USB reset after the bus reset sequence is complete.
-    fn reset(&mut self) { }
+    fn reset(&mut self) {}
 
     /// Called whenever the `UsbDevice` is polled.
-    fn poll(&mut self) { }
+    fn poll(&mut self) {}
 
     /// Called when a control request is received with direction HostToDevice.
     ///
@@ -126,7 +126,7 @@ pub struct ControlIn<'a, 'p, 'r, B: UsbBus> {
     req: &'r control::Request,
 }
 
-impl<'a, 'p, 'r, B: UsbBus> ControlIn<'a, 'p, 'r,  B> {
+impl<'a, 'p, 'r, B: UsbBus> ControlIn<'a, 'p, 'r, B> {
     pub(crate) fn new(pipe: &'p mut ControlPipe<'a, B>, req: &'r control::Request) -> Self {
         ControlIn { pipe, req }
     }

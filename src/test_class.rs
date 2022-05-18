@@ -1,10 +1,10 @@
 #![allow(missing_docs)]
 
-use core::cmp;
-use crate::Result;
 use crate::class_prelude::*;
-use crate::device::{UsbDevice, UsbDeviceBuilder, UsbVidPid};
 use crate::descriptor;
+use crate::device::{UsbDevice, UsbDeviceBuilder, UsbVidPid};
+use crate::Result;
+use core::cmp;
 
 #[cfg(feature = "test-class-high-speed")]
 mod sizes {
@@ -46,11 +46,11 @@ pub struct TestClass<'a, B: UsbBus> {
 
 pub const VID: u16 = 0x16c0;
 pub const PID: u16 = 0x05dc;
-pub const MANUFACTURER: &'static str = "TestClass Manufacturer";
-pub const PRODUCT: &'static str = "virkkunen.net usb-device TestClass";
-pub const SERIAL_NUMBER: &'static str = "TestClass Serial";
-pub const CUSTOM_STRING: &'static str = "TestClass Custom String";
-pub const INTERFACE_STRING: &'static str = "TestClass Interface";
+pub const MANUFACTURER: &str = "TestClass Manufacturer";
+pub const PRODUCT: &str = "virkkunen.net usb-device TestClass";
+pub const SERIAL_NUMBER: &str = "TestClass Serial";
+pub const CUSTOM_STRING: &str = "TestClass Custom String";
+pub const INTERFACE_STRING: &str = "TestClass Interface";
 
 pub const REQ_STORE_REQUEST: u8 = 1;
 pub const REQ_READ_BUFFER: u8 = 2;
@@ -59,8 +59,7 @@ pub const REQ_SET_BENCH_ENABLED: u8 = 4;
 pub const REQ_READ_LONG_DATA: u8 = 5;
 pub const REQ_UNKNOWN: u8 = 42;
 
-pub const LONG_DATA: &'static [u8] = &[0x17; 257];
-
+pub const LONG_DATA: &[u8] = &[0x17; 257];
 
 impl<B: UsbBus> TestClass<'_, B> {
     /// Creates a new TestClass.
@@ -102,8 +101,11 @@ impl<B: UsbBus> TestClass<'_, B> {
     ///
     /// on the returned builder. If you change the manufacturer, product, or serial number fields,
     /// the test host may misbehave.
-    pub fn make_device_builder<'a, 'b> (&'a self, usb_bus: &'b UsbBusAllocator<B>) -> UsbDeviceBuilder<'b, B> {
-        UsbDeviceBuilder::new(&usb_bus, UsbVidPid(VID, PID))
+    pub fn make_device_builder<'a, 'b>(
+        &'a self,
+        usb_bus: &'b UsbBusAllocator<B>,
+    ) -> UsbDeviceBuilder<'b, B> {
+        UsbDeviceBuilder::new(usb_bus, UsbVidPid(VID, PID))
             .manufacturer(MANUFACTURER)
             .product(PRODUCT)
             .serial_number(SERIAL_NUMBER)
@@ -114,12 +116,15 @@ impl<B: UsbBus> TestClass<'_, B> {
     pub fn poll(&mut self) {
         if self.bench {
             match self.ep_bulk_out.read(&mut self.bulk_buf) {
-                Ok(_) | Err(UsbError::WouldBlock) => { },
+                Ok(_) | Err(UsbError::WouldBlock) => {}
                 Err(err) => panic!("bulk bench read {:?}", err),
             };
 
-            match self.ep_bulk_in.write(&self.bulk_buf[0..self.ep_bulk_in.max_packet_size() as usize]) {
-                Ok(_) | Err(UsbError::WouldBlock) => { },
+            match self
+                .ep_bulk_in
+                .write(&self.bulk_buf[0..self.ep_bulk_in.max_packet_size() as usize])
+            {
+                Ok(_) | Err(UsbError::WouldBlock) => {}
                 Err(err) => panic!("bulk bench write {:?}", err),
             };
 
@@ -143,8 +148,8 @@ impl<B: UsbBus> TestClass<'_, B> {
 
                     self.write_bulk_in(count == 0);
                 }
-            },
-            Err(UsbError::WouldBlock) => { },
+            }
+            Err(UsbError::WouldBlock) => {}
             Err(err) => panic!("bulk read {:?}", err),
         };
 
@@ -156,18 +161,22 @@ impl<B: UsbBus> TestClass<'_, B> {
                     panic!("unexpectedly read data from interrupt out endpoint");
                 }
 
-                self.ep_interrupt_in.write(&self.interrupt_buf[0..count])
+                self.ep_interrupt_in
+                    .write(&self.interrupt_buf[0..count])
                     .expect("interrupt write");
 
                 self.expect_interrupt_in_complete = true;
-            },
-            Err(UsbError::WouldBlock) => { },
+            }
+            Err(UsbError::WouldBlock) => {}
             Err(err) => panic!("interrupt read {:?}", err),
         };
     }
 
     fn write_bulk_in(&mut self, write_empty: bool) {
-        let to_write = cmp::min(self.len - self.i, self.ep_bulk_in.max_packet_size() as usize);
+        let to_write = cmp::min(
+            self.len - self.i,
+            self.ep_bulk_in.max_packet_size() as usize,
+        );
 
         if to_write == 0 && !write_empty {
             self.len = 0;
@@ -176,13 +185,16 @@ impl<B: UsbBus> TestClass<'_, B> {
             return;
         }
 
-        match self.ep_bulk_in.write(&self.bulk_buf[self.i..self.i+to_write]) {
+        match self
+            .ep_bulk_in
+            .write(&self.bulk_buf[self.i..self.i + to_write])
+        {
             Ok(count) => {
                 assert_eq!(count, to_write);
                 self.expect_bulk_in_complete = true;
                 self.i += count;
-            },
-            Err(UsbError::WouldBlock) => { },
+            }
+            Err(UsbError::WouldBlock) => {}
             Err(err) => panic!("bulk write {:?}", err),
         };
     }
@@ -213,7 +225,7 @@ impl<B: UsbBus> UsbClass<B> for TestClass<'_, B> {
     fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&str> {
         if lang_id == descriptor::lang_id::ENGLISH_US {
             if index == self.custom_string {
-                return Some(CUSTOM_STRING)
+                return Some(CUSTOM_STRING);
             } else if index == self.interface_string {
                 return Some(INTERFACE_STRING);
             }
@@ -262,12 +274,12 @@ impl<B: UsbBus> UsbClass<B> for TestClass<'_, B> {
         }
 
         match req.request {
-            REQ_READ_BUFFER if req.length as usize <= self.control_buf.len()
-                => xfer.accept_with(&self.control_buf[0..req.length as usize])
-                    .expect("control_in REQ_READ_BUFFER failed"),
-            REQ_READ_LONG_DATA
-                => xfer.accept_with_static(LONG_DATA)
-                    .expect("control_in REQ_READ_LONG_DATA failed"),
+            REQ_READ_BUFFER if req.length as usize <= self.control_buf.len() => xfer
+                .accept_with(&self.control_buf[0..req.length as usize])
+                .expect("control_in REQ_READ_BUFFER failed"),
+            REQ_READ_LONG_DATA => xfer
+                .accept_with_static(LONG_DATA)
+                .expect("control_in REQ_READ_LONG_DATA failed"),
             _ => xfer.reject().expect("control_in reject failed"),
         }
     }
@@ -283,26 +295,32 @@ impl<B: UsbBus> UsbClass<B> for TestClass<'_, B> {
 
         match req.request {
             REQ_STORE_REQUEST => {
-                self.control_buf[0] = (req.direction as u8) | (req.request_type as u8) << 5 | (req.recipient as u8);
+                self.control_buf[0] =
+                    (req.direction as u8) | (req.request_type as u8) << 5 | (req.recipient as u8);
                 self.control_buf[1] = req.request;
                 self.control_buf[2..4].copy_from_slice(&req.value.to_le_bytes());
                 self.control_buf[4..6].copy_from_slice(&req.index.to_le_bytes());
                 self.control_buf[6..8].copy_from_slice(&req.length.to_le_bytes());
 
                 xfer.accept().expect("control_out REQ_STORE_REQUEST failed");
-            },
+            }
             REQ_WRITE_BUFFER if xfer.data().len() as usize <= self.control_buf.len() => {
-                assert_eq!(xfer.data().len(), req.length as usize, "xfer data len == req.length");
+                assert_eq!(
+                    xfer.data().len(),
+                    req.length as usize,
+                    "xfer data len == req.length"
+                );
 
                 self.control_buf[0..xfer.data().len()].copy_from_slice(xfer.data());
 
                 xfer.accept().expect("control_out REQ_WRITE_BUFFER failed");
-            },
+            }
             REQ_SET_BENCH_ENABLED => {
                 self.bench = req.value != 0;
 
-                xfer.accept().expect("control_out REQ_SET_BENCH_ENABLED failed");
-            },
+                xfer.accept()
+                    .expect("control_out REQ_SET_BENCH_ENABLED failed");
+            }
             _ => xfer.reject().expect("control_out reject failed"),
         }
     }

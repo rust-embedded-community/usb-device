@@ -1,5 +1,5 @@
-use crate::bus::{UsbBusAllocator, UsbBus};
-use crate::device::{UsbDevice, Config};
+use crate::bus::{UsbBus, UsbBusAllocator};
+use crate::device::{Config, UsbDevice};
 
 /// A USB vendor ID and product ID pair.
 pub struct UsbVidPid(pub u16, pub u16);
@@ -24,10 +24,7 @@ macro_rules! builder_fields {
 
 impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
     /// Creates a builder for constructing a new [`UsbDevice`].
-    pub fn new(
-        alloc: &'a UsbBusAllocator<B>,
-        vid_pid: UsbVidPid) -> UsbDeviceBuilder<'a, B>
-    {
+    pub fn new(alloc: &'a UsbBusAllocator<B>, vid_pid: UsbVidPid) -> UsbDeviceBuilder<'a, B> {
         UsbDeviceBuilder {
             alloc,
             config: Config {
@@ -45,7 +42,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
                 supports_remote_wakeup: false,
                 composite_with_iads: false,
                 max_power: 50,
-            }
+            },
         }
     }
 
@@ -136,8 +133,8 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
     /// Default: 8 bytes
     pub fn max_packet_size_0(mut self, max_packet_size_0: u8) -> Self {
         match max_packet_size_0 {
-            8 | 16 | 32 | 64 => { }
-            _ => panic!("invalid max_packet_size_0")
+            8 | 16 | 32 | 64 => {}
+            _ => panic!("invalid max_packet_size_0"),
         }
 
         self.config.max_packet_size_0 = max_packet_size_0;

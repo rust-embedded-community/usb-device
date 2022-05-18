@@ -1,11 +1,11 @@
-use crate::{Result, UsbDirection};
-use crate::bus::{UsbBusAllocator, UsbBus, PollResult, StringIndex};
-use crate::class::{UsbClass, ControlIn, ControlOut};
+use crate::bus::{PollResult, StringIndex, UsbBus, UsbBusAllocator};
+use crate::class::{ControlIn, ControlOut, UsbClass};
 use crate::control;
 use crate::control_pipe::ControlPipe;
-use crate::descriptor::{DescriptorWriter, BosWriter, descriptor_type, lang_id};
-use crate::endpoint::{EndpointType, EndpointAddress};
+use crate::descriptor::{descriptor_type, lang_id, BosWriter, DescriptorWriter};
 pub use crate::device_builder::{UsbDeviceBuilder, UsbVidPid};
+use crate::endpoint::{EndpointAddress, EndpointType};
+use crate::{Result, UsbDirection};
 
 /// The global state of the USB device.
 ///
@@ -69,14 +69,24 @@ pub const DEFAULT_ALTERNATE_SETTING: u8 = 0;
 type ClassList<'a, B> = [&'a mut dyn UsbClass<B>];
 
 impl<B: UsbBus> UsbDevice<'_, B> {
-    pub(crate) fn build<'a>(alloc: &'a UsbBusAllocator<B>, config: Config<'a>)
-        -> UsbDevice<'a, B>
-    {
-        let control_out = alloc.alloc(Some(0x00.into()), EndpointType::Control,
-            config.max_packet_size_0 as u16, 0).expect("failed to alloc control endpoint");
+    pub(crate) fn build<'a>(alloc: &'a UsbBusAllocator<B>, config: Config<'a>) -> UsbDevice<'a, B> {
+        let control_out = alloc
+            .alloc(
+                Some(0x00.into()),
+                EndpointType::Control,
+                config.max_packet_size_0 as u16,
+                0,
+            )
+            .expect("failed to alloc control endpoint");
 
-        let control_in = alloc.alloc(Some(0x80.into()), EndpointType::Control,
-            config.max_packet_size_0 as u16, 0).expect("failed to alloc control endpoint");
+        let control_in = alloc
+            .alloc(
+                Some(0x80.into()),
+                EndpointType::Control,
+                config.max_packet_size_0 as u16,
+                0,
+            )
+            .expect("failed to alloc control endpoint");
 
         let bus = alloc.freeze();
 
@@ -153,18 +163,24 @@ impl<B: UsbBus> UsbDevice<'_, B> {
 
         if self.device_state == UsbDeviceState::Suspend {
             match pr {
-                PollResult::Suspend | PollResult::None => { return false; },
+                PollResult::Suspend | PollResult::None => {
+                    return false;
+                }
                 _ => {
                     self.bus.resume();
                     self.device_state = UsbDeviceState::Default;
-                },
+                }
             }
         }
 
         match pr {
-            PollResult::None => { }
+            PollResult::None => {}
             PollResult::Reset => self.reset(classes),
-            PollResult::Data { ep_out, ep_in_complete, ep_setup } => {
+            PollResult::Data {
+                ep_out,
+                ep_in_complete,
+                ep_setup,
+            } => {
                 // Combine bit fields for quick tests
                 let mut eps = ep_out | ep_in_complete | ep_setup;
 
@@ -177,13 +193,14 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     if (ep_in_complete & 1) != 0 {
                         let completed = self.control.handle_in_complete();
 
-                        if !B::QUIRK_SET_ADDRESS_BEFORE_STATUS {
-                            if completed && self.pending_address != 0 {
-                                self.bus.set_device_address(self.pending_address);
-                                self.pending_address = 0;
+                        if !B::QUIRK_SET_ADDRESS_BEFORE_STATUS
+                            && completed
+                            && self.pending_address != 0
+                        {
+                            self.bus.set_device_address(self.pending_address);
+                            self.pending_address = 0;
 
-                                self.device_state = UsbDeviceState::Addressed;
-                            }
+                            self.device_state = UsbDeviceState::Addressed;
                         }
                     }
 
@@ -196,10 +213,12 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     };
 
                     match req {
-                        Some(req) if req.direction == UsbDirection::In
-                            => self.control_in(classes, req),
-                        Some(req) if req.direction == UsbDirection::Out
-                            => self.control_out(classes, req),
+                        Some(req) if req.direction == UsbDirection::In => {
+                            self.control_in(classes, req)
+                        }
+                        Some(req) if req.direction == UsbDirection::Out => {
+                            self.control_out(classes, req)
+                        }
                         _ => (),
                     };
 
@@ -213,20 +232,23 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     for i in 1..MAX_ENDPOINTS {
                         if (ep_setup & bit) != 0 {
                             for cls in classes.iter_mut() {
-                                cls.endpoint_setup(
-                                    EndpointAddress::from_parts(i, UsbDirection::Out));
+                                cls.endpoint_setup(EndpointAddress::from_parts(
+                                    i,
+                                    UsbDirection::Out,
+                                ));
                             }
                         } else if (ep_out & bit) != 0 {
                             for cls in classes.iter_mut() {
-                                cls.endpoint_out(
-                                    EndpointAddress::from_parts(i, UsbDirection::Out));
+                                cls.endpoint_out(EndpointAddress::from_parts(i, UsbDirection::Out));
                             }
                         }
 
                         if (ep_in_complete & bit) != 0 {
                             for cls in classes.iter_mut() {
-                                cls.endpoint_in_complete(
-                                    EndpointAddress::from_parts(i, UsbDirection::In));
+                                cls.endpoint_in_complete(EndpointAddress::from_parts(
+                                    i,
+                                    UsbDirection::In,
+                                ));
                             }
                         }
 
@@ -246,19 +268,19 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 }
 
                 return true;
-            },
-            PollResult::Resume => { }
+            }
+            PollResult::Resume => {}
             PollResult::Suspend => {
                 self.bus.suspend();
                 self.device_state = UsbDeviceState::Suspend;
             }
         }
 
-        return false;
+        false
     }
 
     fn control_in(&mut self, classes: &mut ClassList<'_, B>, req: control::Request) {
-        use crate::control::{Request, Recipient};
+        use crate::control::{Recipient, Request};
 
         for cls in classes.iter_mut() {
             cls.control_in(ControlIn::new(&mut self.control, &req));
@@ -275,28 +297,37 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 (Recipient::Device, Request::GET_STATUS) => {
                     let status: u16 = 0x0000
                         | if self.self_powered { 0x0001 } else { 0x0000 }
-                        | if self.remote_wakeup_enabled { 0x0002 } else { 0x0000 };
+                        | if self.remote_wakeup_enabled {
+                            0x0002
+                        } else {
+                            0x0000
+                        };
 
                     xfer.accept_with(&status.to_le_bytes()).ok();
-                },
+                }
 
                 (Recipient::Interface, Request::GET_STATUS) => {
                     let status: u16 = 0x0000;
 
                     xfer.accept_with(&status.to_le_bytes()).ok();
-                },
+                }
 
                 (Recipient::Endpoint, Request::GET_STATUS) => {
                     let ep_addr = ((req.index as u8) & 0x8f).into();
 
                     let status: u16 = 0x0000
-                        | if self.bus.is_stalled(ep_addr) { 0x0001 } else { 0x0000 };
+                        | if self.bus.is_stalled(ep_addr) {
+                            0x0001
+                        } else {
+                            0x0000
+                        };
 
                     xfer.accept_with(&status.to_le_bytes()).ok();
-                },
+                }
 
-                (Recipient::Device, Request::GET_DESCRIPTOR)
-                    => UsbDevice::get_descriptor(&self.config, classes, xfer),
+                (Recipient::Device, Request::GET_DESCRIPTOR) => {
+                    UsbDevice::get_descriptor(&self.config, classes, xfer)
+                }
 
                 (Recipient::Device, Request::GET_CONFIGURATION) => {
                     let config = match self.device_state {
@@ -305,12 +336,13 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     };
 
                     xfer.accept_with(&config.to_le_bytes()).ok();
-                },
+                }
 
                 (Recipient::Interface, Request::GET_INTERFACE) => {
                     // TODO: change when alternate settings are implemented
-                    xfer.accept_with(&DEFAULT_ALTERNATE_SETTING.to_le_bytes()).ok();
-                },
+                    xfer.accept_with(&DEFAULT_ALTERNATE_SETTING.to_le_bytes())
+                        .ok();
+                }
 
                 _ => (),
             };
@@ -322,7 +354,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
     }
 
     fn control_out(&mut self, classes: &mut ClassList<'_, B>, req: control::Request) {
-        use crate::control::{Request, Recipient};
+        use crate::control::{Recipient, Request};
 
         for cls in classes {
             cls.control_out(ControlOut::new(&mut self.control, &req));
@@ -340,25 +372,35 @@ impl<B: UsbBus> UsbDevice<'_, B> {
             const DEFAULT_ALTERNATE_SETTING_U16: u16 = DEFAULT_ALTERNATE_SETTING as u16;
 
             match (req.recipient, req.request, req.value) {
-                (Recipient::Device, Request::CLEAR_FEATURE, Request::FEATURE_DEVICE_REMOTE_WAKEUP) => {
+                (
+                    Recipient::Device,
+                    Request::CLEAR_FEATURE,
+                    Request::FEATURE_DEVICE_REMOTE_WAKEUP,
+                ) => {
                     self.remote_wakeup_enabled = false;
                     xfer.accept().ok();
-                },
+                }
 
                 (Recipient::Endpoint, Request::CLEAR_FEATURE, Request::FEATURE_ENDPOINT_HALT) => {
-                    self.bus.set_stalled(((req.index as u8) & 0x8f).into(), false);
+                    self.bus
+                        .set_stalled(((req.index as u8) & 0x8f).into(), false);
                     xfer.accept().ok();
-                },
+                }
 
-                (Recipient::Device, Request::SET_FEATURE, Request::FEATURE_DEVICE_REMOTE_WAKEUP) => {
+                (
+                    Recipient::Device,
+                    Request::SET_FEATURE,
+                    Request::FEATURE_DEVICE_REMOTE_WAKEUP,
+                ) => {
                     self.remote_wakeup_enabled = true;
                     xfer.accept().ok();
-                },
+                }
 
                 (Recipient::Endpoint, Request::SET_FEATURE, Request::FEATURE_ENDPOINT_HALT) => {
-                    self.bus.set_stalled(((req.index as u8) & 0x8f).into(), true);
+                    self.bus
+                        .set_stalled(((req.index as u8) & 0x8f).into(), true);
                     xfer.accept().ok();
-                },
+                }
 
                 (Recipient::Device, Request::SET_ADDRESS, 1..=127) => {
                     if B::QUIRK_SET_ADDRESS_BEFORE_STATUS {
@@ -368,31 +410,34 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                         self.pending_address = req.value as u8;
                     }
                     xfer.accept().ok();
-                },
+                }
 
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_VALUE_U16) => {
                     self.device_state = UsbDeviceState::Configured;
                     xfer.accept().ok();
-                },
+                }
 
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_NONE_U16) => {
                     match self.device_state {
                         UsbDeviceState::Default => {
                             xfer.reject().ok();
-                        },
+                        }
                         _ => {
                             self.device_state = UsbDeviceState::Addressed;
                             xfer.accept().ok();
-                        },
+                        }
                     }
-                },
+                }
 
                 (Recipient::Interface, Request::SET_INTERFACE, DEFAULT_ALTERNATE_SETTING_U16) => {
                     // TODO: do something when alternate settings are implemented
                     xfer.accept().ok();
-                },
+                }
 
-                _ => { xfer.reject().ok(); return; },
+                _ => {
+                    xfer.reject().ok();
+                    return;
+                }
             }
         }
 
@@ -408,13 +453,14 @@ impl<B: UsbBus> UsbDevice<'_, B> {
 
         fn accept_writer<B: UsbBus>(
             xfer: ControlIn<B>,
-            f: impl FnOnce(&mut DescriptorWriter) -> Result<()>)
-        {
+            f: impl FnOnce(&mut DescriptorWriter) -> Result<()>,
+        ) {
             xfer.accept(|buf| {
                 let mut writer = DescriptorWriter::new(buf);
                 f(&mut writer)?;
                 Ok(writer.position())
-            }).ok();
+            })
+            .ok();
         }
 
         match dtype {
@@ -448,10 +494,9 @@ impl<B: UsbBus> UsbDevice<'_, B> {
 
             descriptor_type::STRING => {
                 if index == 0 {
-                    accept_writer(xfer, |w|
-                        w.write(
-                            descriptor_type::STRING,
-                            &lang_id::ENGLISH_US.to_le_bytes()))
+                    accept_writer(xfer, |w| {
+                        w.write(descriptor_type::STRING, &lang_id::ENGLISH_US.to_le_bytes())
+                    })
                 } else {
                     let s = match index {
                         1 => config.manufacturer,
@@ -461,10 +506,11 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                             let index = StringIndex::new(index);
                             let lang_id = req.index;
 
-                            classes.iter()
+                            classes
+                                .iter()
                                 .filter_map(|cls| cls.get_string(index, lang_id))
-                                .nth(0)
-                        },
+                                .next()
+                        }
                     };
 
                     if let Some(s) = s {
@@ -473,9 +519,11 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                         xfer.reject().ok();
                     }
                 }
-            },
+            }
 
-            _ => { xfer.reject().ok(); },
+            _ => {
+                xfer.reject().ok();
+            }
         }
     }
 
