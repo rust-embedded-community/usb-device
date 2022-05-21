@@ -42,5 +42,3 @@ jobs:
         with:
           command: check
           args: --features control-buffer-256
-
-      - run: cargo test
