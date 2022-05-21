@@ -57,8 +57,8 @@ pub struct Endpoint<'a, B: UsbBus, D: EndpointDirection> {
 }
 
 impl<B: UsbBus, D: EndpointDirection> Endpoint<'_, B, D> {
-    pub(crate) fn new<'a>(
-        bus_ptr: &'a AtomicPtr<B>,
+    pub(crate) fn new(
+        bus_ptr: &AtomicPtr<B>,
         address: EndpointAddress,
         ep_type: EndpointType,
         max_packet_size: u16,
