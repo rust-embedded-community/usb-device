@@ -147,7 +147,9 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                     return Some(req);
                 }
             }
-            ControlState::StatusOut => {
+            // The host may terminate a DATA stage early by sending a zero-length status packet
+            // acknowledging the data we sent it.
+            ControlState::StatusOut | ControlState::DataIn | ControlState::DataInLast => {
                 self.ep_out.read(&mut []).ok();
                 self.state = ControlState::Idle;
             }
