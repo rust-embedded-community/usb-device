@@ -122,7 +122,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             return Some(req);
         }
 
-        return None;
+        None
     }
 
     pub fn handle_out<'p>(&'p mut self) -> Option<Request> {
@@ -162,7 +162,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             }
         }
 
-        return None;
+        None
     }
 
     pub fn handle_in_complete(&mut self) -> bool {
@@ -193,7 +193,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             }
         };
 
-        return false;
+        false
     }
 
     fn write_in_chunk(&mut self) {

@@ -1,7 +1,6 @@
 use crate::bus::UsbBus;
 use crate::{Result, UsbDirection};
 use core::marker::PhantomData;
-use core::ptr;
 use core::sync::atomic::{AtomicPtr, Ordering};
 
 /// Trait for endpoint type markers.
@@ -77,7 +76,7 @@ impl<B: UsbBus, D: EndpointDirection> Endpoint<'_, B, D> {
 
     fn bus(&self) -> &B {
         let bus_ptr = self.bus_ptr.load(Ordering::SeqCst);
-        if bus_ptr == ptr::null_mut() {
+        if bus_ptr.is_null() {
             panic!("UsbBus initialization not complete");
         }
 
