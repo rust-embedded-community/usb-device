@@ -36,3 +36,10 @@ Class crates
 
 * [usbd-hid](https://github.com/twitchyliquid64/usbd-hid) [![Crates.io](https://img.shields.io/crates/v/usbd-hid.svg)](https://crates.io/crates/usbd-hid) - HID class
 * [usbd-serial](https://github.com/mvirkkunen/usbd-serial) [![Crates.io](https://img.shields.io/crates/v/usbd-serial.svg)](https://crates.io/crates/usbd-serial) - CDC-ACM serial port class
+
+
+Others
+------
+
+Other implementations for USB in Rust
+* [embassy-usb](https://github.com/embassy-rs/embassy/blob/master/embassy-usb/src/driver.rs), an async variant.

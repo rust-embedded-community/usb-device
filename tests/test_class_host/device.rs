@@ -39,7 +39,7 @@ pub fn open_device(ctx: &Context) -> rusb::Result<DeviceHandles> {
         let mut handle = device.open()?;
 
         let langs = handle.read_languages(TIMEOUT)?;
-        if langs.len() == 0 || langs[0].lang_id() != EN_US {
+        if langs.is_empty() || langs[0].lang_id() != EN_US {
             continue;
         }
 
