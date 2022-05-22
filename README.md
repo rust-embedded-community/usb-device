@@ -40,4 +40,4 @@ Others
 ------
 
 Other implementations for USB in Rust
-* [embassy-usb](https://github.com/embassy-rs/embassy/blob/master/embassy-usb/src/driver.rs)
+* [embassy-usb](https://github.com/embassy-rs/embassy/blob/master/embassy-usb/src/driver.rs), an async variant.
