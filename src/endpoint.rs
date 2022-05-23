@@ -33,6 +33,7 @@ pub type EndpointIn<'a, B> = Endpoint<'a, B, In>;
 /// transfer bmAttributes transfer type bits.
 #[repr(u8)]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum EndpointType {
     /// Control endpoint. Used for device management. Only the host can initiate requests. Usually
     /// used only endpoint 0.
@@ -157,6 +158,7 @@ impl<B: UsbBus> Endpoint<'_, B, Out> {
 
 /// Type-safe endpoint address.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct EndpointAddress(u8);
 
 impl From<u8> for EndpointAddress {

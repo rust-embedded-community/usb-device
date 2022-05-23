@@ -5,6 +5,7 @@ use crate::{Result, UsbDirection, UsbError};
 use core::cmp::min;
 
 #[derive(Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[allow(unused)]
 enum ControlState {
     Idle,

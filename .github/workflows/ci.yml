@@ -42,3 +42,8 @@ jobs:
         with:
           command: check
           args: --features control-buffer-256
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --features defmt
