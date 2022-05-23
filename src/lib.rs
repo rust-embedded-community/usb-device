@@ -38,6 +38,7 @@
 
 /// A USB stack error.
 #[derive(Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum UsbError {
     /// An operation would block because the device is currently busy or there is no data available.
     WouldBlock,
@@ -76,6 +77,7 @@ pub enum UsbError {
 /// request types.
 #[repr(u8)]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum UsbDirection {
     /// Host to device (OUT)
     Out = 0x00,
