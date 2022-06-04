@@ -89,10 +89,18 @@ impl<B: UsbBus> ControlPipe<'_, B> {
         // a stalled state.
         self.ep_out.unstall();
 
-        /*sprintln!("SETUP {:?} {:?} {:?} req:{} val:{} idx:{} len:{} {:?}",
-        req.direction, req.request_type, req.recipient,
-        req.request, req.value, req.index, req.length,
-        self.state);*/
+        #[cfg(feature = "defmt")]
+        defmt::trace!(
+            "SETUP {:?} {:?} {:?} req:{} val:{} idx:{} len:{} {:?}",
+            req.direction,
+            req.request_type,
+            req.recipient,
+            req.request,
+            req.value,
+            req.index,
+            req.length,
+            self.state
+        );
 
         if req.direction == UsbDirection::Out {
             // OUT transfer
@@ -109,21 +117,20 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                 self.i = 0;
                 self.len = req.length as usize;
                 self.state = ControlState::DataOut(req);
+                Some(req)
             } else {
                 // No data stage
 
                 self.len = 0;
                 self.state = ControlState::CompleteOut;
-                return Some(req);
+                Some(req)
             }
         } else {
             // IN transfer
 
             self.state = ControlState::CompleteIn(req);
-            return Some(req);
+            Some(req)
         }
-
-        None
     }
 
     pub fn handle_out(&mut self) -> Option<Request> {
