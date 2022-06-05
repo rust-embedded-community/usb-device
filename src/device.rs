@@ -453,13 +453,12 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         fn accept_writer<B: UsbBus>(
             xfer: ControlIn<B>,
             f: impl FnOnce(&mut DescriptorWriter) -> Result<()>,
-        ) {
+        ) -> Result<()> {
             xfer.accept(|buf| {
                 let mut writer = DescriptorWriter::new(buf);
                 f(&mut writer)?;
                 Ok(writer.position())
             })
-            .ok();
         }
 
         match dtype {
@@ -513,17 +512,16 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     };
 
                     if let Some(s) = s {
-                        accept_writer(xfer, |w| w.string(s));
+                        accept_writer(xfer, |w| w.string(s))
                     } else {
-                        xfer.reject().ok();
+                        xfer.reject()
                     }
                 }
             }
 
-            _ => {
-                xfer.reject().ok();
-            }
+            _ => xfer.reject(),
         }
+        .unwrap();
     }
 
     fn reset(&mut self, classes: &mut ClassList<'_, B>) {
