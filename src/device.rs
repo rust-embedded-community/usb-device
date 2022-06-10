@@ -38,6 +38,7 @@ pub struct UsbDevice<'a, B: UsbBus> {
     device_state: UsbDeviceState,
     remote_wakeup_enabled: bool,
     self_powered: bool,
+    suspended_device_state: Option<UsbDeviceState>,
     pending_address: u8,
 }
 
@@ -98,6 +99,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
             device_state: UsbDeviceState::Default,
             remote_wakeup_enabled: false,
             self_powered: false,
+            suspended_device_state: None,
             pending_address: 0,
         }
     }
@@ -169,7 +171,10 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 }
                 _ => {
                     self.bus.resume();
-                    self.device_state = UsbDeviceState::Default;
+                    self.device_state = self
+                        .suspended_device_state
+                        .expect("Unknown state before suspend");
+                    self.suspended_device_state = None;
                 }
             }
         }
@@ -273,6 +278,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
             PollResult::Resume => {}
             PollResult::Suspend => {
                 self.bus.suspend();
+                self.suspended_device_state = Some(self.device_state);
                 self.device_state = UsbDeviceState::Suspend;
             }
         }
@@ -530,6 +536,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         self.bus.reset();
 
         self.device_state = UsbDeviceState::Default;
+        self.suspended_device_state = None; // We may reset during Suspend
         self.remote_wakeup_enabled = false;
         self.pending_address = 0;
 
