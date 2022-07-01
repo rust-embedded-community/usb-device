@@ -12,6 +12,25 @@ pub struct DeviceHandles {
     pub en_us: Language,
 }
 
+impl DeviceHandles {
+    /// Returns the max packet size for the `TestClass` bulk endpoint(s).
+    pub fn bulk_max_packet_size(&self) -> u16 {
+        self.config_descriptor
+            .interfaces()
+            .flat_map(|intf| intf.descriptors())
+            .flat_map(|desc| {
+                desc.endpoint_descriptors()
+                    .find(|ep| {
+                        // Assumes that IN and OUT endpoint MPSes are the same.
+                        ep.transfer_type() == rusb::TransferType::Bulk
+                    })
+                    .map(|ep| ep.max_packet_size())
+            })
+            .next()
+            .expect("TestClass has at least one bulk endpoint")
+    }
+}
+
 impl ::std::ops::Deref for DeviceHandles {
     type Target = DeviceHandle<Context>;
 

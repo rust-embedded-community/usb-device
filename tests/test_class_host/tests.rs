@@ -164,6 +164,7 @@ fn interface_descriptor(dev, _out) {
 }
 
 fn bulk_loopback(dev, _out) {
+    let max_packet_size: usize = dev.bulk_max_packet_size().into();
     for len in &[0, 1, 2, 32, 63, 64, 65, 127, 128, 129] {
         let data = random_data(*len);
 
@@ -173,7 +174,7 @@ fn bulk_loopback(dev, _out) {
             data.len(),
             "bulk write len {}", len);
 
-        if *len > 0 && *len % 64 == 0 {
+        if *len > 0 && *len % max_packet_size == 0 {
             assert_eq!(
                 dev.write_bulk(0x01, &[], TIMEOUT)
                     .expect("bulk write zero-length packet"),
