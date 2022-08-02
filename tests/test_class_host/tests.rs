@@ -35,7 +35,7 @@ fn control_request(dev, _out) {
 
     let value: u16 = rng.gen();
     let index: u16 = rng.gen();
-    let data = random_data(rng.gen_range(0, 16));
+    let data = random_data(rng.gen_range(0..16));
 
     let mut expected = [0u8; 8];
     expected[0] = 0x02_u8 << 5;
