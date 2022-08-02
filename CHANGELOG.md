@@ -7,12 +7,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+...
+
+## [0.2.9] - 2022-08-02
+
 ### Fixed
 * Fixed an issue where USB devices were not enumerating on Windows ([#32](https://github.com/rust-embedded-community/usb-device/issues/82))
 * Add optional support for defmt ([#76](https://github.com/rust-embedded-community/usb-device/pull/76))
 * Fixed Suspend state transition so it goes back to the previous state, not just Default ([#97](https://github.com/rust-embedded-community/usb-device/pull/97))
-
-...
 
 ## [0.2.8] - 2021-03-13
 
@@ -36,7 +38,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 This is the initial release to crates.io.
 
-[Unreleased]: https://github.com/rust-embedded-community/usb-device/compare/v0.2.8...HEAD
+[Unreleased]: https://github.com/rust-embedded-community/usb-device/compare/v0.2.9...HEAD
+[0.2.9]: https://github.com/rust-embedded-community/usb-device/compare/v0.2.8...v0.2.9
 [0.2.8]: https://github.com/rust-embedded-community/usb-device/compare/v0.2.7...v0.2.8
 [0.2.7]: https://github.com/rust-embedded-community/usb-device/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/rust-embedded-community/usb-device/compare/v0.2.5...v0.2.6
