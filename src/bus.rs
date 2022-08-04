@@ -272,7 +272,10 @@ impl<B: UsbBus> UsbBusAllocator<B> {
     ) -> Endpoint<'_, B, D> {
         self.alloc(
             None,
-            EndpointType::Isochronous((synchronization, usage)),
+            EndpointType::Isochronous {
+                synchronization,
+                usage,
+            },
             payload_size,
             interval,
         )

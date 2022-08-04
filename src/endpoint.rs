@@ -64,7 +64,14 @@ pub enum EndpointType {
     /// used only endpoint 0.
     Control,
     /// Isochronous endpoint. Used for time-critical unreliable data.
-    Isochronous((IsochronousSynchronizationType, IsochronousUsageType)),
+    ///
+    /// See USB 2.0 spec section 5.12 "Special Considerations for Isochronous Transfers"
+    Isochronous {
+        /// Synchronization model used for the data stream that this endpoint relates to.
+        synchronization: IsochronousSynchronizationType,
+        /// Endpoint's role in the synchronization model selected by [Self::Isochronous::synchronization].
+        usage: IsochronousUsageType,
+    },
     /// Bulk endpoint. Used for large amounts of best-effort reliable data.
     Bulk,
     /// Interrupt endpoint. Used for small amounts of time-critical reliable data.
@@ -76,14 +83,17 @@ impl EndpointType {
     pub fn to_bm_attributes(&self) -> u8 {
         match self {
             EndpointType::Control => 0b00,
-            EndpointType::Isochronous((sync_type, usage_type)) => {
-                let sync_bits = match sync_type {
+            EndpointType::Isochronous {
+                synchronization,
+                usage,
+            } => {
+                let sync_bits = match synchronization {
                     IsochronousSynchronizationType::NoSynchronization => 0b00,
                     IsochronousSynchronizationType::Asynchronous => 0b01,
                     IsochronousSynchronizationType::Adaptive => 0b10,
                     IsochronousSynchronizationType::Synchronous => 0b11,
                 };
-                let usage_bits = match usage_type {
+                let usage_bits = match usage {
                     IsochronousUsageType::Data => 0b00,
                     IsochronousUsageType::Feedback => 0b01,
                     IsochronousUsageType::ImplicitFeedbackData => 0b10,
