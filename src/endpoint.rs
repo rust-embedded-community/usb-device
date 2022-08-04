@@ -31,6 +31,7 @@ pub type EndpointIn<'a, B> = Endpoint<'a, B, In>;
 
 /// Isochronous transfers employ one of three synchronization schemes. See USB 2.0 spec 5.12.4.1.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum IsochronousSynchronizationType {
     /// Synchronization is not implemented for this endpoint.
     NoSynchronization,
@@ -45,6 +46,7 @@ pub enum IsochronousSynchronizationType {
 /// Intended use of an isochronous endpoint, see USB 2.0 spec sections 5.12 and 9.6.6.
 /// Associations between data and feedback endpoints are described in section 9.6.6.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum IsochronousUsageType {
     /// Endpoint is used for isochronous data.
     Data,
