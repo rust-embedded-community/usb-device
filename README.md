@@ -44,7 +44,7 @@ Development
 
 Testing `usb-device` involves a test suite running on a host computer, connected via USB to a target computer (microcontroller) which provides a test device.  `usb-device` provides interfaces to hardware drivers, but it does not provide any hardware drivers, so external crates are required to run the test suite on specific hardware:
 
-* [stm32-usbd-tests](https://github.com/Disasm/stm32-usbd-tests) for STM32 parts.
+* [stm32-usbd-tests](https://github.com/Disasm/stm32-usbd-tests) and [usb-otg-workspace](https://github.com/Disasm/usb-otg-workspace) for STM32 parts.
 * [test-usb-device](https://github.com/ianrrees/test-usb-device) for ATSAMD parts.
 
 Others
