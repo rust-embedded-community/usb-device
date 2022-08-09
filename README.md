@@ -37,6 +37,12 @@ Class crates
 * [usbd-hid](https://github.com/twitchyliquid64/usbd-hid) [![Crates.io](https://img.shields.io/crates/v/usbd-hid.svg)](https://crates.io/crates/usbd-hid) - HID class
 * [usbd-serial](https://github.com/mvirkkunen/usbd-serial) [![Crates.io](https://img.shields.io/crates/v/usbd-serial.svg)](https://crates.io/crates/usbd-serial) - CDC-ACM serial port class
 
+Development
+-----------
+
+### Testing
+
+Testing `usb-device` involves a test suite running on a host computer, connected via USB to a target computer (microcontroller) which provides a test device. See [here](https://github.com/rust-embedded-community/usb-device/tree/master/tests) for further details.
 
 Others
 ------

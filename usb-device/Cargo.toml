@@ -1,0 +1,27 @@
+[package]
+name = "usb-device"
+description = "Experimental device-side USB stack for embedded devices."
+version = "0.2.9"
+edition = "2018"
+readme = "../README.md"
+keywords = ["no-std", "embedded", "usb"]
+license = "MIT"
+authors = [
+    "Matti Virkkunen <mvirkkunen@gmail.com>",
+    "Rust Embedded Community Contributors"
+]
+repository = "https://github.com/rust-embedded-community/usb-device"
+
+[dependencies]
+defmt = { version = "0.3", optional = true }
+
+[features]
+# Use a 256 byte buffer for control transfers instead of 128.
+control-buffer-256 = []
+
+# Use larger endpoint buffers for highspeed operation (default fullspeed)
+#
+# Note: usb-device doesn't truly support high speed enumeration yet, so setting this will make
+# TestClass only compliant with high speed mode. It may still manage to be enumerated as a full
+# speed device, but the descriptors will be invalid.
+test-class-high-speed = []

@@ -1,0 +1,25 @@
+[package]
+name = "usb-device-test-class-host"
+description = "Test class host for usb-device."
+version = "0.2.9"
+edition = "2018"
+readme = "../README.md"
+keywords = ["no-std", "embedded", "usb"]
+license = "MIT"
+authors = [
+    "Matti Virkkunen <mvirkkunen@gmail.com>",
+    "Rust Embedded Community Contributors"
+]
+repository = "https://github.com/rust-embedded-community/usb-device"
+
+[dependencies]
+usb-device = { path = "../../usb-device" }
+
+[dev-dependencies]
+rusb = "0.9.1"
+rand = "0.8.5"
+
+[[test]]
+name = "test_class_host"
+path = "main.rs"
+harness = false
