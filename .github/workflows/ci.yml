@@ -35,15 +35,15 @@ jobs:
 
       - uses: actions-rs/cargo@v1
         with:
-          command: check
+          command: build
           args: --all-targets
 
       - uses: actions-rs/cargo@v1
         with:
-          command: check
-          args: --features control-buffer-256
+          command: build
+          args: --all-targets --features control-buffer-256
 
       - uses: actions-rs/cargo@v1
         with:
-          command: check
-          args: --features defmt
+          command: build
+          args: --all-targets --features defmt
