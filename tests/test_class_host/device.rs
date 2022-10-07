@@ -13,6 +13,11 @@ pub struct DeviceHandles {
 }
 
 impl DeviceHandles {
+    /// Indicates if this device is (true) or isn't (false) a
+    /// high-speed device.
+    pub fn is_high_speed(&self) -> bool {
+        self.handle.device().speed() == rusb::Speed::High
+    }
     /// Returns the max packet size for the `TestClass` bulk endpoint(s).
     pub fn bulk_max_packet_size(&self) -> u16 {
         self.config_descriptor
