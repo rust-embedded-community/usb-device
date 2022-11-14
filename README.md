@@ -42,4 +42,4 @@ Others
 ------
 
 Other implementations for USB in Rust
-* [embassy-usb](https://github.com/embassy-rs/embassy/tree/master/embassy-usb) an async variant.
+* The [Embassy](https://github.com/embassy-rs/embassy) project has an async USB stack, embassy-usb.
