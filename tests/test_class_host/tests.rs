@@ -1,6 +1,6 @@
 use crate::device::*;
 use rand::prelude::*;
-use rusb::{request_type, Direction, Recipient, RequestType};
+use rusb::{request_type, Direction, Recipient, RequestType, TransferType};
 use std::cmp::max;
 use std::fmt::Write;
 use std::time::{Duration, Instant};
@@ -161,6 +161,40 @@ fn interface_descriptor(dev, _out) {
         dev.read_string_descriptor(dev.en_us, string_index, TIMEOUT)
             .expect("read interface string"),
         test_class::INTERFACE_STRING);
+}
+
+fn iso_endpoint_descriptors(dev, _out) {
+    // Tests that an isochronous endpoint descriptor is present in the first
+    // alternate setting, but not in the default setting.
+    let iface = dev.config_descriptor
+        .interfaces()
+        .find(|i| i.number() == 0)
+        .expect("interface not found");
+
+    let mut iso_ep_count = 0;
+    for iface_descriptor in iface.descriptors() {
+        if iface_descriptor.setting_number() == 0 {
+            // Default setting - no isochronous endpoints allowed.  Per USB 2.0
+            // spec rev 2.0, 5.6.3 Isochronous Transfer Packet Size Constraints:
+            //
+            // All device default interface settings must not include any
+            // isochronous endpoints with non-zero data payload sizes (specified
+            // via wMaxPacketSize in the endpoint descriptor)
+            let issue = iface_descriptor
+                .endpoint_descriptors()
+                .find(|ep| ep.transfer_type() == TransferType::Isochronous
+                    && ep.max_packet_size() != 0);
+            if let Some(ep) = issue {
+                panic!("Endpoint {} is isochronous and in the default setting",
+                    ep.number());
+            }
+        } else {
+            iso_ep_count += iface_descriptor.endpoint_descriptors()
+                .filter(|ep| ep.transfer_type() == TransferType::Isochronous)
+                .count();
+        }
+    }
+    assert!(iso_ep_count > 0, "At least one isochronous endpoint is expected");
 }
 
 fn bulk_loopback(dev, _out) {
