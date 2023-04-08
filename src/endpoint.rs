@@ -1,7 +1,6 @@
 use crate::bus::UsbBus;
 use crate::{Result, UsbDirection};
 use core::marker::PhantomData;
-use core::ptr;
 use core::sync::atomic::{AtomicPtr, Ordering};
 
 /// Trait for endpoint type markers.
@@ -30,20 +29,81 @@ pub type EndpointOut<'a, B> = Endpoint<'a, B, Out>;
 /// A device-to-host (IN) endpoint.
 pub type EndpointIn<'a, B> = Endpoint<'a, B, In>;
 
-/// USB endpoint transfer type. The values of this enum can be directly cast into `u8` to get the
-/// transfer bmAttributes transfer type bits.
-#[repr(u8)]
+/// Isochronous transfers employ one of three synchronization schemes. See USB 2.0 spec 5.12.4.1.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub enum IsochronousSynchronizationType {
+    /// Synchronization is not implemented for this endpoint.
+    NoSynchronization,
+    /// Source and Sink sample clocks are free running.
+    Asynchronous,
+    /// Source sample clock is locked to Sink, Sink sample clock is locked to data flow.
+    Adaptive,
+    /// Source and Sink sample clocks are locked to USB SOF.
+    Synchronous,
+}
+
+/// Intended use of an isochronous endpoint, see USB 2.0 spec sections 5.12 and 9.6.6.
+/// Associations between data and feedback endpoints are described in section 9.6.6.
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub enum IsochronousUsageType {
+    /// Endpoint is used for isochronous data.
+    Data,
+    /// Feedback for synchronization.
+    Feedback,
+    /// Endpoint is data and provides implicit feedback for synchronization.
+    ImplicitFeedbackData,
+}
+
+/// USB endpoint transfer type.
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum EndpointType {
     /// Control endpoint. Used for device management. Only the host can initiate requests. Usually
     /// used only endpoint 0.
-    Control = 0b00,
-    /// Isochronous endpoint. Used for time-critical unreliable data. Not implemented yet.
-    Isochronous = 0b01,
+    Control,
+    /// Isochronous endpoint. Used for time-critical unreliable data.
+    ///
+    /// See USB 2.0 spec section 5.12 "Special Considerations for Isochronous Transfers"
+    Isochronous {
+        /// Synchronization model used for the data stream that this endpoint relates to.
+        synchronization: IsochronousSynchronizationType,
+        /// Endpoint's role in the synchronization model selected by [Self::Isochronous::synchronization].
+        usage: IsochronousUsageType,
+    },
     /// Bulk endpoint. Used for large amounts of best-effort reliable data.
-    Bulk = 0b10,
+    Bulk,
     /// Interrupt endpoint. Used for small amounts of time-critical reliable data.
-    Interrupt = 0b11,
+    Interrupt,
+}
+
+impl EndpointType {
+    /// Format EndpointType for use in bmAttributes transfer type field USB 2.0 spec section 9.6.6
+    pub fn to_bm_attributes(&self) -> u8 {
+        match self {
+            EndpointType::Control => 0b00,
+            EndpointType::Isochronous {
+                synchronization,
+                usage,
+            } => {
+                let sync_bits = match synchronization {
+                    IsochronousSynchronizationType::NoSynchronization => 0b00,
+                    IsochronousSynchronizationType::Asynchronous => 0b01,
+                    IsochronousSynchronizationType::Adaptive => 0b10,
+                    IsochronousSynchronizationType::Synchronous => 0b11,
+                };
+                let usage_bits = match usage {
+                    IsochronousUsageType::Data => 0b00,
+                    IsochronousUsageType::Feedback => 0b01,
+                    IsochronousUsageType::ImplicitFeedbackData => 0b10,
+                };
+                (usage_bits << 4) | (sync_bits << 2) | 0b01
+            }
+            EndpointType::Bulk => 0b10,
+            EndpointType::Interrupt => 0b11,
+        }
+    }
 }
 
 /// Handle for a USB endpoint. The endpoint direction is constrained by the `D` type argument, which
@@ -58,8 +118,8 @@ pub struct Endpoint<'a, B: UsbBus, D: EndpointDirection> {
 }
 
 impl<B: UsbBus, D: EndpointDirection> Endpoint<'_, B, D> {
-    pub(crate) fn new<'a>(
-        bus_ptr: &'a AtomicPtr<B>,
+    pub(crate) fn new(
+        bus_ptr: &AtomicPtr<B>,
         address: EndpointAddress,
         ep_type: EndpointType,
         max_packet_size: u16,
@@ -77,7 +137,7 @@ impl<B: UsbBus, D: EndpointDirection> Endpoint<'_, B, D> {
 
     fn bus(&self) -> &B {
         let bus_ptr = self.bus_ptr.load(Ordering::SeqCst);
-        if bus_ptr == ptr::null_mut() {
+        if bus_ptr.is_null() {
             panic!("UsbBus initialization not complete");
         }
 
@@ -158,6 +218,7 @@ impl<B: UsbBus> Endpoint<'_, B, Out> {
 
 /// Type-safe endpoint address.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct EndpointAddress(u8);
 
 impl From<u8> for EndpointAddress {

@@ -38,6 +38,7 @@
 
 /// A USB stack error.
 #[derive(Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum UsbError {
     /// An operation would block because the device is currently busy or there is no data available.
     WouldBlock,
@@ -76,6 +77,7 @@ pub enum UsbError {
 /// request types.
 #[repr(u8)]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum UsbDirection {
     /// Host to device (OUT)
     Out = 0x00,
@@ -188,7 +190,10 @@ pub mod class_prelude {
     pub use crate::class::{ControlIn, ControlOut, UsbClass};
     pub use crate::control;
     pub use crate::descriptor::{BosWriter, DescriptorWriter};
-    pub use crate::endpoint::{EndpointAddress, EndpointIn, EndpointOut, EndpointType};
+    pub use crate::endpoint::{
+        EndpointAddress, EndpointIn, EndpointOut, EndpointType, IsochronousSynchronizationType,
+        IsochronousUsageType,
+    };
     pub use crate::UsbError;
 }
 
@@ -197,7 +202,7 @@ fn _ensure_sync() {
     use crate::class_prelude::*;
 
     struct DummyBus<'a> {
-        a: &'a str,
+        _a: &'a str,
     }
 
     impl UsbBus for DummyBus<'_> {
@@ -237,12 +242,14 @@ fn _ensure_sync() {
     }
 
     struct DummyClass<'a, B: UsbBus> {
-        ep: crate::endpoint::EndpointIn<'a, B>,
+        _ep: crate::endpoint::EndpointIn<'a, B>,
     }
 
     impl<B: UsbBus> DummyClass<'_, B> {
-        fn new(alloc: &UsbBusAllocator<B>) -> DummyClass<'_, B> {
-            DummyClass { ep: alloc.bulk(64) }
+        fn _new(alloc: &UsbBusAllocator<B>) -> DummyClass<'_, B> {
+            DummyClass {
+                _ep: alloc.bulk(64),
+            }
         }
     }
 

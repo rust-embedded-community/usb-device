@@ -4,6 +4,7 @@ use core::mem;
 /// Control request type.
 #[repr(u8)]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum RequestType {
     /// Request is a USB standard request. Usually handled by
     /// [`UsbDevice`](crate::device::UsbDevice).
@@ -18,6 +19,7 @@ pub enum RequestType {
 
 /// Control request recipient.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum Recipient {
     /// Request is intended for the entire device.
     Device = 0,
@@ -35,6 +37,7 @@ pub enum Recipient {
 
 /// A control request read from a SETUP packet.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct Request {
     /// Direction of the request.
     pub direction: UsbDirection,

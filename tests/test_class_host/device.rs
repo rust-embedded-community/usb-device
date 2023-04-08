@@ -12,6 +12,30 @@ pub struct DeviceHandles {
     pub en_us: Language,
 }
 
+impl DeviceHandles {
+    /// Indicates if this device is (true) or isn't (false) a
+    /// high-speed device.
+    pub fn is_high_speed(&self) -> bool {
+        self.handle.device().speed() == rusb::Speed::High
+    }
+    /// Returns the max packet size for the `TestClass` bulk endpoint(s).
+    pub fn bulk_max_packet_size(&self) -> u16 {
+        self.config_descriptor
+            .interfaces()
+            .flat_map(|intf| intf.descriptors())
+            .flat_map(|desc| {
+                desc.endpoint_descriptors()
+                    .find(|ep| {
+                        // Assumes that IN and OUT endpoint MPSes are the same.
+                        ep.transfer_type() == rusb::TransferType::Bulk
+                    })
+                    .map(|ep| ep.max_packet_size())
+            })
+            .next()
+            .expect("TestClass has at least one bulk endpoint")
+    }
+}
+
 impl ::std::ops::Deref for DeviceHandles {
     type Target = DeviceHandle<Context>;
 
@@ -39,7 +63,7 @@ pub fn open_device(ctx: &Context) -> rusb::Result<DeviceHandles> {
         let mut handle = device.open()?;
 
         let langs = handle.read_languages(TIMEOUT)?;
-        if langs.len() == 0 || langs[0].lang_id() != EN_US {
+        if langs.is_empty() || langs[0].lang_id() != EN_US {
             continue;
         }
 

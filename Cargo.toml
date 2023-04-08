@@ -9,9 +9,12 @@ license = "MIT"
 authors = ["Matti Virkkunen <mvirkkunen@gmail.com>"]
 repository = "https://github.com/mvirkkunen/usb-device"
 
+[dependencies]
+defmt = { version = "0.3", optional = true }
+
 [dev-dependencies]
-rusb = "0.8.0"
-rand = "0.6.1"
+rusb = "0.9.1"
+rand = "0.8.5"
 
 [features]
 # Use a 256 byte buffer for control transfers instead of 128.

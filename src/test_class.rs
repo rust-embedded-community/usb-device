@@ -32,6 +32,7 @@ pub struct TestClass<'a, B: UsbBus> {
     ep_bulk_out: EndpointOut<'a, B>,
     ep_interrupt_in: EndpointIn<'a, B>,
     ep_interrupt_out: EndpointOut<'a, B>,
+    ep_iso_in: EndpointIn<'a, B>,
     control_buf: [u8; sizes::BUFFER],
     bulk_buf: [u8; sizes::BUFFER],
     interrupt_buf: [u8; sizes::BUFFER],
@@ -46,11 +47,11 @@ pub struct TestClass<'a, B: UsbBus> {
 
 pub const VID: u16 = 0x16c0;
 pub const PID: u16 = 0x05dc;
-pub const MANUFACTURER: &'static str = "TestClass Manufacturer";
-pub const PRODUCT: &'static str = "virkkunen.net usb-device TestClass";
-pub const SERIAL_NUMBER: &'static str = "TestClass Serial";
-pub const CUSTOM_STRING: &'static str = "TestClass Custom String";
-pub const INTERFACE_STRING: &'static str = "TestClass Interface";
+pub const MANUFACTURER: &str = "TestClass Manufacturer";
+pub const PRODUCT: &str = "virkkunen.net usb-device TestClass";
+pub const SERIAL_NUMBER: &str = "TestClass Serial";
+pub const CUSTOM_STRING: &str = "TestClass Custom String";
+pub const INTERFACE_STRING: &str = "TestClass Interface";
 
 pub const REQ_STORE_REQUEST: u8 = 1;
 pub const REQ_READ_BUFFER: u8 = 2;
@@ -59,7 +60,7 @@ pub const REQ_SET_BENCH_ENABLED: u8 = 4;
 pub const REQ_READ_LONG_DATA: u8 = 5;
 pub const REQ_UNKNOWN: u8 = 42;
 
-pub const LONG_DATA: &'static [u8] = &[0x17; 257];
+pub const LONG_DATA: &[u8] = &[0x17; 257];
 
 impl<B: UsbBus> TestClass<'_, B> {
     /// Creates a new TestClass.
@@ -72,6 +73,12 @@ impl<B: UsbBus> TestClass<'_, B> {
             ep_bulk_out: alloc.bulk(sizes::BULK_ENDPOINT),
             ep_interrupt_in: alloc.interrupt(sizes::INTERRUPT_ENDPOINT, 1),
             ep_interrupt_out: alloc.interrupt(sizes::INTERRUPT_ENDPOINT, 1),
+            ep_iso_in: alloc.isochronous(
+                IsochronousSynchronizationType::Asynchronous,
+                IsochronousUsageType::ImplicitFeedbackData,
+                500, // These last two args are arbitrary in this usage, they
+                1,   // let the host know how much bandwidth to reserve.
+            ),
             control_buf: [0; sizes::BUFFER],
             bulk_buf: [0; sizes::BUFFER],
             interrupt_buf: [0; sizes::BUFFER],
@@ -105,7 +112,7 @@ impl<B: UsbBus> TestClass<'_, B> {
         &'a self,
         usb_bus: &'b UsbBusAllocator<B>,
     ) -> UsbDeviceBuilder<'b, B> {
-        UsbDeviceBuilder::new(&usb_bus, UsbVidPid(VID, PID))
+        UsbDeviceBuilder::new(usb_bus, UsbVidPid(VID, PID))
             .manufacturer(MANUFACTURER)
             .product(PRODUCT)
             .serial_number(SERIAL_NUMBER)
@@ -218,7 +225,7 @@ impl<B: UsbBus> UsbClass<B> for TestClass<'_, B> {
         writer.endpoint(&self.ep_interrupt_in)?;
         writer.endpoint(&self.ep_interrupt_out)?;
         writer.interface_alt(self.iface, 1, 0xff, 0x01, 0x00, Some(self.interface_string))?;
-
+        writer.endpoint(&self.ep_iso_in)?;
         Ok(())
     }
 

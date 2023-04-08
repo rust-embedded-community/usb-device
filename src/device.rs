@@ -12,6 +12,7 @@ use crate::{Result, UsbDirection};
 /// In general class traffic is only possible in the `Configured` state.
 #[repr(u8)]
 #[derive(PartialEq, Eq, Copy, Clone, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum UsbDeviceState {
     /// The USB device has just been created or reset.
     Default,
@@ -37,6 +38,7 @@ pub struct UsbDevice<'a, B: UsbBus> {
     device_state: UsbDeviceState,
     remote_wakeup_enabled: bool,
     self_powered: bool,
+    suspended_device_state: Option<UsbDeviceState>,
     pending_address: u8,
 }
 
@@ -97,6 +99,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
             device_state: UsbDeviceState::Default,
             remote_wakeup_enabled: false,
             self_powered: false,
+            suspended_device_state: None,
             pending_address: 0,
         }
     }
@@ -168,7 +171,10 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 }
                 _ => {
                     self.bus.resume();
-                    self.device_state = UsbDeviceState::Default;
+                    self.device_state = self
+                        .suspended_device_state
+                        .expect("Unknown state before suspend");
+                    self.suspended_device_state = None;
                 }
             }
         }
@@ -193,13 +199,14 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     if (ep_in_complete & 1) != 0 {
                         let completed = self.control.handle_in_complete();
 
-                        if !B::QUIRK_SET_ADDRESS_BEFORE_STATUS {
-                            if completed && self.pending_address != 0 {
-                                self.bus.set_device_address(self.pending_address);
-                                self.pending_address = 0;
+                        if !B::QUIRK_SET_ADDRESS_BEFORE_STATUS
+                            && completed
+                            && self.pending_address != 0
+                        {
+                            self.bus.set_device_address(self.pending_address);
+                            self.pending_address = 0;
 
-                                self.device_state = UsbDeviceState::Addressed;
-                            }
+                            self.device_state = UsbDeviceState::Addressed;
                         }
                     }
 
@@ -271,11 +278,12 @@ impl<B: UsbBus> UsbDevice<'_, B> {
             PollResult::Resume => {}
             PollResult::Suspend => {
                 self.bus.suspend();
+                self.suspended_device_state = Some(self.device_state);
                 self.device_state = UsbDeviceState::Suspend;
             }
         }
 
-        return false;
+        false
     }
 
     fn control_in(&mut self, classes: &mut ClassList<'_, B>, req: control::Request) {
@@ -294,8 +302,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
 
             match (req.recipient, req.request) {
                 (Recipient::Device, Request::GET_STATUS) => {
-                    let status: u16 = 0x0000
-                        | if self.self_powered { 0x0001 } else { 0x0000 }
+                    let status: u16 = if self.self_powered { 0x0001 } else { 0x0000 }
                         | if self.remote_wakeup_enabled {
                             0x0002
                         } else {
@@ -314,12 +321,11 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 (Recipient::Endpoint, Request::GET_STATUS) => {
                     let ep_addr = ((req.index as u8) & 0x8f).into();
 
-                    let status: u16 = 0x0000
-                        | if self.bus.is_stalled(ep_addr) {
-                            0x0001
-                        } else {
-                            0x0000
-                        };
+                    let status: u16 = if self.bus.is_stalled(ep_addr) {
+                        0x0001
+                    } else {
+                        0x0000
+                    };
 
                     xfer.accept_with(&status.to_le_bytes()).ok();
                 }
@@ -545,7 +551,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                             classes
                                 .iter()
                                 .filter_map(|cls| cls.get_string(index, lang_id))
-                                .nth(0)
+                                .next()
                         }
                     };
 
@@ -567,6 +573,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         self.bus.reset();
 
         self.device_state = UsbDeviceState::Default;
+        self.suspended_device_state = None; // We may reset during Suspend
         self.remote_wakeup_enabled = false;
         self.pending_address = 0;
 
