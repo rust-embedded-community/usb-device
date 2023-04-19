@@ -30,6 +30,18 @@ pub enum UsbDeviceState {
 // Maximum number of endpoints in one direction. Specified by the USB specification.
 const MAX_ENDPOINTS: usize = 16;
 
+/// Usb spec revision.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[repr(u16)]
+pub enum UsbRev {
+    /// USB 2.0 compliance
+    Usb200 = 0x200,
+    /// USB 2.1 compliance.
+    ///
+    /// Typically adds support for BOS requests.
+    Usb210 = 0x210,
+}
+
 /// A USB device consisting of one or more device classes.
 pub struct UsbDevice<'a, B: UsbBus> {
     bus: &'a B,
@@ -49,6 +61,7 @@ pub(crate) struct Config<'a> {
     pub max_packet_size_0: u8,
     pub vendor_id: u16,
     pub product_id: u16,
+    pub usb_rev: UsbRev,
     pub device_release: u16,
     pub manufacturer: Option<&'a str>,
     pub product: Option<&'a str>,
@@ -469,7 +482,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         }
 
         match dtype {
-            descriptor_type::BOS => accept_writer(xfer, |w| {
+            descriptor_type::BOS if config.usb_rev > UsbRev::Usb200 => accept_writer(xfer, |w| {
                 let mut bw = BosWriter::new(w);
                 bw.bos()?;
 
