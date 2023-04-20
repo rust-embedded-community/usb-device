@@ -6,17 +6,21 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
 ### Added
-* New enums and allocators for Isochronous endpoints
+* New enums and allocators for Isochronous endpoints ([#60](https://github.com/rust-embedded-community/usb-device/pull/60)).
+* Ability to select USB revision ([#116](https://github.com/rust-embedded-community/usb-device/pull/116)).
 
 ### Changed
-* `EndpointType` enum now has fields for isochronous synchronization and usage.
+* `EndpointType` enum now has fields for isochronous synchronization and usage ([#60](https://github.com/rust-embedded-community/usb-device/pull/60)).
 
 ## [0.2.9] - 2022-08-02
 
+### Added
+* Optional support for defmt ([#76](https://github.com/rust-embedded-community/usb-device/pull/76)).
+
 ### Fixed
 * Fixed an issue where USB devices were not enumerating on Windows ([#32](https://github.com/rust-embedded-community/usb-device/issues/82))
-* Add optional support for defmt ([#76](https://github.com/rust-embedded-community/usb-device/pull/76))
 * Fixed Suspend state transition so it goes back to the previous state, not just Default ([#97](https://github.com/rust-embedded-community/usb-device/pull/97))
 
 ## [0.2.8] - 2021-03-13
