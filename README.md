@@ -17,11 +17,6 @@ class.
 The UsbBus trait is intended to be implemented by device-specific crates to provide a driver for
 each device's USB peripheral.
 
-Target architectures without native atomic support (e.g. `riscv32imc`) need a `critical-section`
-implementation. This is often provided by the architecture crate (e.g. `riscv`) under some feature
-flag. See `critical-section` [README](https://github.com/rust-embedded/critical-section) for more
-information.
-
 Hardware driver crates
 ----------------------
 
