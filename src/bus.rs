@@ -3,10 +3,10 @@ use crate::endpoint::{
     IsochronousUsageType,
 };
 use crate::{Result, UsbDirection, UsbError};
-use atomic_polyfill::{AtomicPtr, Ordering};
 use core::cell::RefCell;
 use core::mem;
 use core::ptr;
+use portable_atomic::{AtomicPtr, Ordering};
 
 /// A trait for device-specific USB peripherals. Implement this to add support for a new hardware
 /// platform.

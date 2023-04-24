@@ -10,8 +10,8 @@ authors = ["Matti Virkkunen <mvirkkunen@gmail.com>"]
 repository = "https://github.com/mvirkkunen/usb-device"
 
 [dependencies]
-atomic-polyfill = "1.0.2"
 defmt = { version = "0.3", optional = true }
+portable-atomic = { version = "1.2.0", default-features = false }
 
 [dev-dependencies]
 rusb = "0.9.1"
