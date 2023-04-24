@@ -110,12 +110,12 @@ impl DescriptorWriter<'_> {
         self.write(
             descriptor_type::DEVICE,
             &[
-                0x10,
-                0x02,                     // bcdUSB 2.1
-                config.device_class,      // bDeviceClass
-                config.device_sub_class,  // bDeviceSubClass
-                config.device_protocol,   // bDeviceProtocol
-                config.max_packet_size_0, // bMaxPacketSize0
+                (config.usb_rev as u16) as u8,
+                (config.usb_rev as u16 >> 8) as u8, // bcdUSB
+                config.device_class,                // bDeviceClass
+                config.device_sub_class,            // bDeviceSubClass
+                config.device_protocol,             // bDeviceProtocol
+                config.max_packet_size_0,           // bMaxPacketSize0
                 config.vendor_id as u8,
                 (config.vendor_id >> 8) as u8, // idVendor
                 config.product_id as u8,
