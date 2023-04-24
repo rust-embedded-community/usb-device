@@ -1,5 +1,5 @@
 use crate::bus::{UsbBus, UsbBusAllocator};
-use crate::device::{Config, UsbDevice};
+use crate::device::{Config, UsbDevice, UsbRev};
 
 /// A USB vendor ID and product ID pair.
 pub struct UsbVidPid(pub u16, pub u16);
@@ -34,6 +34,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
                 max_packet_size_0: 8,
                 vendor_id: vid_pid.0,
                 product_id: vid_pid.1,
+                usb_rev: UsbRev::Usb210,
                 device_release: 0x0010,
                 manufacturer: None,
                 product: None,
@@ -87,6 +88,11 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
         ///
         /// Default: `false`
         supports_remote_wakeup: bool,
+
+        /// Sets which Usb 2 revision to comply to.
+        ///
+        /// Default: `UsbRev::Usb210`
+        usb_rev: UsbRev,
     }
 
     /// Configures the device as a composite device with interface association descriptors.
