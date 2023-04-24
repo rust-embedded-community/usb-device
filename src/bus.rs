@@ -321,7 +321,7 @@ impl<B: UsbBus> UsbBusAllocator<B> {
 /// A handle for a USB interface that contains its number.
 #[derive(Copy, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
-pub struct InterfaceNumber(u8);
+pub struct InterfaceNumber(pub(crate) u8);
 
 impl From<InterfaceNumber> for u8 {
     fn from(n: InterfaceNumber) -> u8 {
