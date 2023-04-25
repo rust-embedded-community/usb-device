@@ -6,7 +6,7 @@ use crate::{Result, UsbDirection, UsbError};
 use core::cell::RefCell;
 use core::mem;
 use core::ptr;
-use core::sync::atomic::{AtomicPtr, Ordering};
+use portable_atomic::{AtomicPtr, Ordering};
 
 /// A trait for device-specific USB peripherals. Implement this to add support for a new hardware
 /// platform.

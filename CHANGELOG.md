@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * New enums and allocators for Isochronous endpoints ([#60](https://github.com/rust-embedded-community/usb-device/pull/60)).
 * Ability to select USB revision ([#116](https://github.com/rust-embedded-community/usb-device/pull/116)).
 * Added support for alternate settings on interfaces ([#114](https://github.com/rust-embedded-community/usb-device/pull/114)).
+* Added support for architectures without atomics ([#115](https://github.com/rust-embedded-community/usb-device/pull/115)).
 
 ### Changed
 * `EndpointType` enum now has fields for isochronous synchronization and usage ([#60](https://github.com/rust-embedded-community/usb-device/pull/60)).

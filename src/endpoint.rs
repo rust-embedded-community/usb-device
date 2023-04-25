@@ -1,7 +1,7 @@
 use crate::bus::UsbBus;
 use crate::{Result, UsbDirection};
 use core::marker::PhantomData;
-use core::sync::atomic::{AtomicPtr, Ordering};
+use portable_atomic::{AtomicPtr, Ordering};
 
 /// Trait for endpoint type markers.
 pub trait EndpointDirection {
