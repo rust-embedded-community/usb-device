@@ -31,12 +31,18 @@ Hardware driver crates
 * [stm32-usbd](https://github.com/stm32-rs/stm32-usbd) - device-driver implementation for multiple STM32 microcontroller families.
   Examples can be found in each individual HAL crate that implements the USB peripheral.
 
+* [rp2040-hal](https://github.com/rp-rs/rp-hal) - device-driver implementation for the raspberry pi RP2040 microcontroller. Examples can be found
+  in the various boards crates [here](https://github.com/rp-rs/rp-hal-boards).
+
 Class crates
 ------------
 
 * [usbd-hid](https://github.com/twitchyliquid64/usbd-hid) [![Crates.io](https://img.shields.io/crates/v/usbd-hid.svg)](https://crates.io/crates/usbd-hid) - HID class
+* [usbd-human-device-interface](https://github.com/dlkj/usbd-human-interface-device) [![Crates.io](https://img.shields.io/crates/v/usbd-human-interface-device.svg)](https://crates.io/crates/usbd-human-device-interface) - HID class
 * [usbd-serial](https://github.com/mvirkkunen/usbd-serial) [![Crates.io](https://img.shields.io/crates/v/usbd-serial.svg)](https://crates.io/crates/usbd-serial) - CDC-ACM serial port class
-
+* [usbd-storage](https://github.com/mvirkkunen/usbd-storage) [![Crates.io](https://img.shields.io/crates/v/usbd-storage.svg)](https://crates.io/crates/usbd-storage) - (Experimental) Mass storage port class
+* [usbd-dfu](https://github.com/mvirkkunen/usbd-dfu) [![Crates.io](https://img.shields.io/crates/v/usbd-dfu.svg)](https://crates.io/crates/usbd-dfu) - Device Firmware Upgrade class
+* [usbd-picotool-reset](https://github.com/mvirkkunen/usbd-picotool-reset) [![Crates.io](https://img.shields.io/crates/v/usbd-picotool-reset.svg)](https://crates.io/crates/usbd-picotool-reset) - picotool-reset class
 
 Others
 ------
