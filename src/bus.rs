@@ -334,9 +334,9 @@ impl From<InterfaceNumber> for u8 {
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct StringIndex(u8);
 
-impl From<u8> for StringIndex {
-    fn from(i: u8) -> StringIndex {
-        StringIndex(i)
+impl StringIndex {
+    pub(crate) fn new(index: u8) -> StringIndex {
+        StringIndex(index)
     }
 }
 

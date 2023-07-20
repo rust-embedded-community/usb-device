@@ -178,6 +178,7 @@ impl DescriptorWriter<'_> {
     ///   that do not conform to any class.
     /// * `function_sub_class` - Sub-class code. Depends on class.
     /// * `function_protocol` - Protocol code. Depends on class and sub-class.
+    /// * `function_string` - Index of string descriptor describing this function
     pub fn iad(
         &mut self,
         first_interface: InterfaceNumber,
