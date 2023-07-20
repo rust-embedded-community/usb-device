@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * Added support for architectures without atomics ([#115](https://github.com/rust-embedded-community/usb-device/pull/115)).
 
 ### Breaking
-* `DescriptorWriter::iad()` now requires a `Option<StringIndex>` to optionally specify a string for describing the function (#[121](https://github.com/rust-embedded-community/usb-device/pull/121))
+* `DescriptorWriter::iad()` now requires a `Option<StringIndex>` to optionally specify a string for describing the function ([#121](https://github.com/rust-embedded-community/usb-device/pull/121))
 
 ### Changed
 * `EndpointType` enum now has fields for isochronous synchronization and usage ([#60](https://github.com/rust-embedded-community/usb-device/pull/60)).
