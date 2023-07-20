@@ -1,4 +1,4 @@
-use crate::bus::{InterfaceNumber, PollResult, StringIndex, UsbBus, UsbBusAllocator};
+use crate::bus::{InterfaceNumber, PollResult, UsbBus, UsbBusAllocator};
 use crate::class::{ControlIn, ControlOut, UsbClass};
 use crate::control;
 use crate::control_pipe::ControlPipe;
@@ -558,12 +558,12 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                         2 => config.product,
                         3 => config.serial_number,
                         _ => {
-                            let index = StringIndex::new(index);
+                            let str_index = index.into();
                             let lang_id = req.index;
 
                             classes
                                 .iter()
-                                .filter_map(|cls| cls.get_string(index, lang_id))
+                                .filter_map(|cls| cls.get_string(str_index, lang_id))
                                 .next()
                         }
                     };

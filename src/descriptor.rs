@@ -185,10 +185,13 @@ impl DescriptorWriter<'_> {
         function_class: u8,
         function_sub_class: u8,
         function_protocol: u8,
+        function_string: Option<StringIndex>,
     ) -> Result<()> {
         if !self.write_iads {
             return Ok(());
         }
+
+        let str_index = function_string.map_or(0, Into::into);
 
         self.write(
             descriptor_type::IAD,
@@ -198,7 +201,7 @@ impl DescriptorWriter<'_> {
                 function_class,
                 function_sub_class,
                 function_protocol,
-                0,
+                str_index,
             ],
         )?;
 
