@@ -113,9 +113,9 @@ impl<B: UsbBus> TestClass<'_, B> {
         usb_bus: &'b UsbBusAllocator<B>,
     ) -> UsbDeviceBuilder<'b, B> {
         UsbDeviceBuilder::new(usb_bus, UsbVidPid(VID, PID))
-            .manufacturer(MANUFACTURER)
-            .product(PRODUCT)
-            .serial_number(SERIAL_NUMBER)
+            .manufacturer(&[MANUFACTURER])
+            .product(&[PRODUCT])
+            .serial_number(&[SERIAL_NUMBER])
             .max_packet_size_0(sizes::CONTROL_ENDPOINT)
     }
 

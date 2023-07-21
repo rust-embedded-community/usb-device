@@ -63,9 +63,10 @@ pub(crate) struct Config<'a> {
     pub product_id: u16,
     pub usb_rev: UsbRev,
     pub device_release: u16,
-    pub manufacturer: Option<&'a str>,
-    pub product: Option<&'a str>,
-    pub serial_number: Option<&'a str>,
+    pub extra_lang_ids: Option<&'a [u16]>,
+    pub manufacturer: Option<&'a [&'a str]>,
+    pub product: Option<&'a [&'a str]>,
+    pub serial_number: Option<&'a [&'a str]>,
     pub self_powered: bool,
     pub supports_remote_wakeup: bool,
     pub composite_with_iads: bool,
@@ -547,25 +548,73 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 Ok(())
             }),
 
-            descriptor_type::STRING => {
-                if index == 0 {
-                    accept_writer(xfer, |w| {
-                        w.write(descriptor_type::STRING, &lang_id::ENGLISH_US.to_le_bytes())
-                    })
-                } else {
-                    let s = match index {
-                        1 => config.manufacturer,
-                        2 => config.product,
-                        3 => config.serial_number,
-                        _ => {
-                            let index = StringIndex::new(index);
-                            let lang_id = req.index;
+            descriptor_type::STRING => match index {
+                // first STRING Request
+                0 => {
+                    if let Some(extra_lang_ids) = config.extra_lang_ids {
+                        assert!(
+                            extra_lang_ids.len() < 16,
+                            "Not support more than 15 extra LangIDs"
+                        );
 
-                            classes
+                        let mut lang_id_bytes = [0u8; 32];
+                        lang_id_bytes[0..2].copy_from_slice(&lang_id::ENGLISH_US.to_le_bytes());
+
+                        extra_lang_ids
+                            .iter()
+                            .enumerate()
+                            .for_each(|(index, lang_id)| {
+                                lang_id_bytes[(index + 1) * 2..(index + 2) * 2]
+                                    .copy_from_slice(&lang_id.to_le_bytes());
+                            });
+
+                        accept_writer(xfer, |w| {
+                            w.write(
+                                descriptor_type::STRING,
+                                &lang_id_bytes[0..extra_lang_ids.len() * 2 + 2],
+                            )
+                        })
+                    } else {
+                        accept_writer(xfer, |w| {
+                            w.write(descriptor_type::STRING, &lang_id::ENGLISH_US.to_le_bytes())
+                        })
+                    }
+                }
+
+                // reset STRING Request
+                _ => {
+                    let s = if index <= 3 {
+                        // for Manufacture, Product and Serial
+                        let lang_id_list_index = match config.extra_lang_ids {
+                            Some(extra_lang_ids) => extra_lang_ids
                                 .iter()
-                                .filter_map(|cls| cls.get_string(index, lang_id))
-                                .next()
+                                .position(|lang_id| req.index == *lang_id)
+                                .map_or(0, |index| index + 1),
+                            None => 0,
+                        };
+
+                        match index {
+                            1 => config
+                                .manufacturer
+                                .map(|str_list| str_list[lang_id_list_index]),
+
+                            2 => config.product.map(|str_list| str_list[lang_id_list_index]),
+
+                            3 => config
+                                .serial_number
+                                .map(|str_list| str_list[lang_id_list_index]),
+
+                            _ => unreachable!(),
                         }
+                    } else {
+                        // for other custom STRINGs
+                        let index = StringIndex::new(index);
+                        let lang_id = req.index;
+
+                        classes
+                            .iter()
+                            .filter_map(|cls| cls.get_string(index, lang_id))
+                            .next()
                     };
 
                     if let Some(s) = s {
@@ -574,7 +623,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                         xfer.reject().ok();
                     }
                 }
-            }
+            },
 
             _ => {
                 xfer.reject().ok();

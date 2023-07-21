@@ -36,6 +36,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
                 product_id: vid_pid.1,
                 usb_rev: UsbRev::Usb210,
                 device_release: 0x0010,
+                extra_lang_ids: None,
                 manufacturer: None,
                 product: None,
                 serial_number: None,
@@ -106,27 +107,60 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
         self
     }
 
-    /// Sets the manufacturer name string descriptor.
+    /// Sets **extra** Language ID for device.
+    ///
+    /// Since "en_US"(0x0409) is implicitly embedded, you just need to fill other LangIDs
     ///
     /// Default: (none)
-    pub fn manufacturer(mut self, manufacturer: &'a str) -> Self {
-        self.config.manufacturer = Some(manufacturer);
+    pub fn extra_lang_ids(mut self, extra_lang_ids: &'a [u16]) -> Self {
+        assert!(
+            extra_lang_ids.len() < 16,
+            "Not support more than 15 extra LangIDs"
+        );
+
+        if extra_lang_ids.len() > 0 {
+            self.config.extra_lang_ids = Some(extra_lang_ids);
+        }
+
+        self
+    }
+
+    /// Sets the manufacturer name string descriptor.
+    ///
+    /// the first string should always be in English, the language of reset strings
+    /// should be pair with what inside [.extra_lang_ids()](Self::extra_lang_ids)
+    ///
+    /// Default: (none)
+    pub fn manufacturer(mut self, manufacturer_ls: &'a [&'a str]) -> Self {
+        if manufacturer_ls.len() > 0 {
+            self.config.manufacturer = Some(manufacturer_ls);
+        }
         self
     }
 
     /// Sets the product name string descriptor.
     ///
+    /// the first string should always be in English, the language of reset strings
+    /// should be pair with what inside [.extra_lang_ids()](Self::extra_lang_ids)
+    ///
     /// Default: (none)
-    pub fn product(mut self, product: &'a str) -> Self {
-        self.config.product = Some(product);
+    pub fn product(mut self, product_ls: &'a [&'a str]) -> Self {
+        if product_ls.len() > 0 {
+            self.config.product = Some(product_ls);
+        }
         self
     }
 
     /// Sets the serial number string descriptor.
     ///
+    /// the first string should always be in English, the language of reset strings
+    /// should be pair with what inside [.extra_lang_ids()](Self::extra_lang_ids)
+    ///
     /// Default: (none)
-    pub fn serial_number(mut self, serial_number: &'a str) -> Self {
-        self.config.serial_number = Some(serial_number);
+    pub fn serial_number(mut self, serial_number_ls: &'a [&'a str]) -> Self {
+        if serial_number_ls.len() > 0 {
+            self.config.serial_number = Some(serial_number_ls);
+        }
         self
     }
 
