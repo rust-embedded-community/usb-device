@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Breaking
 * `DescriptorWriter::iad()` now requires a `Option<StringIndex>` to optionally specify a string for describing the function ([#121](https://github.com/rust-embedded-community/usb-device/pull/121))
-* `.manufacturer()`, `.product()` and `.serial_number()` of `UsbDeviceBuilder` now require `&[&str]` to specify strings match with each LANGIDs supported by device. 
+* `.manufacturer()`, `.product()` and `.serial_number()` of `UsbDeviceBuilder` now require `&[&str]` to specify strings match with each LANGIDs supported by device. ([#122](https://github.com/rust-embedded-community/usb-device/pull/122))
 
 ### Changed
 * `EndpointType` enum now has fields for isochronous synchronization and usage ([#60](https://github.com/rust-embedded-community/usb-device/pull/60)).
