@@ -12,12 +12,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 * Ability to select USB revision ([#116](https://github.com/rust-embedded-community/usb-device/pull/116)).
 * Added support for alternate settings on interfaces ([#114](https://github.com/rust-embedded-community/usb-device/pull/114)).
 * Added support for architectures without atomics ([#115](https://github.com/rust-embedded-community/usb-device/pull/115)).
+* Added support for multi-language STRING desc ([#122](https://github.com/rust-embedded-community/usb-device/pull/122)).
+  * `UsbDeviceBuilder` has a public `.extra_lang_ids()` method to specify LANGIDs besides ENGLISH_US(0x0409)
 
 ### Breaking
 * `DescriptorWriter::iad()` now requires a `Option<StringIndex>` to optionally specify a string for describing the function ([#121](https://github.com/rust-embedded-community/usb-device/pull/121))
+* `.manufacturer()`, `.product()` and `.serial_number()` of `UsbDeviceBuilder` now require `&[&str]` to specify strings match with each LANGIDs supported by device. 
 
 ### Changed
 * `EndpointType` enum now has fields for isochronous synchronization and usage ([#60](https://github.com/rust-embedded-community/usb-device/pull/60)).
+* `descriptor_type::STRING` of `fn get_descriptor()` will send the LANGIDs supported by device, and respond STRING Request with specified LANGID. ([#122](https://github.com/rust-embedded-community/usb-device/pull/122))
 
 ## [0.2.9] - 2022-08-02
 
