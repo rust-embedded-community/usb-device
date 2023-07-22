@@ -581,7 +581,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     }
                 }
 
-                // reset STRING Request
+                // rest STRING Requests
                 _ => {
                     let s = if index <= 3 {
                         // for Manufacture, Product and Serial
