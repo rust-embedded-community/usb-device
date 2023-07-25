@@ -6,6 +6,7 @@ use crate::descriptor::{descriptor_type, lang_id::LangID, BosWriter, DescriptorW
 pub use crate::device_builder::{UsbDeviceBuilder, UsbVidPid};
 use crate::endpoint::{EndpointAddress, EndpointType};
 use crate::{Result, UsbDirection};
+use core::convert::TryInto;
 
 /// The global state of the USB device.
 ///
@@ -605,7 +606,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     } else {
                         // for other custom STRINGs
                         let index = StringIndex::new(index);
-                        let lang_id = req.index.into();
+                        let lang_id = req.index.try_into().unwrap();
 
                         classes
                             .iter()
