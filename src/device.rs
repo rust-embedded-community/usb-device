@@ -2,7 +2,7 @@ use crate::bus::{InterfaceNumber, PollResult, StringIndex, UsbBus, UsbBusAllocat
 use crate::class::{ControlIn, ControlOut, UsbClass};
 use crate::control;
 use crate::control_pipe::ControlPipe;
-use crate::descriptor::{descriptor_type, lang_id, BosWriter, DescriptorWriter};
+use crate::descriptor::{descriptor_type, lang_id::LangID, BosWriter, DescriptorWriter};
 pub use crate::device_builder::{UsbDeviceBuilder, UsbVidPid};
 use crate::endpoint::{EndpointAddress, EndpointType};
 use crate::{Result, UsbDirection};
@@ -63,7 +63,7 @@ pub(crate) struct Config<'a> {
     pub product_id: u16,
     pub usb_rev: UsbRev,
     pub device_release: u16,
-    pub extra_lang_ids: Option<&'a [u16]>,
+    pub extra_lang_ids: Option<&'a [LangID]>,
     pub manufacturer: Option<&'a [&'a str]>,
     pub product: Option<&'a [&'a str]>,
     pub serial_number: Option<&'a [&'a str]>,
@@ -552,21 +552,14 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 // first STRING Request
                 0 => {
                     if let Some(extra_lang_ids) = config.extra_lang_ids {
-                        assert!(
-                            extra_lang_ids.len() < 16,
-                            "Not support more than 15 extra LangIDs"
-                        );
-
                         let mut lang_id_bytes = [0u8; 32];
-                        lang_id_bytes[0..2].copy_from_slice(&lang_id::ENGLISH_US.to_le_bytes());
 
-                        extra_lang_ids
-                            .iter()
-                            .enumerate()
-                            .for_each(|(index, lang_id)| {
-                                lang_id_bytes[(index + 1) * 2..(index + 2) * 2]
-                                    .copy_from_slice(&lang_id.to_le_bytes());
-                            });
+                        for (buffer, lang_id) in lang_id_bytes
+                            .chunks_exact_mut(2)
+                            .zip([LangID::EN_US].iter().chain(extra_lang_ids.iter()))
+                        {
+                            buffer.copy_from_slice(&u16::from(lang_id).to_le_bytes());
+                        }
 
                         accept_writer(xfer, |w| {
                             w.write(
@@ -576,7 +569,10 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                         })
                     } else {
                         accept_writer(xfer, |w| {
-                            w.write(descriptor_type::STRING, &lang_id::ENGLISH_US.to_le_bytes())
+                            w.write(
+                                descriptor_type::STRING,
+                                &u16::from(LangID::EN_US).to_le_bytes(),
+                            )
                         })
                     }
                 }
@@ -588,7 +584,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                         let lang_id_list_index = match config.extra_lang_ids {
                             Some(extra_lang_ids) => extra_lang_ids
                                 .iter()
-                                .position(|lang_id| req.index == *lang_id)
+                                .position(|lang_id| req.index == u16::from(lang_id))
                                 .map_or(0, |index| index + 1),
                             None => 0,
                         };
@@ -609,7 +605,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     } else {
                         // for other custom STRINGs
                         let index = StringIndex::new(index);
-                        let lang_id = req.index;
+                        let lang_id = req.index.into();
 
                         classes
                             .iter()

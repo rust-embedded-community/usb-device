@@ -1,6 +1,7 @@
 use crate::bus::{InterfaceNumber, StringIndex, UsbBus};
 use crate::control;
 use crate::control_pipe::ControlPipe;
+use crate::descriptor::lang_id::LangID;
 use crate::descriptor::{BosWriter, DescriptorWriter};
 use crate::endpoint::EndpointAddress;
 use crate::{Result, UsbError};
@@ -43,7 +44,7 @@ pub trait UsbClass<B: UsbBus> {
     /// * `index` - A string index allocated earlier with
     ///   [`UsbAllocator`](crate::bus::UsbBusAllocator).
     /// * `lang_id` - The language ID for the string to retrieve.
-    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&str> {
+    fn get_string(&self, index: StringIndex, lang_id: LangID) -> Option<&str> {
         let _ = (index, lang_id);
         None
     }

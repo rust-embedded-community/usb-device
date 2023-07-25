@@ -1,7 +1,7 @@
 #![allow(missing_docs)]
 
 use crate::class_prelude::*;
-use crate::descriptor;
+use crate::descriptor::lang_id::LangID;
 use crate::device::{UsbDevice, UsbDeviceBuilder, UsbVidPid};
 use crate::Result;
 use core::cmp;
@@ -229,8 +229,8 @@ impl<B: UsbBus> UsbClass<B> for TestClass<'_, B> {
         Ok(())
     }
 
-    fn get_string(&self, index: StringIndex, lang_id: u16) -> Option<&str> {
-        if lang_id == descriptor::lang_id::ENGLISH_US {
+    fn get_string(&self, index: StringIndex, lang_id: LangID) -> Option<&str> {
+        if lang_id == LangID::EN_US {
             if index == self.custom_string {
                 return Some(CUSTOM_STRING);
             } else if index == self.interface_string {
