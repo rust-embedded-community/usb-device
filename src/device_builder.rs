@@ -165,12 +165,13 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
         );
 
         // do list length check only if user already specify "extra_lang_ids"
-        if let Some(extra_lang_ids) = self.config.extra_lang_ids {
-            assert!(
-                manufacturer_ls.len() == extra_lang_ids.len() + 1,
-                "The length of \"manufacturer\" list should be one more than \"extra_lang_ids\" list",
-            )
-        }
+        let num_extra_langs = self.config.extra_lang_ids.as_ref().map(|langs| langs.len()).unwrap_or(0);
+        
+        assert!(
+            manufacturer_ls.len() == num_extra_langs + 1,
+            "The length of \"manufacturer\" list should be one more than \"extra_lang_ids\" list",
+        )
+
 
         self.config.manufacturer = Some(manufacturer_ls);
 
