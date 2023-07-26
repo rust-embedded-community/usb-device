@@ -6,7 +6,7 @@ use crate::descriptor::{descriptor_type, lang_id::LangID, BosWriter, DescriptorW
 pub use crate::device_builder::{UsbDeviceBuilder, UsbVidPid};
 use crate::endpoint::{EndpointAddress, EndpointType};
 use crate::{Result, UsbDirection};
-use core::convert::TryInto;
+use core::convert::TryFrom;
 
 /// The global state of the USB device.
 ///
@@ -555,17 +555,17 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     if let Some(extra_lang_ids) = config.extra_lang_ids {
                         let mut lang_id_bytes = [0u8; 32];
 
-                        for (buffer, lang_id) in lang_id_bytes
+                        lang_id_bytes
                             .chunks_exact_mut(2)
                             .zip([LangID::EN_US].iter().chain(extra_lang_ids.iter()))
-                        {
-                            buffer.copy_from_slice(&u16::from(lang_id).to_le_bytes());
-                        }
+                            .for_each(|(buffer, lang_id)| {
+                                buffer.copy_from_slice(&u16::from(lang_id).to_le_bytes());
+                            });
 
                         accept_writer(xfer, |w| {
                             w.write(
                                 descriptor_type::STRING,
-                                &lang_id_bytes[0..extra_lang_ids.len() * 2 + 2],
+                                &lang_id_bytes[0..(1 + extra_lang_ids.len()) * 2],
                             )
                         })
                     } else {
@@ -580,38 +580,69 @@ impl<B: UsbBus> UsbDevice<'_, B> {
 
                 // rest STRING Requests
                 _ => {
-                    let s = if index <= 3 {
-                        // for Manufacture, Product and Serial
-                        let lang_id_list_index = match config.extra_lang_ids {
-                            Some(extra_lang_ids) => extra_lang_ids
-                                .iter()
-                                .position(|lang_id| req.index == u16::from(lang_id))
-                                .map_or(0, |index| index + 1),
-                            None => 0,
-                        };
-
-                        match index {
-                            1 => config
-                                .manufacturer
-                                .map(|str_list| str_list[lang_id_list_index]),
-
-                            2 => config.product.map(|str_list| str_list[lang_id_list_index]),
-
-                            3 => config
-                                .serial_number
-                                .map(|str_list| str_list[lang_id_list_index]),
-
-                            _ => unreachable!(),
+                    let s = match LangID::try_from(req.index) {
+                        Err(_err) => {
+                            #[cfg(feature = "defmt")]
+                            defmt::warn!(
+                                "Receive unknown LANGID {:#06X}, reject the request",
+                                _err.number
+                            );
+                            None
                         }
-                    } else {
-                        // for other custom STRINGs
-                        let index = StringIndex::new(index);
-                        let lang_id = req.index.try_into().unwrap();
 
-                        classes
-                            .iter()
-                            .filter_map(|cls| cls.get_string(index, lang_id))
-                            .next()
+                        Ok(req_lang_id) => {
+                            if index <= 3 {
+                                // for Manufacture, Product and Serial
+
+                                // construct the list of lang_ids full supported by device
+                                let mut lang_id_list: [Option<LangID>; 16] = [None; 16];
+                                match config.extra_lang_ids {
+                                    None => lang_id_list[0] = Some(LangID::EN_US),
+                                    Some(extra_lang_ids) => {
+                                        lang_id_list
+                                            .iter_mut()
+                                            .zip(
+                                                [LangID::EN_US].iter().chain(extra_lang_ids.iter()),
+                                            )
+                                            .for_each(|(item, lang_id)| *item = Some(*lang_id));
+                                    }
+                                };
+
+                                lang_id_list
+                                    .iter()
+                                    .fuse()
+                                    .position(|list_lang_id| match *list_lang_id {
+                                        Some(list_lang_id) if req_lang_id == list_lang_id => true,
+                                        _ => false,
+                                    })
+                                    .or_else(|| {
+                                        // Since we construct the list of full supported lang_ids previously,
+                                        // we can safely reject requests which ask for other lang_id.
+                                        #[cfg(feature = "defmt")]
+                                        defmt::warn!(
+                                            "Receive unknown LANGID {:#06X}, reject the request",
+                                            req_lang_id
+                                        );
+                                        None
+                                    })
+                                    .and_then(|lang_id_list_index| {
+                                        match index {
+                                            1 => config.manufacturer,
+                                            2 => config.product,
+                                            3 => config.serial_number,
+                                            _ => unreachable!(),
+                                        }
+                                        .map(|str_list| str_list[lang_id_list_index])
+                                    })
+                            } else {
+                                // for other custom STRINGs
+
+                                let index = StringIndex::new(index);
+                                classes
+                                    .iter()
+                                    .find_map(|cls| cls.get_string(index, req_lang_id))
+                            }
+                        }
                     };
 
                     if let Some(s) = s {
