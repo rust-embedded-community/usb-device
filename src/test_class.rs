@@ -93,7 +93,7 @@ impl<B: UsbBus> TestClass<'_, B> {
     }
 
     /// Convenience method to create a UsbDevice that is configured correctly for TestClass.
-    pub fn make_device<'a, 'b>(&'a self, usb_bus: &'b UsbBusAllocator<B>) -> UsbDevice<'b, B> {
+    pub fn make_device<'a>(&self, usb_bus: &'a UsbBusAllocator<B>) -> UsbDevice<'a, B> {
         self.make_device_builder(usb_bus).build()
     }
 
@@ -108,10 +108,10 @@ impl<B: UsbBus> TestClass<'_, B> {
     ///
     /// on the returned builder. If you change the manufacturer, product, or serial number fields,
     /// the test host may misbehave.
-    pub fn make_device_builder<'a, 'b>(
-        &'a self,
-        usb_bus: &'b UsbBusAllocator<B>,
-    ) -> UsbDeviceBuilder<'b, B> {
+    pub fn make_device_builder<'a>(
+        &self,
+        usb_bus: &'a UsbBusAllocator<B>,
+    ) -> UsbDeviceBuilder<'a, B> {
         UsbDeviceBuilder::new(usb_bus, UsbVidPid(VID, PID))
             .manufacturer(MANUFACTURER)
             .product(PRODUCT)
@@ -311,7 +311,7 @@ impl<B: UsbBus> UsbClass<B> for TestClass<'_, B> {
 
                 xfer.accept().expect("control_out REQ_STORE_REQUEST failed");
             }
-            REQ_WRITE_BUFFER if xfer.data().len() as usize <= self.control_buf.len() => {
+            REQ_WRITE_BUFFER if xfer.data().len() <= self.control_buf.len() => {
                 assert_eq!(
                     xfer.data().len(),
                     req.length as usize,

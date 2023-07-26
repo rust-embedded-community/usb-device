@@ -366,12 +366,10 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     // Ask class implementations, whether they know the alternate setting
                     // of the interface in question
                     for cls in classes {
-                        match cls.get_alt_setting(InterfaceNumber(req.index as u8)) {
-                            Some(setting) => {
-                                xfer.accept_with(&setting.to_le_bytes()).ok();
-                                return;
-                            }
-                            None => (),
+                        if let Some(setting) = cls.get_alt_setting(InterfaceNumber(req.index as u8))
+                        {
+                            xfer.accept_with(&setting.to_le_bytes()).ok();
+                            return;
                         }
                     }
 
