@@ -292,9 +292,9 @@ impl DescriptorWriter<'_> {
     ///
     /// * `endpoint` - Endpoint previously allocated with
     ///   [`UsbBusAllocator`](crate::bus::UsbBusAllocator).
-    pub fn endpoint<'e, B: UsbBus, D: EndpointDirection>(
+    pub fn endpoint<B: UsbBus, D: EndpointDirection>(
         &mut self,
-        endpoint: &Endpoint<'e, B, D>,
+        endpoint: &Endpoint<'_, B, D>,
     ) -> Result<()> {
         self.endpoint_ex(endpoint, |_| Ok(0))
     }
@@ -310,9 +310,9 @@ impl DescriptorWriter<'_> {
     /// * `endpoint` - Endpoint previously allocated with
     ///   [`UsbBusAllocator`](crate::bus::UsbBusAllocator).
     /// * `f` - Callback for the extra data. See `write_with` for more information.
-    pub fn endpoint_ex<'e, B: UsbBus, D: EndpointDirection>(
+    pub fn endpoint_ex<B: UsbBus, D: EndpointDirection>(
         &mut self,
-        endpoint: &Endpoint<'e, B, D>,
+        endpoint: &Endpoint<'_, B, D>,
         f: impl FnOnce(&mut [u8]) -> Result<usize>,
     ) -> Result<()> {
         match self.num_endpoints_mark {
