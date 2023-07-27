@@ -164,17 +164,13 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
             "Not support more than 16 \"manufacturer\"s"
         );
 
-        let num_extra_langs = self
-            .config
-            .extra_lang_ids
-            .as_ref()
-            .map(|langs| langs.len())
-            .unwrap_or(0);
-
-        assert!(
-            manufacturer_ls.len() == num_extra_langs + 1,
-            "The length of \"manufacturer\" list should be one more than \"extra_lang_ids\" list",
-        );
+        // do list length check only if user already specify "extra_lang_ids"
+        if let Some(extra_lang_ids) = self.config.extra_lang_ids {
+            assert!(
+                manufacturer_ls.len() == extra_lang_ids.len() + 1,
+                "The length of \"product\" list should be one more than \"extra_lang_ids\" list",
+            )
+        }
 
         self.config.manufacturer = Some(manufacturer_ls);
 
@@ -198,17 +194,13 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
             "Not support more than 16 \"product\"s"
         );
 
-        let num_extra_langs = self
-            .config
-            .extra_lang_ids
-            .as_ref()
-            .map(|langs| langs.len())
-            .unwrap_or(0);
-
-        assert!(
-            product_ls.len() == num_extra_langs + 1,
-            "The length of \"product\" list should be one more than \"extra_lang_ids\" list",
-        );
+        // do list length check only if user already specify "extra_lang_ids"
+        if let Some(extra_lang_ids) = self.config.extra_lang_ids {
+            assert!(
+                product_ls.len() == extra_lang_ids.len() + 1,
+                "The length of \"product\" list should be one more than \"extra_lang_ids\" list",
+            )
+        }
 
         self.config.product = Some(product_ls);
 
@@ -232,17 +224,13 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
             "Not support more than 16 \"serial_number\"s"
         );
 
-        let num_extra_langs = self
-            .config
-            .extra_lang_ids
-            .as_ref()
-            .map(|langs| langs.len())
-            .unwrap_or(0);
-
-        assert!(
-            serial_number_ls.len() == num_extra_langs + 1,
-            "The length of \"serial_number\" list should be one more than \"extra_lang_ids\" list",
-        );
+        // do list length check only if user already specify "extra_lang_ids"
+        if let Some(extra_lang_ids) = self.config.extra_lang_ids {
+            assert!(
+                serial_number_ls.len() == extra_lang_ids.len() + 1,
+                "The length of \"serial_number\" list should be one more than \"extra_lang_ids\" list",
+            )
+        }
 
         self.config.serial_number = Some(serial_number_ls);
 
