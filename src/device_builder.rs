@@ -1,4 +1,5 @@
 use crate::bus::{UsbBus, UsbBusAllocator};
+use crate::descriptor::lang_id::LangID;
 use crate::device::{Config, UsbDevice, UsbRev};
 
 /// A USB vendor ID and product ID pair.
@@ -36,6 +37,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
                 product_id: vid_pid.1,
                 usb_rev: UsbRev::Usb210,
                 device_release: 0x0010,
+                extra_lang_ids: None,
                 manufacturer: None,
                 product: None,
                 serial_number: None,
@@ -106,27 +108,132 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
         self
     }
 
-    /// Sets the manufacturer name string descriptor.
+    /// Sets **extra** Language ID for device.
+    ///
+    /// Since "en_US"(0x0409) is implicitly embedded, you just need to fill other LangIDs
     ///
     /// Default: (none)
-    pub fn manufacturer(mut self, manufacturer: &'a str) -> Self {
-        self.config.manufacturer = Some(manufacturer);
+    pub fn set_extra_lang_ids(mut self, extra_lang_ids: &'a [LangID]) -> Self {
+        if extra_lang_ids.len() == 0 {
+            self.config.extra_lang_ids = None;
+            return self;
+        }
+
+        assert!(
+            extra_lang_ids.len() < 16,
+            "Not support more than 15 extra LangIDs"
+        );
+
+        [
+            self.config.manufacturer,
+            self.config.product,
+            self.config.serial_number,
+        ]
+        .iter()
+        .zip(["manufacturer", "product", "serial_number"].iter())
+        .for_each(|(list, field_name)| {
+            // do list length check only if user already specify "manufacturer", "product" or "serial_number"
+            if let Some(list) = list {
+                assert!(
+                    extra_lang_ids.len() == list.len() - 1,
+                    "The length of \"extra_lang_id\" list should be one less than \"{}\" list",
+                    field_name
+                )
+            }
+        });
+
+        self.config.extra_lang_ids = Some(extra_lang_ids);
+
+        self
+    }
+
+    /// Sets the manufacturer name string descriptor.
+    ///
+    /// the first string should always be in English, the language of rest strings
+    /// should be pair with what inside [.extra_lang_ids()](Self::extra_lang_ids)
+    ///
+    /// Default: (none)
+    pub fn manufacturer(mut self, manufacturer_ls: &'a [&'a str]) -> Self {
+        if manufacturer_ls.len() == 0 {
+            self.config.manufacturer = None;
+            return self;
+        }
+
+        assert!(
+            manufacturer_ls.len() <= 16,
+            "Not support more than 16 \"manufacturer\"s"
+        );
+
+        // do list length check only if user already specify "extra_lang_ids"
+        if let Some(extra_lang_ids) = self.config.extra_lang_ids {
+            assert!(
+                manufacturer_ls.len() == extra_lang_ids.len() + 1,
+                "The length of \"product\" list should be one more than \"extra_lang_ids\" list",
+            )
+        }
+
+        self.config.manufacturer = Some(manufacturer_ls);
+
         self
     }
 
     /// Sets the product name string descriptor.
     ///
+    /// the first string should always be in English, the language of rest strings
+    /// should be pair with what inside [.extra_lang_ids()](Self::extra_lang_ids)
+    ///
     /// Default: (none)
-    pub fn product(mut self, product: &'a str) -> Self {
-        self.config.product = Some(product);
+    pub fn product(mut self, product_ls: &'a [&'a str]) -> Self {
+        if product_ls.len() == 0 {
+            self.config.product = None;
+            return self;
+        }
+
+        assert!(
+            product_ls.len() <= 16,
+            "Not support more than 16 \"product\"s"
+        );
+
+        // do list length check only if user already specify "extra_lang_ids"
+        if let Some(extra_lang_ids) = self.config.extra_lang_ids {
+            assert!(
+                product_ls.len() == extra_lang_ids.len() + 1,
+                "The length of \"product\" list should be one more than \"extra_lang_ids\" list",
+            )
+        }
+
+        self.config.product = Some(product_ls);
+
         self
     }
 
     /// Sets the serial number string descriptor.
     ///
+    /// the first string should always be in English, the language of rest strings
+    /// should be pair with what inside [.extra_lang_ids()](Self::extra_lang_ids)
+    ///
     /// Default: (none)
-    pub fn serial_number(mut self, serial_number: &'a str) -> Self {
-        self.config.serial_number = Some(serial_number);
+    pub fn serial_number(mut self, serial_number_ls: &'a [&'a str]) -> Self {
+        if serial_number_ls.len() == 0 {
+            self.config.serial_number = None;
+            return self;
+        }
+
+        assert!(
+            serial_number_ls.len() <= 16,
+            "Not support more than 16 \"serial_number\"s"
+        );
+
+        // do list length check only if user already specify "extra_lang_ids"
+        if let Some(extra_lang_ids) = self.config.extra_lang_ids {
+            assert!(
+                serial_number_ls.len() == extra_lang_ids.len() + 1,
+                "The length of \"serial_number\" list should be one more than \"extra_lang_ids\" list",
+            )
+        }
+
+        self.config.serial_number = Some(serial_number_ls);
+
         self
     }
 

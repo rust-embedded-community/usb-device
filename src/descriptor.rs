@@ -19,12 +19,7 @@ pub mod descriptor_type {
 }
 
 /// String descriptor language IDs.
-pub mod lang_id {
-    /// English (US)
-    ///
-    /// Recommended for use as the first language ID for compatibility.
-    pub const ENGLISH_US: u16 = 0x0409;
-}
+pub mod lang_id;
 
 /// Standard capability descriptor types
 #[allow(missing_docs)]
