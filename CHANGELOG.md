@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   * `UsbDeviceBuilder` has a public `.extra_lang_ids()` method to specify LANGIDs besides ENGLISH_US(0x0409)
 
 ### Breaking
+* Acess numeric form of `EndpointType` variants now require a `.to_bm_attributes()`. ([#60](https://github.com/rust-embedded-community/usb-device/pull/60))
 * `DescriptorWriter::iad()` now requires a `Option<StringIndex>` to optionally specify a string for describing the function ([#121](https://github.com/rust-embedded-community/usb-device/pull/121))
 * `.manufacturer()`, `.product()` and `.serial_number()` of `UsbDeviceBuilder` now require `&[&str]` to specify strings match with each LANGIDs supported by device. ([#122](https://github.com/rust-embedded-community/usb-device/pull/122))
 
