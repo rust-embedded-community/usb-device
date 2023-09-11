@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Changed
 * `EndpointType` enum now has fields for isochronous synchronization and usage ([#60](https://github.com/rust-embedded-community/usb-device/pull/60)).
 * `descriptor_type::STRING` of `fn get_descriptor()` will send the LANGIDs supported by device, and respond STRING Request with specified LANGID. ([#122](https://github.com/rust-embedded-community/usb-device/pull/122))
+* `UsbError` is now copyable and comparable ([#127](https://github.com/rust-embedded-community/usb-device/pull/127))
 
 ## [0.2.9] - 2022-08-02
 
