@@ -37,7 +37,7 @@
 #![warn(missing_docs)]
 
 /// A USB stack error.
-#[derive(Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum UsbError {
     /// An operation would block because the device is currently busy or there is no data available.
