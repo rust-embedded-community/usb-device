@@ -191,6 +191,11 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                 self.state = ControlState::Idle;
                 return true;
             }
+            ControlState::Idle => {
+                // If we received a message on EP0 while sending the last portion of an IN
+                // transfer, we may have already transitioned to IDLE without getting the last
+                // IN-complete status. Just ignore this indication.
+            }
             _ => {
                 // Unexpected IN packet
                 self.set_error();
