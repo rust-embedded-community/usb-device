@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Fixed
+* Fixed a defect where enumeration may fail due to timing-related issues ([#128](https://github.com/rust-embedded-community/usb-device/issues/128))
+
 ### Added
 * New enums and allocators for Isochronous endpoints ([#60](https://github.com/rust-embedded-community/usb-device/pull/60)).
 * Ability to select USB revision ([#116](https://github.com/rust-embedded-community/usb-device/pull/116)).
