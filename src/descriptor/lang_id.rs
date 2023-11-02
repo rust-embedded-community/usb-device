@@ -15,7 +15,7 @@ impl From<LangID> for u16 {
 }
 
 #[allow(missing_docs)]
-#[derive(Clone, Copy, PartialEq, TryFromPrimitive)]
+#[derive(Clone, Copy, PartialEq, Debug, TryFromPrimitive)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[repr(u16)]
 pub enum LangID {

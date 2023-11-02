@@ -116,11 +116,29 @@ impl DescriptorWriter<'_> {
                 config.product_id as u8,
                 (config.product_id >> 8) as u8, // idProduct
                 config.device_release as u8,
-                (config.device_release >> 8) as u8,    // bcdDevice
-                config.manufacturer.map_or(0, |_| 1),  // iManufacturer
-                config.product.map_or(0, |_| 2),       // iProduct
-                config.serial_number.map_or(0, |_| 3), // iSerialNumber
-                1,                                     // bNumConfigurations
+                (config.device_release >> 8) as u8, // bcdDevice
+                config.string_descriptors.first().map_or(0, |lang| {
+                    if lang.manufacturer.is_some() {
+                        1
+                    } else {
+                        0
+                    }
+                }),
+                config.string_descriptors.first().map_or(0, |lang| {
+                    if lang.product.is_some() {
+                        2
+                    } else {
+                        0
+                    }
+                }),
+                config.string_descriptors.first().map_or(0, |lang| {
+                    if lang.serial.is_some() {
+                        3
+                    } else {
+                        0
+                    }
+                }),
+                1, // bNumConfigurations
             ],
         )
     }

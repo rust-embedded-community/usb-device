@@ -2,7 +2,7 @@
 
 use crate::class_prelude::*;
 use crate::descriptor::lang_id::LangID;
-use crate::device::{UsbDevice, UsbDeviceBuilder, UsbVidPid};
+use crate::device::{StringDescriptors, UsbDevice, UsbDeviceBuilder, UsbVidPid};
 use crate::Result;
 use core::cmp;
 
@@ -113,10 +113,13 @@ impl<B: UsbBus> TestClass<'_, B> {
         usb_bus: &'a UsbBusAllocator<B>,
     ) -> UsbDeviceBuilder<'a, B> {
         UsbDeviceBuilder::new(usb_bus, UsbVidPid(VID, PID))
-            .manufacturer(&[MANUFACTURER])
-            .product(&[PRODUCT])
-            .serial_number(&[SERIAL_NUMBER])
+            .strings(&[StringDescriptors::default()
+                .manufacturer(MANUFACTURER)
+                .product(PRODUCT)
+                .serial_number(SERIAL_NUMBER)])
+            .unwrap()
             .max_packet_size_0(sizes::CONTROL_ENDPOINT)
+            .unwrap()
     }
 
     /// Must be called after polling the UsbDevice.
