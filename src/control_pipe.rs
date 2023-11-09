@@ -154,12 +154,12 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             | ControlState::DataInLast
             | ControlState::DataInZlp
             | ControlState::StatusOut => {
-                self.ep_out.read(&mut []).ok();
+                let _ = self.ep_out.read(&mut []);
                 self.state = ControlState::Idle;
             }
             _ => {
                 // Discard the packet
-                self.ep_out.read(&mut []).ok();
+                let _ = self.ep_out.read(&mut []);
 
                 // Unexpected OUT packet
                 self.set_error()
@@ -235,7 +235,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             _ => return Err(UsbError::InvalidState),
         };
 
-        self.ep_in.write(&[]).ok();
+        let _ = self.ep_in.write(&[]);
         self.state = ControlState::StatusIn;
         Ok(())
     }

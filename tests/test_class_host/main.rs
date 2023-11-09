@@ -67,7 +67,7 @@ fn run_tests(tests: &[(&str, TestFn)]) {
         }
 
         print!("test {} ... ", name);
-        stdout().flush().ok();
+        let _ = stdout().flush();
 
         let mut out = String::new();
 
