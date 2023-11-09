@@ -349,7 +349,7 @@ pub enum LangID {
     MN_MONG_MN = 0x0C50,
     DZ_BT = 0x0C51,
     TMZ_MA = 0x0C5F,
-    QUZ_PE = 0x0C6b,
+    QUZ_PE = 0x0C6B,
     LOCALE_CUSTOM_UNSPECIFIED = 0x1000,
     AR_LY = 0x1001,
     ZH_SG = 0x1004,

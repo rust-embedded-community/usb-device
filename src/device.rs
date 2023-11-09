@@ -606,32 +606,28 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                                     }
                                 };
 
-                                lang_id_list
-                                    .iter()
-                                    .fuse()
-                                    .position(|list_lang_id| match *list_lang_id {
-                                        Some(list_lang_id) if req_lang_id == list_lang_id => true,
-                                        _ => false,
-                                    })
-                                    .or_else(|| {
-                                        // Since we construct the list of full supported lang_ids previously,
-                                        // we can safely reject requests which ask for other lang_id.
-                                        #[cfg(feature = "defmt")]
-                                        defmt::warn!(
-                                            "Receive unknown LANGID {:#06X}, reject the request",
-                                            req_lang_id
-                                        );
-                                        None
-                                    })
-                                    .and_then(|lang_id_list_index| {
-                                        match index {
-                                            1 => config.manufacturer,
-                                            2 => config.product,
-                                            3 => config.serial_number,
-                                            _ => unreachable!(),
-                                        }
-                                        .map(|str_list| str_list[lang_id_list_index])
-                                    })
+                                let position =
+                                    lang_id_list.iter().fuse().position(|list_lang_id| {
+                                        matches!(*list_lang_id, Some(list_lang_id) if req_lang_id == list_lang_id)
+                                    });
+                                #[cfg(feature = "defmt")]
+                                if position.is_none() {
+                                    // Since we construct the list of full supported lang_ids previously,
+                                    // we can safely reject requests which ask for other lang_id.
+                                    defmt::warn!(
+                                        "Receive unknown LANGID {:#06X}, reject the request",
+                                        req_lang_id
+                                    );
+                                }
+                                position.and_then(|lang_id_list_index| {
+                                    match index {
+                                        1 => config.manufacturer,
+                                        2 => config.product,
+                                        3 => config.serial_number,
+                                        _ => unreachable!(),
+                                    }
+                                    .map(|str_list| str_list[lang_id_list_index])
+                                })
                             } else {
                                 // for other custom STRINGs
 
