@@ -169,6 +169,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
             heapless::Vec::from_slice(descriptors).map_err(|_| BuilderError::TooManyLanguages)?;
 
         Ok(self)
+
     }
 
     /// Sets the maximum packet size in bytes for the control endpoint 0.

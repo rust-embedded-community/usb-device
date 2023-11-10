@@ -321,13 +321,13 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                             0x0000
                         };
 
-                    xfer.accept_with(&status.to_le_bytes()).ok();
+                    let _ = xfer.accept_with(&status.to_le_bytes());
                 }
 
                 (Recipient::Interface, Request::GET_STATUS) => {
                     let status: u16 = 0x0000;
 
-                    xfer.accept_with(&status.to_le_bytes()).ok();
+                    let _ = xfer.accept_with(&status.to_le_bytes());
                 }
 
                 (Recipient::Endpoint, Request::GET_STATUS) => {
@@ -339,7 +339,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                         0x0000
                     };
 
-                    xfer.accept_with(&status.to_le_bytes()).ok();
+                    let _ = xfer.accept_with(&status.to_le_bytes());
                 }
 
                 (Recipient::Device, Request::GET_DESCRIPTOR) => {
@@ -352,13 +352,13 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                         _ => CONFIGURATION_NONE,
                     };
 
-                    xfer.accept_with(&config.to_le_bytes()).ok();
+                    let _ = xfer.accept_with(&config.to_le_bytes());
                 }
 
                 (Recipient::Interface, Request::GET_INTERFACE) => {
                     // Reject interface numbers bigger than 255
                     if req.index > core::u8::MAX.into() {
-                        xfer.reject().ok();
+                        let _ = xfer.reject();
                         return;
                     }
 
@@ -367,14 +367,13 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     for cls in classes {
                         if let Some(setting) = cls.get_alt_setting(InterfaceNumber(req.index as u8))
                         {
-                            xfer.accept_with(&setting.to_le_bytes()).ok();
+                            let _ = xfer.accept_with(&setting.to_le_bytes());
                             return;
                         }
                     }
 
                     // If no class returned an alternate setting, return the default value
-                    xfer.accept_with(&DEFAULT_ALTERNATE_SETTING.to_le_bytes())
-                        .ok();
+                    let _ = xfer.accept_with(&DEFAULT_ALTERNATE_SETTING.to_le_bytes());
                 }
 
                 _ => (),
@@ -382,7 +381,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         }
 
         if self.control.waiting_for_response() {
-            self.control.reject().ok();
+            let _ = self.control.reject();
         }
     }
 
@@ -411,13 +410,13 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     Request::FEATURE_DEVICE_REMOTE_WAKEUP,
                 ) => {
                     self.remote_wakeup_enabled = false;
-                    xfer.accept().ok();
+                    let _ = xfer.accept();
                 }
 
                 (Recipient::Endpoint, Request::CLEAR_FEATURE, Request::FEATURE_ENDPOINT_HALT) => {
                     self.bus
                         .set_stalled(((req.index as u8) & 0x8f).into(), false);
-                    xfer.accept().ok();
+                    let _ = xfer.accept();
                 }
 
                 (
@@ -426,13 +425,13 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     Request::FEATURE_DEVICE_REMOTE_WAKEUP,
                 ) => {
                     self.remote_wakeup_enabled = true;
-                    xfer.accept().ok();
+                    let _ = xfer.accept();
                 }
 
                 (Recipient::Endpoint, Request::SET_FEATURE, Request::FEATURE_ENDPOINT_HALT) => {
                     self.bus
                         .set_stalled(((req.index as u8) & 0x8f).into(), true);
-                    xfer.accept().ok();
+                    let _ = xfer.accept();
                 }
 
                 (Recipient::Device, Request::SET_ADDRESS, 1..=127) => {
@@ -442,22 +441,22 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     } else {
                         self.pending_address = req.value as u8;
                     }
-                    xfer.accept().ok();
+                    let _ = xfer.accept();
                 }
 
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_VALUE_U16) => {
                     self.device_state = UsbDeviceState::Configured;
-                    xfer.accept().ok();
+                    let _ = xfer.accept();
                 }
 
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_NONE_U16) => {
                     match self.device_state {
                         UsbDeviceState::Default => {
-                            xfer.reject().ok();
+                            let _ = xfer.accept();
                         }
                         _ => {
                             self.device_state = UsbDeviceState::Addressed;
-                            xfer.accept().ok();
+                            let _ = xfer.accept();
                         }
                     }
                 }
@@ -465,7 +464,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 (Recipient::Interface, Request::SET_INTERFACE, alt_setting) => {
                     // Reject interface numbers and alt settings bigger than 255
                     if req.index > core::u8::MAX.into() || alt_setting > core::u8::MAX.into() {
-                        xfer.reject().ok();
+                        let _ = xfer.reject();
                         return;
                     }
 
@@ -473,28 +472,28 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     for cls in classes {
                         if cls.set_alt_setting(InterfaceNumber(req.index as u8), alt_setting as u8)
                         {
-                            xfer.accept().ok();
+                            let _ = xfer.accept();
                             return;
                         }
                     }
 
                     // Default behaviour, if no class implementation accepted the alternate setting.
                     if alt_setting == DEFAULT_ALTERNATE_SETTING_U16 {
-                        xfer.accept().ok();
+                        let _ = xfer.accept();
                     } else {
-                        xfer.reject().ok();
+                        let _ = xfer.reject();
                     }
                 }
 
                 _ => {
-                    xfer.reject().ok();
+                    let _ = xfer.reject();
                     return;
                 }
             }
         }
 
         if self.control.waiting_for_response() {
-            self.control.reject().ok();
+            let _ = self.control.reject();
         }
     }
 
@@ -507,12 +506,11 @@ impl<B: UsbBus> UsbDevice<'_, B> {
             xfer: ControlIn<B>,
             f: impl FnOnce(&mut DescriptorWriter) -> Result<()>,
         ) {
-            xfer.accept(|buf| {
+            let _ = xfer.accept(|buf| {
                 let mut writer = DescriptorWriter::new(buf);
                 f(&mut writer)?;
                 Ok(writer.position())
-            })
-            .ok();
+            });
         }
 
         match dtype {
@@ -595,6 +593,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                                 2 => lang.product,
                                 3 => lang.serial,
                                 _ => unreachable!(),
+
                             }
                         }
                         _ => {
@@ -608,13 +607,13 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     if let Some(string_descriptor) = string {
                         accept_writer(xfer, |w| w.string(string_descriptor));
                     } else {
-                        xfer.reject().ok();
+                        let _ = xfer.reject();
                     }
                 }
             },
 
             _ => {
-                xfer.reject().ok();
+                let _ = xfer.reject();
             }
         }
     }
