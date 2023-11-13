@@ -16,3 +16,6 @@ jobs:
           components: rustfmt
       - run: cargo fmt --all -- --check
       - run: cargo clippy --all-features
+      - run: cargo clippy --features defmt
+      - run: cargo clippy --features control-buffer-256
+      - run: cargo clippy

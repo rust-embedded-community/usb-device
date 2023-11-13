@@ -3,7 +3,7 @@ use crate::class::{ControlIn, ControlOut, UsbClass};
 use crate::control;
 use crate::control_pipe::ControlPipe;
 use crate::descriptor::{descriptor_type, lang_id::LangID, BosWriter, DescriptorWriter};
-pub use crate::device_builder::{UsbDeviceBuilder, UsbVidPid};
+pub use crate::device_builder::{StringDescriptors, UsbDeviceBuilder, UsbVidPid};
 use crate::endpoint::{EndpointAddress, EndpointType};
 use crate::{Result, UsbDirection};
 use core::convert::TryFrom;
@@ -64,10 +64,7 @@ pub(crate) struct Config<'a> {
     pub product_id: u16,
     pub usb_rev: UsbRev,
     pub device_release: u16,
-    pub extra_lang_ids: Option<&'a [LangID]>,
-    pub manufacturer: Option<&'a [&'a str]>,
-    pub product: Option<&'a [&'a str]>,
-    pub serial_number: Option<&'a [&'a str]>,
+    pub string_descriptors: heapless::Vec<StringDescriptors<'a>, 16>,
     pub self_powered: bool,
     pub supports_remote_wakeup: bool,
     pub composite_with_iads: bool,
@@ -324,13 +321,13 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                             0x0000
                         };
 
-                    xfer.accept_with(&status.to_le_bytes()).ok();
+                    let _ = xfer.accept_with(&status.to_le_bytes());
                 }
 
                 (Recipient::Interface, Request::GET_STATUS) => {
                     let status: u16 = 0x0000;
 
-                    xfer.accept_with(&status.to_le_bytes()).ok();
+                    let _ = xfer.accept_with(&status.to_le_bytes());
                 }
 
                 (Recipient::Endpoint, Request::GET_STATUS) => {
@@ -342,7 +339,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                         0x0000
                     };
 
-                    xfer.accept_with(&status.to_le_bytes()).ok();
+                    let _ = xfer.accept_with(&status.to_le_bytes());
                 }
 
                 (Recipient::Device, Request::GET_DESCRIPTOR) => {
@@ -355,13 +352,13 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                         _ => CONFIGURATION_NONE,
                     };
 
-                    xfer.accept_with(&config.to_le_bytes()).ok();
+                    let _ = xfer.accept_with(&config.to_le_bytes());
                 }
 
                 (Recipient::Interface, Request::GET_INTERFACE) => {
                     // Reject interface numbers bigger than 255
                     if req.index > core::u8::MAX.into() {
-                        xfer.reject().ok();
+                        let _ = xfer.reject();
                         return;
                     }
 
@@ -370,14 +367,13 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     for cls in classes {
                         if let Some(setting) = cls.get_alt_setting(InterfaceNumber(req.index as u8))
                         {
-                            xfer.accept_with(&setting.to_le_bytes()).ok();
+                            let _ = xfer.accept_with(&setting.to_le_bytes());
                             return;
                         }
                     }
 
                     // If no class returned an alternate setting, return the default value
-                    xfer.accept_with(&DEFAULT_ALTERNATE_SETTING.to_le_bytes())
-                        .ok();
+                    let _ = xfer.accept_with(&DEFAULT_ALTERNATE_SETTING.to_le_bytes());
                 }
 
                 _ => (),
@@ -385,7 +381,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         }
 
         if self.control.waiting_for_response() {
-            self.control.reject().ok();
+            let _ = self.control.reject();
         }
     }
 
@@ -414,13 +410,13 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     Request::FEATURE_DEVICE_REMOTE_WAKEUP,
                 ) => {
                     self.remote_wakeup_enabled = false;
-                    xfer.accept().ok();
+                    let _ = xfer.accept();
                 }
 
                 (Recipient::Endpoint, Request::CLEAR_FEATURE, Request::FEATURE_ENDPOINT_HALT) => {
                     self.bus
                         .set_stalled(((req.index as u8) & 0x8f).into(), false);
-                    xfer.accept().ok();
+                    let _ = xfer.accept();
                 }
 
                 (
@@ -429,13 +425,13 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     Request::FEATURE_DEVICE_REMOTE_WAKEUP,
                 ) => {
                     self.remote_wakeup_enabled = true;
-                    xfer.accept().ok();
+                    let _ = xfer.accept();
                 }
 
                 (Recipient::Endpoint, Request::SET_FEATURE, Request::FEATURE_ENDPOINT_HALT) => {
                     self.bus
                         .set_stalled(((req.index as u8) & 0x8f).into(), true);
-                    xfer.accept().ok();
+                    let _ = xfer.accept();
                 }
 
                 (Recipient::Device, Request::SET_ADDRESS, 1..=127) => {
@@ -445,22 +441,22 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     } else {
                         self.pending_address = req.value as u8;
                     }
-                    xfer.accept().ok();
+                    let _ = xfer.accept();
                 }
 
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_VALUE_U16) => {
                     self.device_state = UsbDeviceState::Configured;
-                    xfer.accept().ok();
+                    let _ = xfer.accept();
                 }
 
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_NONE_U16) => {
                     match self.device_state {
                         UsbDeviceState::Default => {
-                            xfer.reject().ok();
+                            let _ = xfer.accept();
                         }
                         _ => {
                             self.device_state = UsbDeviceState::Addressed;
-                            xfer.accept().ok();
+                            let _ = xfer.accept();
                         }
                     }
                 }
@@ -468,7 +464,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 (Recipient::Interface, Request::SET_INTERFACE, alt_setting) => {
                     // Reject interface numbers and alt settings bigger than 255
                     if req.index > core::u8::MAX.into() || alt_setting > core::u8::MAX.into() {
-                        xfer.reject().ok();
+                        let _ = xfer.reject();
                         return;
                     }
 
@@ -476,28 +472,28 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     for cls in classes {
                         if cls.set_alt_setting(InterfaceNumber(req.index as u8), alt_setting as u8)
                         {
-                            xfer.accept().ok();
+                            let _ = xfer.accept();
                             return;
                         }
                     }
 
                     // Default behaviour, if no class implementation accepted the alternate setting.
                     if alt_setting == DEFAULT_ALTERNATE_SETTING_U16 {
-                        xfer.accept().ok();
+                        let _ = xfer.accept();
                     } else {
-                        xfer.reject().ok();
+                        let _ = xfer.reject();
                     }
                 }
 
                 _ => {
-                    xfer.reject().ok();
+                    let _ = xfer.reject();
                     return;
                 }
             }
         }
 
         if self.control.waiting_for_response() {
-            self.control.reject().ok();
+            let _ = self.control.reject();
         }
     }
 
@@ -510,12 +506,11 @@ impl<B: UsbBus> UsbDevice<'_, B> {
             xfer: ControlIn<B>,
             f: impl FnOnce(&mut DescriptorWriter) -> Result<()>,
         ) {
-            xfer.accept(|buf| {
+            let _ = xfer.accept(|buf| {
                 let mut writer = DescriptorWriter::new(buf);
                 f(&mut writer)?;
                 Ok(writer.position())
-            })
-            .ok();
+            });
         }
 
         match dtype {
@@ -550,109 +545,74 @@ impl<B: UsbBus> UsbDevice<'_, B> {
             descriptor_type::STRING => match index {
                 // first STRING Request
                 0 => {
-                    if let Some(extra_lang_ids) = config.extra_lang_ids {
-                        let mut lang_id_bytes = [0u8; 32];
-
-                        lang_id_bytes
-                            .chunks_exact_mut(2)
-                            .zip([LangID::EN_US].iter().chain(extra_lang_ids.iter()))
-                            .for_each(|(buffer, lang_id)| {
-                                buffer.copy_from_slice(&u16::from(lang_id).to_le_bytes());
-                            });
-
-                        accept_writer(xfer, |w| {
-                            w.write(
-                                descriptor_type::STRING,
-                                &lang_id_bytes[0..(1 + extra_lang_ids.len()) * 2],
-                            )
-                        })
-                    } else {
-                        accept_writer(xfer, |w| {
-                            w.write(
-                                descriptor_type::STRING,
-                                &u16::from(LangID::EN_US).to_le_bytes(),
-                            )
-                        })
+                    let mut lang_id_bytes = [0u8; 32];
+                    for (lang, buf) in config
+                        .string_descriptors
+                        .iter()
+                        .zip(lang_id_bytes.chunks_exact_mut(2))
+                    {
+                        buf.copy_from_slice(&u16::from(lang.id).to_le_bytes());
                     }
+                    accept_writer(xfer, |w| {
+                        w.write(
+                            descriptor_type::STRING,
+                            &lang_id_bytes[..config.string_descriptors.len() * 2],
+                        )
+                    })
                 }
 
                 // rest STRING Requests
                 _ => {
-                    let s = match LangID::try_from(req.index) {
+                    let lang_id = match LangID::try_from(req.index) {
                         Err(_err) => {
                             #[cfg(feature = "defmt")]
                             defmt::warn!(
                                 "Receive unknown LANGID {:#06X}, reject the request",
                                 _err.number
                             );
-                            None
+                            xfer.reject().ok();
+                            return;
                         }
 
-                        Ok(req_lang_id) => {
-                            if index <= 3 {
-                                // for Manufacture, Product and Serial
+                        Ok(req_lang_id) => req_lang_id,
+                    };
+                    let string = match index {
+                        // Manufacturer, product, and serial are handled directly here.
+                        1..=3 => {
+                            let Some(lang) = config
+                                .string_descriptors
+                                .iter()
+                                .find(|lang| lang.id == lang_id)
+                            else {
+                                xfer.reject().ok();
+                                return;
+                            };
 
-                                // construct the list of lang_ids full supported by device
-                                let mut lang_id_list: [Option<LangID>; 16] = [None; 16];
-                                match config.extra_lang_ids {
-                                    None => lang_id_list[0] = Some(LangID::EN_US),
-                                    Some(extra_lang_ids) => {
-                                        lang_id_list
-                                            .iter_mut()
-                                            .zip(
-                                                [LangID::EN_US].iter().chain(extra_lang_ids.iter()),
-                                            )
-                                            .for_each(|(item, lang_id)| *item = Some(*lang_id));
-                                    }
-                                };
-
-                                lang_id_list
-                                    .iter()
-                                    .fuse()
-                                    .position(|list_lang_id| match *list_lang_id {
-                                        Some(list_lang_id) if req_lang_id == list_lang_id => true,
-                                        _ => false,
-                                    })
-                                    .or_else(|| {
-                                        // Since we construct the list of full supported lang_ids previously,
-                                        // we can safely reject requests which ask for other lang_id.
-                                        #[cfg(feature = "defmt")]
-                                        defmt::warn!(
-                                            "Receive unknown LANGID {:#06X}, reject the request",
-                                            req_lang_id
-                                        );
-                                        None
-                                    })
-                                    .and_then(|lang_id_list_index| {
-                                        match index {
-                                            1 => config.manufacturer,
-                                            2 => config.product,
-                                            3 => config.serial_number,
-                                            _ => unreachable!(),
-                                        }
-                                        .map(|str_list| str_list[lang_id_list_index])
-                                    })
-                            } else {
-                                // for other custom STRINGs
-
-                                let index = StringIndex::new(index);
-                                classes
-                                    .iter()
-                                    .find_map(|cls| cls.get_string(index, req_lang_id))
+                            match index {
+                                1 => lang.manufacturer,
+                                2 => lang.product,
+                                3 => lang.serial,
+                                _ => unreachable!(),
                             }
+                        }
+                        _ => {
+                            let index = StringIndex::new(index);
+                            classes
+                                .iter()
+                                .find_map(|cls| cls.get_string(index, lang_id))
                         }
                     };
 
-                    if let Some(s) = s {
-                        accept_writer(xfer, |w| w.string(s));
+                    if let Some(string_descriptor) = string {
+                        accept_writer(xfer, |w| w.string(string_descriptor));
                     } else {
-                        xfer.reject().ok();
+                        let _ = xfer.reject();
                     }
                 }
             },
 
             _ => {
-                xfer.reject().ok();
+                let _ = xfer.reject();
             }
         }
     }

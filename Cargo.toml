@@ -13,6 +13,7 @@ repository = "https://github.com/mvirkkunen/usb-device"
 defmt = { version = "0.3", optional = true }
 portable-atomic = { version = "1.2.0", default-features = false }
 num_enum = { version = "0.6.1", default-features = false }
+heapless = "0.7"
 
 [dev-dependencies]
 rusb = "0.9.1"
