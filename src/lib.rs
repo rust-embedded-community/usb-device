@@ -182,7 +182,10 @@ mod device_builder;
 
 /// Prelude for device implementors.
 pub mod prelude {
-    pub use crate::device::{UsbDevice, UsbDeviceBuilder, UsbDeviceState, UsbVidPid};
+    pub use crate::device::{
+        StringDescriptors, UsbDevice, UsbDeviceBuilder, UsbDeviceState, UsbVidPid,
+    };
+    pub use crate::LangID;
     pub use crate::UsbError;
 }
 
@@ -196,6 +199,7 @@ pub mod class_prelude {
         EndpointAddress, EndpointIn, EndpointOut, EndpointType, IsochronousSynchronizationType,
         IsochronousUsageType,
     };
+    pub use crate::LangID;
     pub use crate::UsbError;
 }
 
