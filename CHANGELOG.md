@@ -21,7 +21,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Breaking
 * Acess numeric form of `EndpointType` variants now require a `.to_bm_attributes()`. ([#60](https://github.com/rust-embedded-community/usb-device/pull/60))
 * `DescriptorWriter::iad()` now requires a `Option<StringIndex>` to optionally specify a string for describing the function ([#121](https://github.com/rust-embedded-community/usb-device/pull/121))
-* `.manufacturer()`, `.product()` and `.serial_number()` of `UsbDeviceBuilder` now require `&[&str]` to specify strings match with each LANGIDs supported by device. ([#122](https://github.com/rust-embedded-community/usb-device/pull/122))
+* `.manufacturer()`, `.product()` and `.serial_number()` of `UsbDeviceBuilder` are now replaced with the `strings()` function that accepts a `StringDescriptor` list to allow multilanguage support ([#122](https://github.com/rust-embedded-community/usb-device/pull/122))
+* Various methods of the `UsbDeviceBuilder` now return `Result<>` types instead of internally panicking.
 
 ### Changed
 * `EndpointType` enum now has fields for isochronous synchronization and usage ([#60](https://github.com/rust-embedded-community/usb-device/pull/60)).

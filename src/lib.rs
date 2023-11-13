@@ -169,6 +169,8 @@ pub mod device;
 /// Creating USB descriptors
 pub mod descriptor;
 
+pub use descriptor::lang_id::LangID;
+
 /// Test USB class for testing USB driver implementations. Peripheral driver implementations should
 /// include an example called "test_class" that creates a device with this class to enable the
 /// driver to be tested with the test_class_host example in this crate.
