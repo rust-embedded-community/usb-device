@@ -593,7 +593,6 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                                 2 => lang.product,
                                 3 => lang.serial,
                                 _ => unreachable!(),
-
                             }
                         }
                         _ => {
