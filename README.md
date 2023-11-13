@@ -1,10 +1,7 @@
 usb-device
 ==========
 
-Experimental device-side USB stack for embedded devices in Rust.
-
-This crate is still under development and should not be considered production ready or even USB
-compliant.
+USB stack for embedded devices in Rust.
 
 The UsbDevice object represents a composite USB device and is the most important object for
 application implementors. The UsbDevice combines a number of UsbClasses (either custom ones, or
@@ -39,7 +36,7 @@ Class crates
 
 * [usbd-hid](https://github.com/twitchyliquid64/usbd-hid) [![Crates.io](https://img.shields.io/crates/v/usbd-hid.svg)](https://crates.io/crates/usbd-hid) - HID class
 * [usbd-human-device-interface](https://github.com/dlkj/usbd-human-interface-device) [![Crates.io](https://img.shields.io/crates/v/usbd-human-interface-device.svg)](https://crates.io/crates/usbd-human-device-interface) - HID class
-* [usbd-serial](https://github.com/mvirkkunen/usbd-serial) [![Crates.io](https://img.shields.io/crates/v/usbd-serial.svg)](https://crates.io/crates/usbd-serial) - CDC-ACM serial port class
+* [usbd-serial](https://github.com/rust-embedded-community/usbd-serial) [![Crates.io](https://img.shields.io/crates/v/usbd-serial.svg)](https://crates.io/crates/usbd-serial) - CDC-ACM serial port class
 * [usbd-storage](https://github.com/apohrebniak/usbd-storage) [![Crates.io](https://img.shields.io/crates/v/usbd-storage.svg)](https://crates.io/crates/usbd-storage) - (Experimental) Mass storage port class
 * [usbd-dfu](https://github.com/vitalyvb/usbd-dfu) [![Crates.io](https://img.shields.io/crates/v/usbd-dfu.svg)](https://crates.io/crates/usbd-dfu) - Device Firmware Upgrade class
 * [usbd-picotool-reset](https://github.com/ithinuel/usbd-picotool-reset) [![Crates.io](https://img.shields.io/crates/v/usbd-picotool-reset.svg)](https://crates.io/crates/usbd-picotool-reset) - picotool-reset class

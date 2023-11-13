@@ -7,9 +7,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.3.1] - 2023-11-15
+
 ### Added
 * `BuilderError`, `LangID`, `StringDescriptors` now in `prelude`
 * `LangID` now in `class_prelude`
+
+### Changed
+* Updated documentation, including example code
 
 ## [0.3.0] - 2023-11-13
 
@@ -66,7 +71,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 This is the initial release to crates.io.
 
-[Unreleased]: https://github.com/rust-embedded-community/usb-device/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/rust-embedded-community/usb-device/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/rust-embedded-community/usb-device/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/rust-embedded-community/usb-device/compare/v0.2.9...v0.3.0
 [0.2.9]: https://github.com/rust-embedded-community/usb-device/compare/v0.2.8...v0.2.9
 [0.2.8]: https://github.com/rust-embedded-community/usb-device/compare/v0.2.7...v0.2.8

@@ -149,7 +149,9 @@ pub mod endpoint;
 /// // product name. If using an existing class, remember to check the class crate documentation
 /// // for correct values.
 /// let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x5824, 0x27dd))
-///     .product(&["Serial port"])
+///     .strings(&[StringDescriptors::new(LangID::EN)
+///         .product("Serial port")])
+///         .expect("Failed to set strings")
 ///     .device_class(usb_serial::DEVICE_CLASS)
 ///     .build();
 ///
