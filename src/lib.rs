@@ -185,6 +185,7 @@ pub mod prelude {
     pub use crate::device::{
         StringDescriptors, UsbDevice, UsbDeviceBuilder, UsbDeviceState, UsbVidPid,
     };
+    pub use crate::device_builder::BuilderError;
     pub use crate::LangID;
     pub use crate::UsbError;
 }

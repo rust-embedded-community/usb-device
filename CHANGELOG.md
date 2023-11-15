@@ -8,7 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ### Added
-* `LangID` in `prelude` and `class_prelude`, `StringDescriptors` in `prelude`
+* `BuilderError`, `LangID`, `StringDescriptors` now in `prelude`
+* `LangID` now in `class_prelude`
 
 ## [0.3.0] - 2023-11-13
 
