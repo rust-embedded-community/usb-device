@@ -24,9 +24,13 @@ macro_rules! builder_fields {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
+/// Error type for the USB device builder
 pub enum BuilderError {
+    /// String descriptors were provided in more languages than are supported
     TooManyLanguages,
+    /// Control endpoint can only be 8, 16, 32, or 64 byte max packet size
     InvalidPacketSize,
+    /// Configuration specifies higher USB power draw than allowed
     PowerTooHigh,
 }
 
