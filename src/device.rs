@@ -563,22 +563,25 @@ impl<B: UsbBus> UsbDevice<'_, B> {
 
                 // rest STRING Requests
                 _ => {
-                    let lang_id = match LangID::try_from(req.index) {
-                        Err(_err) => {
-                            #[cfg(feature = "defmt")]
-                            defmt::warn!(
-                                "Receive unknown LANGID {:#06X}, reject the request",
-                                _err.number
-                            );
-                            xfer.reject().ok();
-                            return;
-                        }
+                    let lang_id = LangID::try_from(req.index);
 
-                        Ok(req_lang_id) => req_lang_id,
-                    };
                     let string = match index {
                         // Manufacturer, product, and serial are handled directly here.
                         1..=3 => {
+                            let lang_id = match lang_id {
+                                Err(_err) => {
+                                    #[cfg(feature = "defmt")]
+                                    defmt::warn!(
+                                        "Receive unknown LANGID {:#06X}, reject the request",
+                                        _err.number
+                                    );
+                                    xfer.reject().ok();
+                                    return;
+                                }
+
+                                Ok(req_lang_id) => req_lang_id,
+                            };
+
                             let Some(lang) = config
                                 .string_descriptors
                                 .iter()
@@ -599,7 +602,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                             let index = StringIndex::new(index);
                             classes
                                 .iter()
-                                .find_map(|cls| cls.get_string(index, lang_id))
+                                .find_map(|cls| cls.get_string(index, lang_id.ok()))
                         }
                     };
 

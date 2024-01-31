@@ -232,8 +232,8 @@ impl<B: UsbBus> UsbClass<B> for TestClass<'_, B> {
         Ok(())
     }
 
-    fn get_string(&self, index: StringIndex, lang_id: LangID) -> Option<&str> {
-        if lang_id == LangID::EN_US {
+    fn get_string(&self, index: StringIndex, lang_id: Option<LangID>) -> Option<&str> {
+        if lang_id == Some(LangID::EN_US) {
             if index == self.custom_string {
                 return Some(CUSTOM_STRING);
             } else if index == self.interface_string {
