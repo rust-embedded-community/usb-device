@@ -12,7 +12,6 @@ repository = "https://github.com/rust-embedded-community/usb-device"
 [dependencies]
 defmt = { version = "0.3", optional = true }
 portable-atomic = { version = "1.2.0", default-features = false }
-num_enum = { version = "0.7.1", default-features = false }
 heapless = "0.8"
 
 [dev-dependencies]
