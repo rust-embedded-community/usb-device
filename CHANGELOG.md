@@ -13,6 +13,7 @@ interface.
 
 ### Changed
 * Invalid LangIDs will default to `EN_US`
+* Changed handling of EP0 state to eliminate unexpected issues with device enumeration
 
 ## [0.3.1] - 2023-11-15
 

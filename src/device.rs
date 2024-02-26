@@ -205,28 +205,11 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 // Pending events for endpoint 0?
                 if (eps & 1) != 0 {
                     usb_debug!(
-                        "EP0: setup={}, in={}, out={}",
+                        "EP0: setup={}, in_complete={}, out={}",
                         ep_setup & 1,
                         ep_in_complete & 1,
                         ep_out & 1
                     );
-                    // Handle EP0-IN conditions first. When both EP0-IN and EP0-OUT have completed,
-                    // it is possible that EP0-OUT is a zero-sized out packet to complete the STATUS
-                    // phase of the control transfer. We have to process EP0-IN first to update our
-                    // internal state properly.
-                    if (ep_in_complete & 1) != 0 {
-                        let completed = self.control.handle_in_complete();
-
-                        if !B::QUIRK_SET_ADDRESS_BEFORE_STATUS
-                            && completed
-                            && self.pending_address != 0
-                        {
-                            self.bus.set_device_address(self.pending_address);
-                            self.pending_address = 0;
-
-                            self.device_state = UsbDeviceState::Addressed;
-                        }
-                    }
 
                     let req = if (ep_setup & 1) != 0 {
                         self.control.handle_setup()
@@ -236,10 +219,6 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                         None
                     };
 
-                    if let Some(_req) = req {
-                        usb_trace!("Handling EP0 request: {_req}");
-                    }
-
                     match req {
                         Some(req) if req.direction == UsbDirection::In => {
                             self.control_in(classes, req)
@@ -247,6 +226,27 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                         Some(req) if req.direction == UsbDirection::Out => {
                             self.control_out(classes, req)
                         }
+
+                        None if ((ep_in_complete & 1) != 0) => {
+                            // We only handle EP0-IN completion if there's no other request being
+                            // processed. EP0-IN tokens may be issued due to completed STATUS
+                            // phases of the control transfer. If we just got a SETUP packet or
+                            // an OUT token, we can safely ignore the IN-COMPLETE indication and
+                            // continue with the next transfer.
+                            let completed = self.control.handle_in_complete();
+
+                            if !B::QUIRK_SET_ADDRESS_BEFORE_STATUS
+                                && completed
+                                && self.pending_address != 0
+                            {
+                                self.bus.set_device_address(self.pending_address);
+                                self.pending_address = 0;
+
+                                self.device_state = UsbDeviceState::Addressed;
+                            }
+
+                        },
+
                         _ => (),
                     };
 
