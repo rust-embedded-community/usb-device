@@ -144,7 +144,10 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                     }
                 };
 
-                usb_trace!("Read {count} bytes on EP0-OUT: {:?}", &self.buf[i..(i + count)]);
+                usb_trace!(
+                    "Read {count} bytes on EP0-OUT: {:?}",
+                    &self.buf[i..(i + count)]
+                );
                 self.i += count;
 
                 if self.i >= self.len {
@@ -254,8 +257,8 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             ControlState::CompleteOut => {}
             _ => {
                 usb_debug!("Cannot ACK, invalid state: {:?}", self.state);
-                return Err(UsbError::InvalidState)
-            },
+                return Err(UsbError::InvalidState);
+            }
         };
 
         let _ = self.ep_in.write(&[]);
@@ -269,7 +272,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             _ => {
                 usb_debug!("EP0-IN cannot ACK, invalid state: {:?}", self.state);
                 return Err(UsbError::InvalidState);
-            },
+            }
         };
 
         let len = f(&mut self.buf[..])?;

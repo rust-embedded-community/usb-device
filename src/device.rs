@@ -244,8 +244,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
 
                                 self.device_state = UsbDeviceState::Addressed;
                             }
-
-                        },
+                        }
 
                         _ => (),
                     };
