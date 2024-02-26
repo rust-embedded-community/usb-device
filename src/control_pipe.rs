@@ -70,7 +70,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
     pub fn handle_setup(&mut self) -> Option<Request> {
         let count = match self.ep_out.read(&mut self.buf[..]) {
             Ok(count) => {
-                usb_trace!("Read {count} bytes on EP0-OUT: {:?}", &self.buf[..count]);
+                usb_trace!("Read {} bytes on EP0-OUT: {:?}", count, &self.buf[..count]);
                 count
             }
             Err(UsbError::WouldBlock) => return None,
@@ -91,7 +91,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
         // a stalled state.
         self.ep_out.unstall();
 
-        usb_debug!("EP0 request received: {req:?}");
+        usb_debug!("EP0 request received: {:?}", req);
 
         /*sprintln!("SETUP {:?} {:?} {:?} req:{} val:{} idx:{} len:{} {:?}",
         req.direction, req.request_type, req.recipient,
@@ -145,13 +145,14 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                 };
 
                 usb_trace!(
-                    "Read {count} bytes on EP0-OUT: {:?}",
+                    "Read {} bytes on EP0-OUT: {:?}",
+                    count,
                     &self.buf[i..(i + count)]
                 );
                 self.i += count;
 
                 if self.i >= self.len {
-                    usb_debug!("Request OUT complete: {req:?}");
+                    usb_debug!("Request OUT complete: {:?}", req);
                     self.state = ControlState::CompleteOut;
                     return Some(req);
                 }
@@ -232,7 +233,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             // There isn't much we can do if the write fails, except to wait for another poll or for
             // the host to resend the request.
             Err(_err) => {
-                usb_debug!("Failed to write EP0: {_err:?}");
+                usb_debug!("Failed to write EP0: {:?}", _err);
                 return;
             }
         };

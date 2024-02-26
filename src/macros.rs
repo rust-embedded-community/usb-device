@@ -1,4 +1,4 @@
-#[cfg(feature = "log")]
+#[cfg(all(feature = "log", not(feature = "defmt")))]
 macro_rules! usb_log {
     (trace, $($arg:expr),*) => { log::trace!($($arg),*) };
     (debug, $($arg:expr),*) => { log::trace!($($arg),*) };

@@ -259,21 +259,21 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     for i in 1..MAX_ENDPOINTS {
                         if (ep_setup & bit) != 0 {
                             for cls in classes.iter_mut() {
-                                usb_trace!("Handling EP{i}-SETUP");
+                                usb_trace!("Handling EP{}-SETUP", i);
                                 cls.endpoint_setup(EndpointAddress::from_parts(
                                     i,
                                     UsbDirection::Out,
                                 ));
                             }
                         } else if (ep_out & bit) != 0 {
-                            usb_trace!("Handling EP{i}-OUT");
+                            usb_trace!("Handling EP{}-OUT", i);
                             for cls in classes.iter_mut() {
                                 cls.endpoint_out(EndpointAddress::from_parts(i, UsbDirection::Out));
                             }
                         }
 
                         if (ep_in_complete & bit) != 0 {
-                            usb_trace!("Handling EP{i}-IN");
+                            usb_trace!("Handling EP{}-IN", i);
                             for cls in classes.iter_mut() {
                                 cls.endpoint_in_complete(EndpointAddress::from_parts(
                                     i,
