@@ -5,7 +5,7 @@ macro_rules! usb_log {
 }
 
 #[cfg(feature = "defmt")]
-macro_rules! net_log {
+macro_rules! usb_log {
     (trace, $($arg:expr),*) => { defmt::trace!($($arg),*) };
     (debug, $($arg:expr),*) => { defmt::debug!($($arg),*) };
 }
