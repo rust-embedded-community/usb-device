@@ -63,6 +63,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
     }
 
     pub fn reset(&mut self) {
+        usb_trace!("Control pipe reset");
         self.state = ControlState::Idle;
     }
 
@@ -87,6 +88,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
 
         // Now that we have properly parsed the setup packet, ensure the end-point is no longer in
         // a stalled state.
+        usb_trace!("EP0 request received: {req:?}");
         self.ep_out.unstall();
 
         /*sprintln!("SETUP {:?} {:?} {:?} req:{} val:{} idx:{} len:{} {:?}",
@@ -142,8 +144,10 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                 };
 
                 self.i += count;
+                usb_trace!("Read {count} bytes on EP0-OUT");
 
                 if self.i >= self.len {
+                    usb_debug!("Request OUT complete: {req}");
                     self.state = ControlState::CompleteOut;
                     return Some(req);
                 }
@@ -154,11 +158,19 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             | ControlState::DataInLast
             | ControlState::DataInZlp
             | ControlState::StatusOut => {
+                usb_debug!(
+                    "Terminating DATA stage early. Current state: {:?}",
+                    self.state
+                );
                 let _ = self.ep_out.read(&mut []);
                 self.state = ControlState::Idle;
             }
             _ => {
                 // Discard the packet
+                usb_debug!(
+                    "Discarding EP0 data due to unexpected state. Current state: {:?}",
+                    self.state
+                );
                 let _ = self.ep_out.read(&mut []);
 
                 // Unexpected OUT packet
@@ -181,6 +193,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                     return false;
                 }
 
+                usb_trace!("wrote EP0-IN: ZLP");
                 self.state = ControlState::DataInLast;
             }
             ControlState::DataInLast => {
@@ -192,12 +205,14 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                 return true;
             }
             ControlState::Idle => {
+                usb_debug!("Ignoring EP0-IN while in IDLE");
                 // If we received a message on EP0 while sending the last portion of an IN
                 // transfer, we may have already transitioned to IDLE without getting the last
                 // IN-complete status. Just ignore this indication.
             }
             _ => {
                 // Unexpected IN packet
+                usb_debug!("Unexpected EP0-IN. Current state: {:?}", self.state);
                 self.set_error();
             }
         };
@@ -213,8 +228,13 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             Ok(c) => c,
             // There isn't much we can do if the write fails, except to wait for another poll or for
             // the host to resend the request.
-            Err(_) => return,
+            Err(_err) => {
+                usb_debug!("Failed to write EP0-IN: {_err:?}");
+                return;
+            }
         };
+
+        usb_trace!("wrote EP0-IN: {:?}", &buffer[self.i..(self.i + count)]);
 
         self.i += count;
 
@@ -286,6 +306,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
     }
 
     fn set_error(&mut self) {
+        usb_debug!("EP0 stalled - error");
         self.state = ControlState::Error;
         self.ep_out.stall();
         self.ep_in.stall();

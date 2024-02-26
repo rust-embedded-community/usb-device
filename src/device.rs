@@ -204,6 +204,12 @@ impl<B: UsbBus> UsbDevice<'_, B> {
 
                 // Pending events for endpoint 0?
                 if (eps & 1) != 0 {
+                    usb_debug!(
+                        "EP0: setup={}, in={}, out={}",
+                        ep_setup & 1,
+                        ep_in_complete & 1,
+                        ep_out & 1
+                    );
                     // Handle EP0-IN conditions first. When both EP0-IN and EP0-OUT have completed,
                     // it is possible that EP0-OUT is a zero-sized out packet to complete the STATUS
                     // phase of the control transfer. We have to process EP0-IN first to update our
@@ -230,6 +236,10 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                         None
                     };
 
+                    if let Some(_req) = req {
+                        usb_trace!("Handling EP0 request: {_req}");
+                    }
+
                     match req {
                         Some(req) if req.direction == UsbDirection::In => {
                             self.control_in(classes, req)
@@ -250,18 +260,21 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     for i in 1..MAX_ENDPOINTS {
                         if (ep_setup & bit) != 0 {
                             for cls in classes.iter_mut() {
+                                usb_trace!("Handling EP{i}-SETUP");
                                 cls.endpoint_setup(EndpointAddress::from_parts(
                                     i,
                                     UsbDirection::Out,
                                 ));
                             }
                         } else if (ep_out & bit) != 0 {
+                            usb_trace!("Handling EP{i}-OUT");
                             for cls in classes.iter_mut() {
                                 cls.endpoint_out(EndpointAddress::from_parts(i, UsbDirection::Out));
                             }
                         }
 
                         if (ep_in_complete & bit) != 0 {
+                            usb_trace!("Handling EP{i}-IN");
                             for cls in classes.iter_mut() {
                                 cls.endpoint_in_complete(EndpointAddress::from_parts(
                                     i,
@@ -289,6 +302,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
             }
             PollResult::Resume => {}
             PollResult::Suspend => {
+                usb_debug!("Suspending bus");
                 self.bus.suspend();
                 self.suspended_device_state = Some(self.device_state);
                 self.device_state = UsbDeviceState::Suspend;
@@ -314,6 +328,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
 
             match (req.recipient, req.request) {
                 (Recipient::Device, Request::GET_STATUS) => {
+                    usb_trace!("Processing Device::GetStatus");
                     let status: u16 = if self.self_powered { 0x0001 } else { 0x0000 }
                         | if self.remote_wakeup_enabled {
                             0x0002
@@ -325,12 +340,14 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 }
 
                 (Recipient::Interface, Request::GET_STATUS) => {
+                    usb_trace!("Processing Interface::GetStatus");
                     let status: u16 = 0x0000;
 
                     let _ = xfer.accept_with(&status.to_le_bytes());
                 }
 
                 (Recipient::Endpoint, Request::GET_STATUS) => {
+                    usb_trace!("Processing EP::GetStatus");
                     let ep_addr = ((req.index as u8) & 0x8f).into();
 
                     let status: u16 = if self.bus.is_stalled(ep_addr) {
@@ -343,10 +360,12 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 }
 
                 (Recipient::Device, Request::GET_DESCRIPTOR) => {
+                    usb_trace!("Processing Device::GetDescriptor");
                     UsbDevice::get_descriptor(&self.config, classes, xfer)
                 }
 
                 (Recipient::Device, Request::GET_CONFIGURATION) => {
+                    usb_trace!("Processing Device::GetConfiguration");
                     let config = match self.device_state {
                         UsbDeviceState::Configured => CONFIGURATION_VALUE,
                         _ => CONFIGURATION_NONE,
@@ -356,6 +375,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 }
 
                 (Recipient::Interface, Request::GET_INTERFACE) => {
+                    usb_trace!("Processing Interface::GetInterface");
                     // Reject interface numbers bigger than 255
                     if req.index > core::u8::MAX.into() {
                         let _ = xfer.reject();
@@ -381,6 +401,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         }
 
         if self.control.waiting_for_response() {
+            usb_debug!("Rejecting control transfer because we were waiting for a response");
             let _ = self.control.reject();
         }
     }
@@ -409,11 +430,13 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     Request::CLEAR_FEATURE,
                     Request::FEATURE_DEVICE_REMOTE_WAKEUP,
                 ) => {
+                    usb_debug!("Remote wakeup disabled");
                     self.remote_wakeup_enabled = false;
                     let _ = xfer.accept();
                 }
 
                 (Recipient::Endpoint, Request::CLEAR_FEATURE, Request::FEATURE_ENDPOINT_HALT) => {
+                    usb_debug!("EP{} halt removed", req.index & 0x8f);
                     self.bus
                         .set_stalled(((req.index as u8) & 0x8f).into(), false);
                     let _ = xfer.accept();
@@ -424,17 +447,20 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     Request::SET_FEATURE,
                     Request::FEATURE_DEVICE_REMOTE_WAKEUP,
                 ) => {
+                    usb_debug!("Remote wakeup enabled");
                     self.remote_wakeup_enabled = true;
                     let _ = xfer.accept();
                 }
 
                 (Recipient::Endpoint, Request::SET_FEATURE, Request::FEATURE_ENDPOINT_HALT) => {
+                    usb_debug!("EP{} halted", req.index & 0x8f);
                     self.bus
                         .set_stalled(((req.index as u8) & 0x8f).into(), true);
                     let _ = xfer.accept();
                 }
 
                 (Recipient::Device, Request::SET_ADDRESS, 1..=127) => {
+                    usb_debug!("Setting device address to {}", req.value);
                     if B::QUIRK_SET_ADDRESS_BEFORE_STATUS {
                         self.bus.set_device_address(req.value as u8);
                         self.device_state = UsbDeviceState::Addressed;
@@ -445,11 +471,13 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 }
 
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_VALUE_U16) => {
+                    usb_debug!("Device configured");
                     self.device_state = UsbDeviceState::Configured;
                     let _ = xfer.accept();
                 }
 
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_NONE_U16) => {
+                    usb_debug!("Device deconfigured");
                     match self.device_state {
                         UsbDeviceState::Default => {
                             let _ = xfer.accept();
@@ -479,8 +507,10 @@ impl<B: UsbBus> UsbDevice<'_, B> {
 
                     // Default behaviour, if no class implementation accepted the alternate setting.
                     if alt_setting == DEFAULT_ALTERNATE_SETTING_U16 {
+                        usb_debug!("Accepting unused alternate settings");
                         let _ = xfer.accept();
                     } else {
+                        usb_debug!("Rejecting unused alternate settings");
                         let _ = xfer.reject();
                     }
                 }
@@ -493,6 +523,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         }
 
         if self.control.waiting_for_response() {
+            usb_debug!("Rejecting control transfer due to waiting response");
             let _ = self.control.reject();
         }
     }
