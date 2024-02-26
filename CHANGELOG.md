@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+* Invalid LangIDs will default to `EN_US`
+
 ## [0.3.1] - 2023-11-15
 
 ### Added
