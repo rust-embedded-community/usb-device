@@ -567,11 +567,10 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                         Err(_err) => {
                             #[cfg(feature = "defmt")]
                             defmt::warn!(
-                                "Receive unknown LANGID {:#06X}, reject the request",
+                                "Receive unknown LANGID {:#06X}, default to EN_US",
                                 _err.number
                             );
-                            xfer.reject().ok();
-                            return;
+                            LangID::EN_US
                         }
 
                         Ok(req_lang_id) => req_lang_id,
