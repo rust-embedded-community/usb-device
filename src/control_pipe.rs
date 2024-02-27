@@ -63,15 +63,18 @@ impl<B: UsbBus> ControlPipe<'_, B> {
     }
 
     pub fn reset(&mut self) {
+        usb_trace!("Control pipe reset");
         self.state = ControlState::Idle;
     }
 
     pub fn handle_setup(&mut self) -> Option<Request> {
         let count = match self.ep_out.read(&mut self.buf[..]) {
-            Ok(count) => count,
+            Ok(count) => {
+                usb_trace!("Read {} bytes on EP0-OUT: {:?}", count, &self.buf[..count]);
+                count
+            }
             Err(UsbError::WouldBlock) => return None,
             Err(_) => {
-                self.set_error();
                 return None;
             }
         };
@@ -79,8 +82,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
         let req = match Request::parse(&self.buf[0..count]) {
             Ok(req) => req,
             Err(_) => {
-                // Failed to parse SETUP packet
-                self.set_error();
+                // Failed to parse SETUP packet. We are supposed to silently ignore this.
                 return None;
             }
         };
@@ -88,6 +90,8 @@ impl<B: UsbBus> ControlPipe<'_, B> {
         // Now that we have properly parsed the setup packet, ensure the end-point is no longer in
         // a stalled state.
         self.ep_out.unstall();
+
+        usb_debug!("EP0 request received: {:?}", req);
 
         /*sprintln!("SETUP {:?} {:?} {:?} req:{} val:{} idx:{} len:{} {:?}",
         req.direction, req.request_type, req.recipient,
@@ -102,7 +106,6 @@ impl<B: UsbBus> ControlPipe<'_, B> {
 
                 if req.length as usize > self.buf.len() {
                     // Data stage won't fit in buffer
-                    self.set_error();
                     return None;
                 }
 
@@ -141,9 +144,15 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                     }
                 };
 
+                usb_trace!(
+                    "Read {} bytes on EP0-OUT: {:?}",
+                    count,
+                    &self.buf[i..(i + count)]
+                );
                 self.i += count;
 
                 if self.i >= self.len {
+                    usb_debug!("Request OUT complete: {:?}", req);
                     self.state = ControlState::CompleteOut;
                     return Some(req);
                 }
@@ -154,11 +163,19 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             | ControlState::DataInLast
             | ControlState::DataInZlp
             | ControlState::StatusOut => {
+                usb_debug!(
+                    "Control transfer completed. Current state: {:?}",
+                    self.state
+                );
                 let _ = self.ep_out.read(&mut []);
                 self.state = ControlState::Idle;
             }
             _ => {
                 // Discard the packet
+                usb_debug!(
+                    "Discarding EP0 data due to unexpected state. Current state: {:?}",
+                    self.state
+                );
                 let _ = self.ep_out.read(&mut []);
 
                 // Unexpected OUT packet
@@ -181,6 +198,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                     return false;
                 }
 
+                usb_trace!("wrote EP0: ZLP");
                 self.state = ControlState::DataInLast;
             }
             ControlState::DataInLast => {
@@ -197,8 +215,9 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                 // IN-complete status. Just ignore this indication.
             }
             _ => {
-                // Unexpected IN packet
-                self.set_error();
+                // If we get IN-COMPLETE indications in unexpected states, it's generally because
+                // of control flow in previous phases updating after our packet was successfully
+                // sent. Ignore these indications if they don't drive any further behavior.
             }
         };
 
@@ -213,8 +232,13 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             Ok(c) => c,
             // There isn't much we can do if the write fails, except to wait for another poll or for
             // the host to resend the request.
-            Err(_) => return,
+            Err(_err) => {
+                usb_debug!("Failed to write EP0: {:?}", _err);
+                return;
+            }
         };
+
+        usb_trace!("wrote EP0: {:?}", &buffer[self.i..(self.i + count)]);
 
         self.i += count;
 
@@ -232,7 +256,10 @@ impl<B: UsbBus> ControlPipe<'_, B> {
     pub fn accept_out(&mut self) -> Result<()> {
         match self.state {
             ControlState::CompleteOut => {}
-            _ => return Err(UsbError::InvalidState),
+            _ => {
+                usb_debug!("Cannot ACK, invalid state: {:?}", self.state);
+                return Err(UsbError::InvalidState);
+            }
         };
 
         let _ = self.ep_in.write(&[]);
@@ -243,7 +270,10 @@ impl<B: UsbBus> ControlPipe<'_, B> {
     pub fn accept_in(&mut self, f: impl FnOnce(&mut [u8]) -> Result<usize>) -> Result<()> {
         let req = match self.state {
             ControlState::CompleteIn(req) => req,
-            _ => return Err(UsbError::InvalidState),
+            _ => {
+                usb_debug!("EP0-IN cannot ACK, invalid state: {:?}", self.state);
+                return Err(UsbError::InvalidState);
+            }
         };
 
         let len = f(&mut self.buf[..])?;
@@ -259,7 +289,10 @@ impl<B: UsbBus> ControlPipe<'_, B> {
     pub fn accept_in_static(&mut self, data: &'static [u8]) -> Result<()> {
         let req = match self.state {
             ControlState::CompleteIn(req) => req,
-            _ => return Err(UsbError::InvalidState),
+            _ => {
+                usb_debug!("EP0-IN cannot ACK, invalid state: {:?}", self.state);
+                return Err(UsbError::InvalidState);
+            }
         };
 
         self.static_in_buf = Some(data);
@@ -277,6 +310,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
     }
 
     pub fn reject(&mut self) -> Result<()> {
+        usb_debug!("EP0 transfer rejected");
         if !self.waiting_for_response() {
             return Err(UsbError::InvalidState);
         }
@@ -286,6 +320,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
     }
 
     fn set_error(&mut self) {
+        usb_debug!("EP0 stalled - error");
         self.state = ControlState::Error;
         self.ep_out.stall();
         self.ep_in.stall();
