@@ -218,7 +218,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                             Ok(req) => req,
                             Err(_err) => {
                                 // TODO: Propagate error out of `poll()`
-                                usb_debug!("Failed to handle EP0: {}", _err);
+                                usb_debug!("Failed to handle EP0: {:?}", _err);
                                 None
                             }
                         }
@@ -230,7 +230,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                         Some(req) if req.direction == UsbDirection::In => {
                             if let Err(_err) = self.control_in(classes, req) {
                                 // TODO: Propagate error out of `poll()`
-                                usb_debug!("Failed to handle control request: {}", _err);
+                                usb_debug!("Failed to handle control request: {:?}", _err);
                             }
                         }
                         Some(req) if req.direction == UsbDirection::Out => {
@@ -248,7 +248,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                                 Err(_err) => {
                                     // TODO: Propagate this out of `poll()`
                                     usb_debug!(
-                                        "Failed to process control-input complete: {}",
+                                        "Failed to process control-input complete: {:?}",
                                         _err
                                     );
                                     false
