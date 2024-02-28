@@ -139,8 +139,8 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                     Err(_err) => {
                         // Failed to read or buffer overflow (overflow is only possible if the host
                         // sends more data than it indicated in the SETUP request)
-                        self.set_error();
                         usb_debug!("Failed EP0 read: {:?}", _err);
+                        self.set_error();
                         return Ok(None);
                     }
                 };
