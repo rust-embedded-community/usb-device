@@ -136,10 +136,11 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                 let count = match self.ep_out.read(&mut self.buf[i..]) {
                     Ok(count) => count,
                     Err(UsbError::WouldBlock) => return Ok(None),
-                    Err(_) => {
+                    Err(_err) => {
                         // Failed to read or buffer overflow (overflow is only possible if the host
                         // sends more data than it indicated in the SETUP request)
                         self.set_error();
+                        usb_debug!("Failed EP0 read: {:?}", _err);
                         return Ok(None);
                     }
                 };
