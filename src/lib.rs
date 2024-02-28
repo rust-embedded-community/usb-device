@@ -36,6 +36,9 @@
 #![no_std]
 #![warn(missing_docs)]
 
+#[macro_use]
+mod macros;
+
 /// A USB stack error.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]

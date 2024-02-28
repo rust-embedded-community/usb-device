@@ -43,7 +43,8 @@ pub trait UsbClass<B: UsbBus> {
     ///
     /// * `index` - A string index allocated earlier with
     ///   [`UsbAllocator`](crate::bus::UsbBusAllocator).
-    /// * `lang_id` - The language ID for the string to retrieve.
+    /// * `lang_id` - The language ID for the string to retrieve. If the requested lang_id is not
+    ///   valid it will default to EN_US.
     fn get_string(&self, index: StringIndex, lang_id: LangID) -> Option<&str> {
         let _ = (index, lang_id);
         None

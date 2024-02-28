@@ -13,6 +13,7 @@ repository = "https://github.com/rust-embedded-community/usb-device"
 defmt = { version = "0.3", optional = true }
 portable-atomic = { version = "1.2.0", default-features = false }
 heapless = "0.8"
+log = { version = "0.4", default-features = false, optional = true}
 
 [dev-dependencies]
 rusb = "0.9.1"
@@ -21,6 +22,9 @@ rand = "0.8.5"
 [features]
 # Use a 256 byte buffer for control transfers instead of 128.
 control-buffer-256 = []
+
+# Enable logging and tracing via the `log` crate
+log = ["dep:log"]
 
 # Use larger endpoint buffers for highspeed operation (default fullspeed)
 #
