@@ -20,31 +20,28 @@ enum ControlState {
     Error,
 }
 
-// Maximum length of control transfer data stage in bytes. 128 bytes by default. You can define the
-// feature "control-buffer-256" to make it 256 bytes if you have larger control transfers.
-#[cfg(not(feature = "control-buffer-256"))]
-const CONTROL_BUF_LEN: usize = 128;
-#[cfg(feature = "control-buffer-256")]
-const CONTROL_BUF_LEN: usize = 256;
-
 /// Buffers and parses USB control transfers.
 pub struct ControlPipe<'a, B: UsbBus> {
     ep_out: EndpointOut<'a, B>,
     ep_in: EndpointIn<'a, B>,
     state: ControlState,
-    buf: [u8; CONTROL_BUF_LEN],
+    buf: &'a mut [u8],
     static_in_buf: Option<&'static [u8]>,
     i: usize,
     len: usize,
 }
 
 impl<B: UsbBus> ControlPipe<'_, B> {
-    pub fn new<'a>(ep_out: EndpointOut<'a, B>, ep_in: EndpointIn<'a, B>) -> ControlPipe<'a, B> {
+    pub fn new<'a>(
+        buf: &'a mut [u8],
+        ep_out: EndpointOut<'a, B>,
+        ep_in: EndpointIn<'a, B>,
+    ) -> ControlPipe<'a, B> {
         ControlPipe {
             ep_out,
             ep_in,
             state: ControlState::Idle,
-            buf: [0; CONTROL_BUF_LEN],
+            buf,
             static_in_buf: None,
             i: 0,
             len: 0,

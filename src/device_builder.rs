@@ -8,6 +8,7 @@ pub struct UsbVidPid(pub u16, pub u16);
 /// Used to build new [`UsbDevice`]s.
 pub struct UsbDeviceBuilder<'a, B: UsbBus> {
     alloc: &'a UsbBusAllocator<B>,
+    control_buffer: &'a mut [u8],
     config: Config<'a>,
 }
 
@@ -82,9 +83,14 @@ impl<'a> StringDescriptors<'a> {
 
 impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
     /// Creates a builder for constructing a new [`UsbDevice`].
-    pub fn new(alloc: &'a UsbBusAllocator<B>, vid_pid: UsbVidPid) -> UsbDeviceBuilder<'a, B> {
+    pub fn new(
+        alloc: &'a UsbBusAllocator<B>,
+        vid_pid: UsbVidPid,
+        control_buffer: &'a mut [u8],
+    ) -> UsbDeviceBuilder<'a, B> {
         UsbDeviceBuilder {
             alloc,
+            control_buffer,
             config: Config {
                 device_class: 0x00,
                 device_sub_class: 0x00,
@@ -105,7 +111,7 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
 
     /// Creates the [`UsbDevice`] instance with the configuration in this builder.
     pub fn build(self) -> UsbDevice<'a, B> {
-        UsbDevice::build(self.alloc, self.config)
+        UsbDevice::build(self.alloc, self.config, self.control_buffer)
     }
 
     builder_fields! {
