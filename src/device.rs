@@ -6,7 +6,6 @@ use crate::descriptor::{descriptor_type, lang_id::LangID, BosWriter, DescriptorW
 pub use crate::device_builder::{StringDescriptors, UsbDeviceBuilder, UsbVidPid};
 use crate::endpoint::{EndpointAddress, EndpointType};
 use crate::{Result, UsbDirection};
-use core::convert::TryFrom;
 
 /// The global state of the USB device.
 ///
@@ -593,18 +592,8 @@ impl<B: UsbBus> UsbDevice<'_, B> {
 
                 // rest STRING Requests
                 _ => {
-                    let lang_id = match LangID::try_from(req.index) {
-                        Err(_err) => {
-                            #[cfg(feature = "defmt")]
-                            defmt::warn!(
-                                "Receive unknown LANGID {:#06X}, default to EN_US",
-                                _err.number
-                            );
-                            LangID::EN_US
-                        }
+                    let lang_id = LangID::from(req.index);
 
-                        Ok(req_lang_id) => req_lang_id,
-                    };
                     let string = match index {
                         // Manufacturer, product, and serial are handled directly here.
                         1..=3 => {
