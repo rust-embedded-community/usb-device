@@ -230,11 +230,14 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                         Some(req) if req.direction == UsbDirection::In => {
                             if let Err(_err) = self.control_in(classes, req) {
                                 // TODO: Propagate error out of `poll()`
-                                usb_debug!("Failed to handle control request: {:?}", _err);
+                                usb_debug!("Failed to handle input control request: {:?}", _err);
                             }
                         }
                         Some(req) if req.direction == UsbDirection::Out => {
-                            self.control_out(classes, req)
+                            if let Err(_err) = self.control_out(classes, req) {
+                                // TODO: Propagate error out of `poll()`
+                                usb_debug!("Failed to handle output control request: {:?}", _err);
+                            }
                         }
 
                         None if ((ep_in_complete & 1) != 0) => {
@@ -380,7 +383,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
 
                 (Recipient::Device, Request::GET_DESCRIPTOR) => {
                     usb_trace!("Processing Device::GetDescriptor");
-                    UsbDevice::get_descriptor(&self.config, classes, xfer)
+                    UsbDevice::get_descriptor(&self.config, classes, xfer)?;
                 }
 
                 (Recipient::Device, Request::GET_CONFIGURATION) => {
@@ -425,14 +428,14 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         Ok(())
     }
 
-    fn control_out(&mut self, classes: &mut ClassList<'_, B>, req: control::Request) {
+    fn control_out(&mut self, classes: &mut ClassList<'_, B>, req: control::Request) -> Result<()> {
         use crate::control::{Recipient, Request};
 
         for cls in classes.iter_mut() {
             cls.control_out(ControlOut::new(&mut self.control, &req));
 
             if !self.control.waiting_for_response() {
-                return;
+                return Ok(());
             }
         }
 
@@ -451,14 +454,14 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 ) => {
                     usb_debug!("Remote wakeup disabled");
                     self.remote_wakeup_enabled = false;
-                    let _ = xfer.accept();
+                    xfer.accept()?;
                 }
 
                 (Recipient::Endpoint, Request::CLEAR_FEATURE, Request::FEATURE_ENDPOINT_HALT) => {
                     usb_debug!("EP{} halt removed", req.index & 0x8f);
                     self.bus
                         .set_stalled(((req.index as u8) & 0x8f).into(), false);
-                    let _ = xfer.accept();
+                    xfer.accept()?;
                 }
 
                 (
@@ -468,14 +471,14 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 ) => {
                     usb_debug!("Remote wakeup enabled");
                     self.remote_wakeup_enabled = true;
-                    let _ = xfer.accept();
+                    xfer.accept()?;
                 }
 
                 (Recipient::Endpoint, Request::SET_FEATURE, Request::FEATURE_ENDPOINT_HALT) => {
                     usb_debug!("EP{} halted", req.index & 0x8f);
                     self.bus
                         .set_stalled(((req.index as u8) & 0x8f).into(), true);
-                    let _ = xfer.accept();
+                    xfer.accept()?;
                 }
 
                 (Recipient::Device, Request::SET_ADDRESS, 1..=127) => {
@@ -486,24 +489,24 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     } else {
                         self.pending_address = req.value as u8;
                     }
-                    let _ = xfer.accept();
+                    xfer.accept()?;
                 }
 
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_VALUE_U16) => {
                     usb_debug!("Device configured");
                     self.device_state = UsbDeviceState::Configured;
-                    let _ = xfer.accept();
+                    xfer.accept()?;
                 }
 
                 (Recipient::Device, Request::SET_CONFIGURATION, CONFIGURATION_NONE_U16) => {
                     usb_debug!("Device deconfigured");
                     match self.device_state {
                         UsbDeviceState::Default => {
-                            let _ = xfer.accept();
+                            xfer.accept()?;
                         }
                         _ => {
                             self.device_state = UsbDeviceState::Addressed;
-                            let _ = xfer.accept();
+                            xfer.accept()?;
                         }
                     }
                 }
@@ -511,43 +514,49 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 (Recipient::Interface, Request::SET_INTERFACE, alt_setting) => {
                     // Reject interface numbers and alt settings bigger than 255
                     if req.index > core::u8::MAX.into() || alt_setting > core::u8::MAX.into() {
-                        let _ = xfer.reject();
-                        return;
+                        xfer.reject()?;
+                        return Ok(());
                     }
 
                     // Ask class implementations, whether they accept the alternate interface setting.
                     for cls in classes {
                         if cls.set_alt_setting(InterfaceNumber(req.index as u8), alt_setting as u8)
                         {
-                            let _ = xfer.accept();
-                            return;
+                            xfer.accept()?;
+                            return Ok(());
                         }
                     }
 
                     // Default behaviour, if no class implementation accepted the alternate setting.
                     if alt_setting == DEFAULT_ALTERNATE_SETTING_U16 {
                         usb_debug!("Accepting unused alternate settings");
-                        let _ = xfer.accept();
+                        xfer.accept()?;
                     } else {
                         usb_debug!("Rejecting unused alternate settings");
-                        let _ = xfer.reject();
+                        xfer.reject()?;
                     }
                 }
 
                 _ => {
-                    let _ = xfer.reject();
-                    return;
+                    xfer.reject()?;
+                    return Ok(());
                 }
             }
         }
 
         if self.control.waiting_for_response() {
             usb_debug!("Rejecting control transfer due to waiting response");
-            let _ = self.control.reject();
+            self.control.reject()?;
         }
+
+        Ok(())
     }
 
-    fn get_descriptor(config: &Config, classes: &mut ClassList<'_, B>, xfer: ControlIn<B>) {
+    fn get_descriptor(
+        config: &Config,
+        classes: &mut ClassList<'_, B>,
+        xfer: ControlIn<B>,
+    ) -> Result<()> {
         let req = *xfer.request();
 
         let (dtype, index) = req.descriptor_type_index();
@@ -555,12 +564,14 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         fn accept_writer<B: UsbBus>(
             xfer: ControlIn<B>,
             f: impl FnOnce(&mut DescriptorWriter) -> Result<()>,
-        ) {
-            let _ = xfer.accept(|buf| {
+        ) -> Result<()> {
+            xfer.accept(|buf| {
                 let mut writer = DescriptorWriter::new(buf);
                 f(&mut writer)?;
                 Ok(writer.position())
-            });
+            })?;
+
+            Ok(())
         }
 
         match dtype {
@@ -575,9 +586,9 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 bw.end_bos();
 
                 Ok(())
-            }),
+            })?,
 
-            descriptor_type::DEVICE => accept_writer(xfer, |w| w.device(config)),
+            descriptor_type::DEVICE => accept_writer(xfer, |w| w.device(config))?,
 
             descriptor_type::CONFIGURATION => accept_writer(xfer, |w| {
                 w.configuration(config)?;
@@ -590,7 +601,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 w.end_configuration();
 
                 Ok(())
-            }),
+            })?,
 
             descriptor_type::STRING => match index {
                 // first STRING Request
@@ -608,7 +619,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                             descriptor_type::STRING,
                             &lang_id_bytes[..config.string_descriptors.len() * 2],
                         )
-                    })
+                    })?;
                 }
 
                 // rest STRING Requests
@@ -623,8 +634,8 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                                 .iter()
                                 .find(|lang| lang.id == lang_id)
                             else {
-                                xfer.reject().ok();
-                                return;
+                                xfer.reject()?;
+                                return Ok(());
                             };
 
                             match index {
@@ -643,17 +654,19 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     };
 
                     if let Some(string_descriptor) = string {
-                        accept_writer(xfer, |w| w.string(string_descriptor));
+                        accept_writer(xfer, |w| w.string(string_descriptor))?;
                     } else {
-                        let _ = xfer.reject();
+                        xfer.reject()?;
                     }
                 }
             },
 
             _ => {
-                let _ = xfer.reject();
+                xfer.reject()?;
             }
-        }
+        };
+
+        Ok(())
     }
 
     fn reset(&mut self, classes: &mut ClassList<'_, B>) {
