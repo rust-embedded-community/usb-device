@@ -2,6 +2,7 @@
 
 #[allow(missing_docs)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct LangID(u16);
 
 impl From<LangID> for u16 {
