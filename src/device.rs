@@ -243,7 +243,17 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                             // phases of the control transfer. If we just got a SETUP packet or
                             // an OUT token, we can safely ignore the IN-COMPLETE indication and
                             // continue with the next transfer.
-                            let completed = self.control.handle_in_complete();
+                            let completed = match self.control.handle_in_complete() {
+                                Ok(completed) => completed,
+                                Err(_err) => {
+                                    // TODO: Propagate this out of `poll()`
+                                    usb_debug!(
+                                        "Failed to process control-input complete: {}",
+                                        _err
+                                    );
+                                    false
+                                }
+                            };
 
                             if !B::QUIRK_SET_ADDRESS_BEFORE_STATUS
                                 && completed
