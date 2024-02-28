@@ -12,7 +12,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 interface.
 
 ### Changed
-* Invalid LangIDs will default to `EN_US`
+* [breaking] LangIDs no longer implement `TryFromPrimitive`. The minor version has not been bumped
+as this was not intended to be used in the public API.
+    - If this is problematic, please open an issue in the main `usb-device` repository.
 * Changed handling of EP0 state to eliminate unexpected issues with device enumeration
 
 ## [0.3.1] - 2023-11-15
