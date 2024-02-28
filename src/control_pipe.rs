@@ -129,18 +129,18 @@ impl<B: UsbBus> ControlPipe<'_, B> {
         None
     }
 
-    pub fn handle_out(&mut self) -> Option<Request> {
+    pub fn handle_out(&mut self) -> Result<Option<Request>> {
         match self.state {
             ControlState::DataOut(req) => {
                 let i = self.i;
                 let count = match self.ep_out.read(&mut self.buf[i..]) {
                     Ok(count) => count,
-                    Err(UsbError::WouldBlock) => return None,
+                    Err(UsbError::WouldBlock) => return Ok(None),
                     Err(_) => {
                         // Failed to read or buffer overflow (overflow is only possible if the host
                         // sends more data than it indicated in the SETUP request)
                         self.set_error();
-                        return None;
+                        return Ok(None);
                     }
                 };
 
@@ -154,7 +154,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                 if self.i >= self.len {
                     usb_debug!("Request OUT complete: {:?}", req);
                     self.state = ControlState::CompleteOut;
-                    return Some(req);
+                    return Ok(Some(req));
                 }
             }
             // The host may terminate a DATA stage early by sending a zero-length status packet
@@ -167,7 +167,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                     "Control transfer completed. Current state: {:?}",
                     self.state
                 );
-                let _ = self.ep_out.read(&mut []);
+                self.ep_out.read(&mut [])?;
                 self.state = ControlState::Idle;
             }
             _ => {
@@ -176,14 +176,14 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                     "Discarding EP0 data due to unexpected state. Current state: {:?}",
                     self.state
                 );
-                let _ = self.ep_out.read(&mut []);
+                self.ep_out.read(&mut [])?;
 
                 // Unexpected OUT packet
                 self.set_error()
             }
         }
 
-        None
+        Ok(None)
     }
 
     pub fn handle_in_complete(&mut self) -> bool {
@@ -262,7 +262,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             }
         };
 
-        let _ = self.ep_in.write(&[]);
+        self.ep_in.write(&[])?;
         self.state = ControlState::StatusIn;
         Ok(())
     }

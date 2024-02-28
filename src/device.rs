@@ -182,6 +182,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 }
                 _ => {
                     self.bus.resume();
+
                     self.device_state = self
                         .suspended_device_state
                         .expect("Unknown state before suspend");
@@ -213,14 +214,24 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     let req = if (ep_setup & 1) != 0 {
                         self.control.handle_setup()
                     } else if (ep_out & 1) != 0 {
-                        self.control.handle_out()
+                        match self.control.handle_out() {
+                            Ok(req) => req,
+                            Err(_err) => {
+                                // TODO: Propagate error out of `poll()`
+                                usb_debug!("Failed to handle EP0: {_err}");
+                                None
+                            }
+                        }
                     } else {
                         None
                     };
 
                     match req {
                         Some(req) if req.direction == UsbDirection::In => {
-                            self.control_in(classes, req)
+                            if let Err(_err) = self.control_in(classes, req) {
+                                // TODO: Propagate error out of `poll()`
+                                usb_debug!("Failed to handle control request: {_err}");
+                            }
                         }
                         Some(req) if req.direction == UsbDirection::Out => {
                             self.control_out(classes, req)
@@ -310,14 +321,14 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         false
     }
 
-    fn control_in(&mut self, classes: &mut ClassList<'_, B>, req: control::Request) {
+    fn control_in(&mut self, classes: &mut ClassList<'_, B>, req: control::Request) -> Result<()> {
         use crate::control::{Recipient, Request};
 
         for cls in classes.iter_mut() {
             cls.control_in(ControlIn::new(&mut self.control, &req));
 
             if !self.control.waiting_for_response() {
-                return;
+                return Ok(());
             }
         }
 
@@ -334,14 +345,14 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                             0x0000
                         };
 
-                    let _ = xfer.accept_with(&status.to_le_bytes());
+                    xfer.accept_with(&status.to_le_bytes())?;
                 }
 
                 (Recipient::Interface, Request::GET_STATUS) => {
                     usb_trace!("Processing Interface::GetStatus");
                     let status: u16 = 0x0000;
 
-                    let _ = xfer.accept_with(&status.to_le_bytes());
+                    xfer.accept_with(&status.to_le_bytes())?;
                 }
 
                 (Recipient::Endpoint, Request::GET_STATUS) => {
@@ -354,7 +365,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                         0x0000
                     };
 
-                    let _ = xfer.accept_with(&status.to_le_bytes());
+                    xfer.accept_with(&status.to_le_bytes())?;
                 }
 
                 (Recipient::Device, Request::GET_DESCRIPTOR) => {
@@ -369,15 +380,14 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                         _ => CONFIGURATION_NONE,
                     };
 
-                    let _ = xfer.accept_with(&config.to_le_bytes());
+                    xfer.accept_with(&config.to_le_bytes())?;
                 }
 
                 (Recipient::Interface, Request::GET_INTERFACE) => {
                     usb_trace!("Processing Interface::GetInterface");
                     // Reject interface numbers bigger than 255
                     if req.index > core::u8::MAX.into() {
-                        let _ = xfer.reject();
-                        return;
+                        return xfer.reject();
                     }
 
                     // Ask class implementations, whether they know the alternate setting
@@ -385,23 +395,24 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                     for cls in classes {
                         if let Some(setting) = cls.get_alt_setting(InterfaceNumber(req.index as u8))
                         {
-                            let _ = xfer.accept_with(&setting.to_le_bytes());
-                            return;
+                            return xfer.accept_with(&setting.to_le_bytes());
                         }
                     }
 
                     // If no class returned an alternate setting, return the default value
-                    let _ = xfer.accept_with(&DEFAULT_ALTERNATE_SETTING.to_le_bytes());
+                    xfer.accept_with(&DEFAULT_ALTERNATE_SETTING.to_le_bytes())?;
                 }
 
-                _ => (),
+                _ => {}
             };
         }
 
         if self.control.waiting_for_response() {
             usb_debug!("Rejecting control transfer because we were waiting for a response");
-            let _ = self.control.reject();
+            self.control.reject()?;
         }
+
+        Ok(())
     }
 
     fn control_out(&mut self, classes: &mut ClassList<'_, B>, req: control::Request) {
