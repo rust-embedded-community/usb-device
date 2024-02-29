@@ -21,9 +21,6 @@ rand = "0.8.5"
 
 [features]
 
-# Enable logging and tracing via the `log` crate
-log = ["dep:log"]
-
 # Use larger endpoint buffers for highspeed operation (default fullspeed)
 #
 # Note: usb-device doesn't truly support high speed enumeration yet, so setting this will make
