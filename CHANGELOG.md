@@ -84,7 +84,7 @@ as this was not intended to be used in the public API.
 This is the initial release to crates.io.
 
 [Unreleased]: https://github.com/rust-embedded-community/usb-device/compare/v0.3.2...HEAD
-[0.3.2]: https://github.com/rust-embedded-community/usb-device/compare/v0.3.0...v0.3.2
+[0.3.2]: https://github.com/rust-embedded-community/usb-device/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/rust-embedded-community/usb-device/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/rust-embedded-community/usb-device/compare/v0.2.9...v0.3.0
 [0.2.9]: https://github.com/rust-embedded-community/usb-device/compare/v0.2.8...v0.2.9
