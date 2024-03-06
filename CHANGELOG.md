@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [0.3.2] - 2024-03-04
+## [0.3.2] - 2024-03-06
 
 ### Added
 * A new `log` feature can be enabled to provide logging and tracing information about the USB
