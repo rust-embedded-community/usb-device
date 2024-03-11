@@ -1,9 +1,9 @@
 #![allow(missing_docs)]
 
 use crate::class_prelude::*;
-use crate::descriptor::lang_id::LangID;
 use crate::device::{StringDescriptors, UsbDevice, UsbDeviceBuilder, UsbVidPid};
 use crate::Result;
+use core::cell::UnsafeCell;
 use core::cmp;
 
 #[cfg(feature = "test-class-high-speed")]
@@ -22,7 +22,7 @@ mod sizes {
     pub const INTERRUPT_ENDPOINT: u16 = 31;
 }
 
-static mut CONTROL_BUFFER: [u8; 256] = [0; 256];
+static mut CONTROL_BUFFER: UnsafeCell<[u8; 256]> = UnsafeCell::new([0; 256]);
 
 /// Test USB class for testing USB driver implementations. Supports various endpoint types and
 /// requests for testing USB peripheral drivers on actual hardware.
@@ -114,14 +114,16 @@ impl<B: UsbBus> TestClass<'_, B> {
         &self,
         usb_bus: &'a UsbBusAllocator<B>,
     ) -> UsbDeviceBuilder<'a, B> {
-        UsbDeviceBuilder::new(usb_bus, UsbVidPid(VID, PID), unsafe { &mut CONTROL_BUFFER })
-            .strings(&[StringDescriptors::default()
-                .manufacturer(MANUFACTURER)
-                .product(PRODUCT)
-                .serial_number(SERIAL_NUMBER)])
-            .unwrap()
-            .max_packet_size_0(sizes::CONTROL_ENDPOINT)
-            .unwrap()
+        UsbDeviceBuilder::new(usb_bus, UsbVidPid(VID, PID), unsafe {
+            CONTROL_BUFFER.get_mut()
+        })
+        .strings(&[StringDescriptors::default()
+            .manufacturer(MANUFACTURER)
+            .product(PRODUCT)
+            .serial_number(SERIAL_NUMBER)])
+        .unwrap()
+        .max_packet_size_0(sizes::CONTROL_ENDPOINT)
+        .unwrap()
     }
 
     /// Must be called after polling the UsbDevice.

@@ -134,10 +134,11 @@ pub mod endpoint;
 /// To implement USB support for your own project, the required code is usually as follows:
 ///
 /// ``` ignore
+/// use core::cell::UnsafeCell;
 /// use usb_device::prelude::*;
 /// use usb_serial; // example class crate (not included)
 ///
-/// static mut CONTROL_BUFFER: [u8; 128] = [0; 128];
+/// static mut CONTROL_BUFFER: UnsafeCell<[u8; 128]> = UnsafeCell::new([0; 128]);
 ///
 /// // Create the device-specific USB peripheral driver. The exact name and arguments are device
 /// // specific, so check the documentation for your device driver crate.
@@ -153,7 +154,7 @@ pub mod endpoint;
 /// // pair. Additional builder arguments can specify parameters such as device class code or
 /// // product name. If using an existing class, remember to check the class crate documentation
 /// // for correct values.
-/// let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x5824, 0x27dd), unsafe { &mut CONTROL_BUFFER })
+/// let mut usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x5824, 0x27dd), unsafe { CONTROL_BUFFER.get_mut() })
 ///     .strings(&[StringDescriptors::new(LangID::EN)
 ///         .product("Serial port")])
 ///         .expect("Failed to set strings")
