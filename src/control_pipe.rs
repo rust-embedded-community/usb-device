@@ -126,18 +126,19 @@ impl<B: UsbBus> ControlPipe<'_, B> {
         None
     }
 
-    pub fn handle_out(&mut self) -> Option<Request> {
+    pub fn handle_out(&mut self) -> Result<Option<Request>> {
         match self.state {
             ControlState::DataOut(req) => {
                 let i = self.i;
                 let count = match self.ep_out.read(&mut self.buf[i..]) {
                     Ok(count) => count,
-                    Err(UsbError::WouldBlock) => return None,
-                    Err(_) => {
+                    Err(UsbError::WouldBlock) => return Ok(None),
+                    Err(_err) => {
                         // Failed to read or buffer overflow (overflow is only possible if the host
                         // sends more data than it indicated in the SETUP request)
+                        usb_debug!("Failed EP0 read: {:?}", _err);
                         self.set_error();
-                        return None;
+                        return Ok(None);
                     }
                 };
 
@@ -151,7 +152,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                 if self.i >= self.len {
                     usb_debug!("Request OUT complete: {:?}", req);
                     self.state = ControlState::CompleteOut;
-                    return Some(req);
+                    return Ok(Some(req));
                 }
             }
             // The host may terminate a DATA stage early by sending a zero-length status packet
@@ -164,7 +165,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                     "Control transfer completed. Current state: {:?}",
                     self.state
                 );
-                let _ = self.ep_out.read(&mut []);
+                self.ep_out.read(&mut [])?;
                 self.state = ControlState::Idle;
             }
             _ => {
@@ -173,28 +174,23 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                     "Discarding EP0 data due to unexpected state. Current state: {:?}",
                     self.state
                 );
-                let _ = self.ep_out.read(&mut []);
+                self.ep_out.read(&mut [])?;
 
                 // Unexpected OUT packet
                 self.set_error()
             }
         }
 
-        None
+        Ok(None)
     }
 
-    pub fn handle_in_complete(&mut self) -> bool {
+    pub fn handle_in_complete(&mut self) -> Result<bool> {
         match self.state {
             ControlState::DataIn => {
-                self.write_in_chunk();
+                self.write_in_chunk()?;
             }
             ControlState::DataInZlp => {
-                if self.ep_in.write(&[]).is_err() {
-                    // There isn't much we can do if the write fails, except to wait for another
-                    // poll or for the host to resend the request.
-                    return false;
-                }
-
+                self.ep_in.write(&[])?;
                 usb_trace!("wrote EP0: ZLP");
                 self.state = ControlState::DataInLast;
             }
@@ -204,7 +200,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             }
             ControlState::StatusIn => {
                 self.state = ControlState::Idle;
-                return true;
+                return Ok(true);
             }
             ControlState::Idle => {
                 // If we received a message on EP0 while sending the last portion of an IN
@@ -218,23 +214,14 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             }
         };
 
-        false
+        Ok(false)
     }
 
-    fn write_in_chunk(&mut self) {
+    fn write_in_chunk(&mut self) -> Result<()> {
         let count = min(self.len - self.i, self.ep_in.max_packet_size() as usize);
 
         let buffer = self.static_in_buf.unwrap_or(&self.buf);
-        let count = match self.ep_in.write(&buffer[self.i..(self.i + count)]) {
-            Ok(c) => c,
-            // There isn't much we can do if the write fails, except to wait for another poll or for
-            // the host to resend the request.
-            Err(_err) => {
-                usb_debug!("Failed to write EP0: {:?}", _err);
-                return;
-            }
-        };
-
+        let count = self.ep_in.write(&buffer[self.i..(self.i + count)])?;
         usb_trace!("wrote EP0: {:?}", &buffer[self.i..(self.i + count)]);
 
         self.i += count;
@@ -248,6 +235,8 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                 ControlState::DataInLast
             };
         }
+
+        Ok(())
     }
 
     pub fn accept_out(&mut self) -> Result<()> {
@@ -259,7 +248,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             }
         };
 
-        let _ = self.ep_in.write(&[]);
+        self.ep_in.write(&[])?;
         self.state = ControlState::StatusIn;
         Ok(())
     }
@@ -301,7 +290,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
         self.len = min(data_len, req.length as usize);
         self.i = 0;
         self.state = ControlState::DataIn;
-        self.write_in_chunk();
+        self.write_in_chunk()?;
 
         Ok(())
     }
