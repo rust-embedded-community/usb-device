@@ -172,13 +172,13 @@ impl<B: UsbBus> UsbDevice<'_, B> {
     ///
     /// Strictly speaking the list of classes is allowed to change between polls if the device has
     /// been reset, which is indicated by `state` being equal to [`UsbDeviceState::Default`].
-    pub fn poll(&mut self, classes: &mut ClassList<'_, B>) -> bool {
+    pub fn poll(&mut self, classes: &mut ClassList<'_, B>) -> Result<bool> {
         let pr = self.bus.poll();
 
         if self.device_state == UsbDeviceState::Suspend {
             match pr {
                 PollResult::Suspend | PollResult::None => {
-                    return false;
+                    return Ok(false);
                 }
                 _ => {
                     self.bus.resume();
@@ -228,15 +228,17 @@ impl<B: UsbBus> UsbDevice<'_, B> {
 
                     match req {
                         Some(req) if req.direction == UsbDirection::In => {
-                            if let Err(_err) = self.control_in(classes, req) {
+                            if let Err(err) = self.control_in(classes, req) {
                                 // TODO: Propagate error out of `poll()`
-                                usb_debug!("Failed to handle input control request: {:?}", _err);
+                                usb_debug!("Failed to handle input control request: {:?}", err);
+                                return Err(err);
                             }
                         }
                         Some(req) if req.direction == UsbDirection::Out => {
-                            if let Err(_err) = self.control_out(classes, req) {
+                            if let Err(err) = self.control_out(classes, req) {
                                 // TODO: Propagate error out of `poll()`
-                                usb_debug!("Failed to handle output control request: {:?}", _err);
+                                usb_debug!("Failed to handle output control request: {:?}", err);
+                                return Err(err);
                             }
                         }
 
@@ -248,13 +250,13 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                             // continue with the next transfer.
                             let completed = match self.control.handle_in_complete() {
                                 Ok(completed) => completed,
-                                Err(_err) => {
+                                Err(err) => {
                                     // TODO: Propagate this out of `poll()`
                                     usb_debug!(
                                         "Failed to process control-input complete: {:?}",
-                                        _err
+                                        err
                                     );
-                                    false
+                                    return Err(err);
                                 }
                             };
 
@@ -317,10 +319,10 @@ impl<B: UsbBus> UsbDevice<'_, B> {
                 }
 
                 for cls in classes.iter_mut() {
-                    cls.poll();
+                    cls.poll()?;
                 }
 
-                return true;
+                return Ok(true);
             }
             PollResult::Resume => {}
             PollResult::Suspend => {
@@ -331,7 +333,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
             }
         }
 
-        false
+        Ok(false)
     }
 
     fn control_in(&mut self, classes: &mut ClassList<'_, B>, req: control::Request) -> Result<()> {

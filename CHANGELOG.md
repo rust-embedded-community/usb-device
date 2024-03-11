@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+* [breaking] The `usb_device::UsbDevice::poll()` function now returns a `Result` type.
+
 ## [0.3.2] - 2024-03-06
 
 ### Added

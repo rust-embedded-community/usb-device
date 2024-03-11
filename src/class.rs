@@ -54,7 +54,9 @@ pub trait UsbClass<B: UsbBus> {
     fn reset(&mut self) {}
 
     /// Called whenever the `UsbDevice` is polled.
-    fn poll(&mut self) {}
+    fn poll(&mut self) -> Result<()> {
+        Ok(())
+    }
 
     /// Called when a control request is received with direction HostToDevice.
     ///
