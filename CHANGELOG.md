@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+* [breaking] The control pipe is now provided in the `UsbDeviceBuilder` API to allow for user-provided control
+pipes. This makes it so that control pipes have configurable sizing.
+
 ## [0.3.2] - 2024-03-06
 
 ### Added
@@ -18,8 +22,6 @@ interface.
 as this was not intended to be used in the public API.
     - If this is problematic, please open an issue in the main `usb-device` repository.
 * Changed handling of EP0 state to eliminate unexpected issues with device enumeration
-* [breaking] The control pipe is now provided in the `UsbDeviceBuilder` API to allow for user-provided control
-pipes. This makes it so that control pipes have configurable sizing.
 
 ## [0.3.1] - 2023-11-15
 
