@@ -158,7 +158,7 @@ pub mod endpoint;
 ///         .product("Serial port")])
 ///         .expect("Failed to set strings")
 ///     .device_class(usb_serial::DEVICE_CLASS)
-///     .build();
+///     .build().unwrap();
 ///
 /// // At this point the USB peripheral is enabled and a connected host will attempt to enumerate
 /// // it.

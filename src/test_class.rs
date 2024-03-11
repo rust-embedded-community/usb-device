@@ -96,7 +96,7 @@ impl<B: UsbBus> TestClass<'_, B> {
 
     /// Convenience method to create a UsbDevice that is configured correctly for TestClass.
     pub fn make_device<'a>(&self, usb_bus: &'a UsbBusAllocator<B>) -> UsbDevice<'a, B> {
-        self.make_device_builder(usb_bus).build()
+        self.make_device_builder(usb_bus).build().unwrap()
     }
 
     /// Convenience method to create a UsbDeviceBuilder that is configured correctly for TestClass.

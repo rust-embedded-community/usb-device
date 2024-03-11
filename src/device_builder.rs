@@ -33,6 +33,8 @@ pub enum BuilderError {
     InvalidPacketSize,
     /// Configuration specifies higher USB power draw than allowed
     PowerTooHigh,
+    /// The provided control buffer is too small for the provided maximum packet size.
+    ControlBufferTooSmall,
 }
 
 /// Provides basic string descriptors about the device, including the manufacturer, product name,
@@ -110,8 +112,16 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
     }
 
     /// Creates the [`UsbDevice`] instance with the configuration in this builder.
-    pub fn build(self) -> UsbDevice<'a, B> {
-        UsbDevice::build(self.alloc, self.config, self.control_buffer)
+    pub fn build(self) -> Result<UsbDevice<'a, B>, BuilderError> {
+        if self.control_buffer.len() < self.config.max_packet_size_0 as usize {
+            return Err(BuilderError::ControlBufferTooSmall);
+        }
+
+        Ok(UsbDevice::build(
+            self.alloc,
+            self.config,
+            self.control_buffer,
+        ))
     }
 
     builder_fields! {
@@ -192,6 +202,10 @@ impl<'a, B: UsbBus> UsbDeviceBuilder<'a, B> {
         match max_packet_size_0 {
             8 | 16 | 32 | 64 => {}
             _ => return Err(BuilderError::InvalidPacketSize),
+        }
+
+        if self.control_buffer.len() < max_packet_size_0 as usize {
+            return Err(BuilderError::ControlBufferTooSmall);
         }
 
         self.config.max_packet_size_0 = max_packet_size_0;
