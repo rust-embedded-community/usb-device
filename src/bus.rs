@@ -316,6 +316,11 @@ impl<B: UsbBus> UsbBusAllocator<B> {
         self.alloc(None, EndpointType::Interrupt, max_packet_size, interval)
             .expect("alloc_ep failed")
     }
+
+    /// Free the UsbBus
+    pub fn free(self) -> B {
+        self.bus.into_inner()
+    }
 }
 
 /// A handle for a USB interface that contains its number.
