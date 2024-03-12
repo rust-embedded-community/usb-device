@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Changed
+* [breaking] The control pipe is now provided in the `UsbDeviceBuilder` API to allow for user-provided control
+pipes. This makes it so that control pipes have configurable sizing.
+
 ## [0.3.2] - 2024-03-06
 
 ### Added

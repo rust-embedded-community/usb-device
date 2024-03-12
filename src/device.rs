@@ -82,7 +82,11 @@ pub const DEFAULT_ALTERNATE_SETTING: u8 = 0;
 type ClassList<'a, B> = [&'a mut dyn UsbClass<B>];
 
 impl<B: UsbBus> UsbDevice<'_, B> {
-    pub(crate) fn build<'a>(alloc: &'a UsbBusAllocator<B>, config: Config<'a>) -> UsbDevice<'a, B> {
+    pub(crate) fn build<'a>(
+        alloc: &'a UsbBusAllocator<B>,
+        config: Config<'a>,
+        control_buffer: &'a mut [u8],
+    ) -> UsbDevice<'a, B> {
         let control_out = alloc
             .alloc(
                 Some(0x00.into()),
@@ -106,7 +110,7 @@ impl<B: UsbBus> UsbDevice<'_, B> {
         UsbDevice {
             bus,
             config,
-            control: ControlPipe::new(control_out, control_in),
+            control: ControlPipe::new(control_buffer, control_out, control_in),
             device_state: UsbDeviceState::Default,
             remote_wakeup_enabled: false,
             self_powered: false,
