@@ -11,7 +11,7 @@ repository = "https://github.com/rust-embedded-community/usb-device"
 
 [dependencies]
 defmt = { version = "0.3", optional = true }
-portable-atomic = { version = "1.2.0", default-features = false }
+portable-atomic = { version = "1.2.0", default-features = false, optional = true }
 heapless = "0.8"
 log = { version = "0.4", default-features = false, optional = true}
 
@@ -20,6 +20,7 @@ rusb = "0.9.1"
 rand = "0.8.5"
 
 [features]
+default = ["portable-atomic"]
 
 # Use larger endpoint buffers for highspeed operation (default fullspeed)
 #
@@ -27,6 +28,7 @@ rand = "0.8.5"
 # TestClass only compliant with high speed mode. It may still manage to be enumerated as a full
 # speed device, but the descriptors will be invalid.
 test-class-high-speed = []
+portable-atomic = ["dep:portable-atomic"]
 
 [[test]]
 name = "test_class_host"
