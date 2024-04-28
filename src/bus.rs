@@ -17,7 +17,7 @@ use portable_atomic::{AtomicPtr, Ordering};
 /// take place before [`enable`](UsbBus::enable) is called. After the bus is enabled, in practice
 /// most access won't mutate the object itself but only endpoint-specific registers and buffers, the
 /// access to which is mostly arbitrated by endpoint handles.
-pub trait UsbBus: Sync + Sized {
+pub trait UsbBus: Sized {
     /// Allocates an endpoint and specified endpoint parameters. This method is called by the device
     /// and class implementations to allocate endpoints, and can only be called before
     /// [`enable`](UsbBus::enable) is called.
