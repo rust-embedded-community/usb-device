@@ -40,9 +40,11 @@ Class crates
 * [usbd-storage](https://github.com/apohrebniak/usbd-storage) [![Crates.io](https://img.shields.io/crates/v/usbd-storage.svg)](https://crates.io/crates/usbd-storage) - (Experimental) Mass storage port class
 * [usbd-dfu](https://github.com/vitalyvb/usbd-dfu) [![Crates.io](https://img.shields.io/crates/v/usbd-dfu.svg)](https://crates.io/crates/usbd-dfu) - Device Firmware Upgrade class
 * [usbd-picotool-reset](https://github.com/ithinuel/usbd-picotool-reset) [![Crates.io](https://img.shields.io/crates/v/usbd-picotool-reset.svg)](https://crates.io/crates/usbd-picotool-reset) - picotool-reset class
+* [usbd-midi](https://github.com/rust-embedded-community/usbd-midi) [![Crates.io](https://img.shields.io/crates/v/usbd-midi.svg)](https://crates.io/crates/usbd-midi) - MIDI class
 
 Others
 ------
 
 Other implementations for USB in Rust
+
 * The [Embassy](https://github.com/embassy-rs/embassy) project has an async USB stack, embassy-usb.
