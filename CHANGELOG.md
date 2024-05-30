@@ -7,37 +7,48 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+### Added
+
+* `DummyUsbBus` without functionality to allow examples that actually compile (but not run).
+
 ### Changed
+
 * [breaking] The control pipe is now provided in the `UsbDeviceBuilder` API to allow for user-provided control
 pipes. This makes it so that control pipes have configurable sizing.
 
 ## [0.3.2] - 2024-03-06
 
 ### Added
+
 * A new `log` feature can be enabled to provide logging and tracing information about the USB
 interface.
 
 ### Changed
+
 * [breaking] LangIDs no longer implement `TryFromPrimitive`. The minor version has not been bumped
 as this was not intended to be used in the public API.
-    - If this is problematic, please open an issue in the main `usb-device` repository.
+  * If this is problematic, please open an issue in the main `usb-device` repository.
 * Changed handling of EP0 state to eliminate unexpected issues with device enumeration
 
 ## [0.3.1] - 2023-11-15
 
 ### Added
+
 * `BuilderError`, `LangID`, `StringDescriptors` now in `prelude`
 * `LangID` now in `class_prelude`
 
 ### Changed
+
 * Updated documentation, including example code
 
 ## [0.3.0] - 2023-11-13
 
 ### Fixed
+
 * Fixed a defect where enumeration may fail due to timing-related issues ([#128](https://github.com/rust-embedded-community/usb-device/issues/128))
 
 ### Added
+
 * New enums and allocators for Isochronous endpoints ([#60](https://github.com/rust-embedded-community/usb-device/pull/60)).
 * Ability to select USB revision ([#116](https://github.com/rust-embedded-community/usb-device/pull/116)).
 * Added support for alternate settings on interfaces ([#114](https://github.com/rust-embedded-community/usb-device/pull/114)).
@@ -46,12 +57,14 @@ as this was not intended to be used in the public API.
   * `UsbDeviceBuilder` has a public `.extra_lang_ids()` method to specify LANGIDs besides ENGLISH_US(0x0409)
 
 ### Breaking
+
 * Acess numeric form of `EndpointType` variants now require a `.to_bm_attributes()`. ([#60](https://github.com/rust-embedded-community/usb-device/pull/60))
 * `DescriptorWriter::iad()` now requires a `Option<StringIndex>` to optionally specify a string for describing the function ([#121](https://github.com/rust-embedded-community/usb-device/pull/121))
 * `.manufacturer()`, `.product()` and `.serial_number()` of `UsbDeviceBuilder` are now replaced with the `strings()` function that accepts a `StringDescriptor` list to allow multilanguage support ([#122](https://github.com/rust-embedded-community/usb-device/pull/122))
 * Various methods of the `UsbDeviceBuilder` now return `Result<>` types instead of internally panicking.
 
 ### Changed
+
 * `EndpointType` enum now has fields for isochronous synchronization and usage ([#60](https://github.com/rust-embedded-community/usb-device/pull/60)).
 * `descriptor_type::STRING` of `fn get_descriptor()` will send the LANGIDs supported by device, and respond STRING Request with specified LANGID. ([#122](https://github.com/rust-embedded-community/usb-device/pull/122))
 * `UsbError` is now copyable and comparable ([#127](https://github.com/rust-embedded-community/usb-device/pull/127))
@@ -59,9 +72,11 @@ as this was not intended to be used in the public API.
 ## [0.2.9] - 2022-08-02
 
 ### Added
+
 * Optional support for defmt ([#76](https://github.com/rust-embedded-community/usb-device/pull/76)).
 
 ### Fixed
+
 * Fixed an issue where USB devices were not enumerating on Windows ([#32](https://github.com/rust-embedded-community/usb-device/issues/82))
 * Fixed Suspend state transition so it goes back to the previous state, not just Default ([#97](https://github.com/rust-embedded-community/usb-device/pull/97))
 
