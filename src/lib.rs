@@ -184,6 +184,19 @@ pub use descriptor::lang_id::LangID;
 /// driver to be tested with the test_class_host example in this crate.
 pub mod test_class;
 
+/// Dummy bus with no functionality.
+///
+/// Examples can create an instance of this bus so they can be compile-checked.
+/// Note that the lack of functionality does not allow to run the examples.
+///
+/// ```
+/// use usb_device::dummy_bus::DummyUsbBus;
+/// use usb_device::class_prelude::UsbBusAllocator;
+///
+/// let usb_bus = UsbBusAllocator::new(DummyUsbBus::new());
+/// ```
+pub mod dummy;
+
 mod control_pipe;
 
 mod device_builder;
