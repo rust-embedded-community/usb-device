@@ -190,7 +190,7 @@ pub mod test_class;
 /// Note that the lack of functionality does not allow to run the examples.
 ///
 /// ```
-/// use usb_device::dummy_bus::DummyUsbBus;
+/// use usb_device::dummy::DummyUsbBus;
 /// use usb_device::class_prelude::UsbBusAllocator;
 ///
 /// let usb_bus = UsbBusAllocator::new(DummyUsbBus::new());
