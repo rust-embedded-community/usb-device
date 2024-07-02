@@ -195,7 +195,7 @@ pub mod test_class;
 ///
 /// let usb_bus = UsbBusAllocator::new(DummyUsbBus::new());
 /// ```
-pub mod dummy_bus;
+pub mod dummy;
 
 mod control_pipe;
 
