@@ -1,6 +1,10 @@
 use rusb::{ConfigDescriptor, Context, DeviceDescriptor, DeviceHandle, Language, UsbContext as _};
+use std::thread;
 use std::time::Duration;
+use usb_device::device::CONFIGURATION_VALUE;
 use usb_device::test_class;
+
+const TEST_INTERFACE: u8 = 0;
 
 pub const TIMEOUT: Duration = Duration::from_secs(1);
 pub const EN_US: u16 = 0x0409;
@@ -18,6 +22,7 @@ impl DeviceHandles {
     pub fn is_high_speed(&self) -> bool {
         self.handle.device().speed() == rusb::Speed::High
     }
+
     /// Returns the max packet size for the `TestClass` bulk endpoint(s).
     pub fn bulk_max_packet_size(&self) -> u16 {
         self.config_descriptor
@@ -33,6 +38,40 @@ impl DeviceHandles {
             })
             .next()
             .expect("TestClass has at least one bulk endpoint")
+    }
+
+    /// Puts the device in a consistent state for running a test
+    pub fn pre_test(&mut self) -> rusb::Result<()> {
+        let res = self.reset();
+        if let Err(err) = res {
+            println!("Failed to reset the device: {}", err);
+            return res;
+        }
+
+        let res = self.set_active_configuration(CONFIGURATION_VALUE);
+        if let Err(err) = res {
+            println!("Failed to set active configuration: {}", err);
+            return res;
+        }
+
+        let res = self.claim_interface(TEST_INTERFACE);
+        if let Err(err) = res {
+            println!("Failed to claim interface: {}", err);
+            return res;
+        }
+
+        Ok(())
+    }
+
+    /// Cleanup the device following a test
+    pub fn post_test(&mut self) -> rusb::Result<()> {
+        let res = self.release_interface(TEST_INTERFACE);
+        if let Err(err) = res {
+            println!("Failed to release interface: {}", err);
+            return res;
+        }
+
+        Ok(())
     }
 }
 
@@ -50,38 +89,102 @@ impl ::std::ops::DerefMut for DeviceHandles {
     }
 }
 
-pub fn open_device(ctx: &Context) -> rusb::Result<DeviceHandles> {
-    for device in ctx.devices()?.iter() {
-        let device_descriptor = device.device_descriptor()?;
+pub struct UsbContext {
+    /// rusb Context handle
+    inner: Context,
+    device: Option<DeviceHandles>,
+}
 
-        if !(device_descriptor.vendor_id() == test_class::VID
-            && device_descriptor.product_id() == test_class::PID)
-        {
-            continue;
+impl UsbContext {
+    pub fn new() -> rusb::Result<Self> {
+        let inner = rusb::Context::new()?;
+
+        Ok(Self {
+            inner,
+            device: None,
+        })
+    }
+
+    /// Attempt to open the test device once
+    fn try_open_device(&self) -> rusb::Result<DeviceHandles> {
+        for device in self.inner.devices()?.iter() {
+            let device_descriptor = device.device_descriptor()?;
+
+            if !(device_descriptor.vendor_id() == test_class::VID
+                && device_descriptor.product_id() == test_class::PID)
+            {
+                continue;
+            }
+
+            let mut handle = device.open()?;
+
+            let langs = handle.read_languages(TIMEOUT)?;
+            if langs.is_empty() || langs[0].lang_id() != EN_US {
+                continue;
+            }
+
+            let prod = handle.read_product_string(langs[0], &device_descriptor, TIMEOUT)?;
+
+            if prod == test_class::PRODUCT {
+                handle.reset()?;
+
+                let config_descriptor = device.config_descriptor(0)?;
+
+                return Ok(DeviceHandles {
+                    device_descriptor,
+                    config_descriptor,
+                    handle,
+                    en_us: langs[0],
+                });
+            }
         }
 
-        let mut handle = device.open()?;
+        Err(rusb::Error::NoDevice)
+    }
 
-        let langs = handle.read_languages(TIMEOUT)?;
-        if langs.is_empty() || langs[0].lang_id() != EN_US {
-            continue;
+    /// Look for the device for about 5 seconds in case it hasn't finished enumerating yet
+    pub fn open_device(&mut self) -> rusb::Result<&mut DeviceHandles> {
+        if self.device.is_none() {
+            for _ in 0..50 {
+                if let Ok(dev) = self.try_open_device() {
+                    self.device = Some(dev);
+                    break;
+                }
+                thread::sleep(Duration::from_millis(100));
+            }
         }
 
-        let prod = handle.read_product_string(langs[0], &device_descriptor, TIMEOUT)?;
-
-        if prod == test_class::PRODUCT {
-            handle.reset()?;
-
-            let config_descriptor = device.config_descriptor(0)?;
-
-            return Ok(DeviceHandles {
-                device_descriptor,
-                config_descriptor,
-                handle,
-                en_us: langs[0],
-            });
+        match self.device.as_mut() {
+            Some(device) => Ok(device),
+            None => Err(rusb::Error::NoDevice),
         }
     }
 
-    Err(rusb::Error::NoDevice)
+    /// Attempts to open (if necessary) and (re-)initialize a device for a test
+    pub fn device_for_test(&mut self) -> rusb::Result<&mut DeviceHandles> {
+        let dev = match self.open_device() {
+            Ok(dev) => dev,
+            Err(err) => {
+                println!("Did not find a TestClass device. Make sure the device is correctly programmed and plugged in. Last error: {}", err);
+                return Err(err);
+            }
+        };
+
+        match dev.pre_test() {
+            Ok(()) => Ok(dev),
+            Err(err) => {
+                println!("Failed to prepare for test: {}", err);
+                Err(err)
+            }
+        }
+    }
+
+    /// Releases resources that might have been used in a test
+    pub fn cleanup_after_test(&mut self) -> rusb::Result<()> {
+        if let Some(dev) = &mut self.device {
+            dev.post_test()
+        } else {
+            Ok(())
+        }
+    }
 }

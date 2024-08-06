@@ -6,7 +6,7 @@ use std::fmt::Write;
 use std::time::{Duration, Instant};
 use usb_device::test_class;
 
-pub type TestFn = fn(&mut DeviceHandles, &mut String) -> ();
+pub type TestFn = fn(&mut UsbContext, &mut String) -> ();
 
 const BENCH_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -16,7 +16,7 @@ macro_rules! tests {
             let mut tests: Vec<(&'static str, TestFn)> = Vec::new();
 
             $(
-                fn $name($dev: &mut DeviceHandles, $out: &mut String) {
+                fn $name($dev: &mut UsbContext, $out: &mut String) {
                     $body
                 }
 
@@ -30,7 +30,15 @@ macro_rules! tests {
 
 tests! {
 
-fn control_request(dev, _out) {
+fn control_request(context, _out) {
+    let dev = match context.device_for_test() {
+        Ok(dev) => dev,
+        Err(err) => {
+            assert!(false, "Failed to prepare for test: {}", err);
+            return;
+        }
+    };
+
     let mut rng = rand::thread_rng();
 
     let value: u16 = rng.gen();
@@ -63,7 +71,15 @@ fn control_request(dev, _out) {
     assert_eq!(&response, &expected);
 }
 
-fn control_data(dev, _out) {
+fn control_data(context, _out) {
+    let dev = match context.device_for_test() {
+        Ok(dev) => dev,
+        Err(err) => {
+            assert!(false, "Failed to prepare for test: {}", err);
+            return;
+        }
+    };
+
     for len in &[0, 7, 8, 9, 15, 16, 17] {
         let data = random_data(*len);
 
@@ -87,7 +103,15 @@ fn control_data(dev, _out) {
     }
 }
 
-fn control_data_static(dev, _out) {
+fn control_data_static(context, _out) {
+    let dev = match context.device_for_test() {
+        Ok(dev) => dev,
+        Err(err) => {
+            assert!(false, "Failed to prepare for test: {}", err);
+            return;
+        }
+    };
+
     let mut response = [0u8; 257];
 
     assert_eq!(
@@ -100,7 +124,15 @@ fn control_data_static(dev, _out) {
     assert_eq!(&response[..], test_class::LONG_DATA);
 }
 
-fn control_error(dev, _out) {
+fn control_error(context, _out) {
+    let dev = match context.device_for_test() {
+        Ok(dev) => dev,
+        Err(err) => {
+            assert!(false, "Failed to prepare for test: {}", err);
+            return;
+        }
+    };
+
     let res = dev.write_control(
         request_type(Direction::Out, RequestType::Vendor, Recipient::Device),
         test_class::REQ_UNKNOWN, 0, 0,
@@ -111,7 +143,15 @@ fn control_error(dev, _out) {
     }
 }
 
-fn string_descriptors(dev, _out) {
+fn string_descriptors(context, _out) {
+    let dev = match context.device_for_test() {
+        Ok(dev) => dev,
+        Err(err) => {
+            assert!(false, "Failed to prepare for test: {}", err);
+            return;
+        }
+    };
+
     assert_eq!(
         dev.read_product_string(dev.en_us, &dev.device_descriptor, TIMEOUT)
             .expect("read product string"),
@@ -133,7 +173,15 @@ fn string_descriptors(dev, _out) {
         test_class::CUSTOM_STRING);
 }
 
-fn interface_descriptor(dev, _out) {
+fn interface_descriptor(context, _out) {
+    let dev = match context.device_for_test() {
+        Ok(dev) => dev,
+        Err(err) => {
+            assert!(false, "Failed to prepare for test: {}", err);
+            return;
+        }
+    };
+
     let iface = dev.config_descriptor
         .interfaces()
         .find(|i| i.number() == 0)
@@ -163,7 +211,15 @@ fn interface_descriptor(dev, _out) {
         test_class::INTERFACE_STRING);
 }
 
-fn iso_endpoint_descriptors(dev, _out) {
+fn iso_endpoint_descriptors(context, _out) {
+    let dev = match context.device_for_test() {
+        Ok(dev) => dev,
+        Err(err) => {
+            assert!(false, "Failed to prepare for test: {}", err);
+            return;
+        }
+    };
+
     // Tests that an isochronous endpoint descriptor is present in the first
     // alternate setting, but not in the default setting.
     let iface = dev.config_descriptor
@@ -197,7 +253,15 @@ fn iso_endpoint_descriptors(dev, _out) {
     assert!(iso_ep_count > 0, "At least one isochronous endpoint is expected");
 }
 
-fn bulk_loopback(dev, _out) {
+fn bulk_loopback(context, _out) {
+    let dev = match context.device_for_test() {
+        Ok(dev) => dev,
+        Err(err) => {
+            assert!(false, "Failed to prepare for test: {}", err);
+            return;
+        }
+    };
+
     let mut lens = vec![0, 1, 2, 32, 63, 64, 65, 127, 128, 129];
     if dev.is_high_speed() {
         lens.extend([255, 256, 257, 511, 512, 513, 1023, 1024, 1025]);
@@ -235,7 +299,15 @@ fn bulk_loopback(dev, _out) {
     }
 }
 
-fn interrupt_loopback(dev, _out) {
+fn interrupt_loopback(context, _out) {
+    let dev = match context.device_for_test() {
+        Ok(dev) => dev,
+        Err(err) => {
+            assert!(false, "Failed to prepare for test: {}", err);
+            return;
+        }
+    };
+
     for len in &[0, 1, 2, 15, 31] {
         let data = random_data(*len);
 
@@ -259,7 +331,15 @@ fn interrupt_loopback(dev, _out) {
     }
 }
 
-fn bench_bulk_write(dev, out) {
+fn bench_bulk_write(context, out) {
+    let dev = match context.device_for_test() {
+        Ok(dev) => dev,
+        Err(err) => {
+            assert!(false, "Failed to prepare for test: {}", err);
+            return;
+        }
+    };
+
     run_bench(dev, out, |data| {
         assert_eq!(
             dev.write_bulk(0x01, data, BENCH_TIMEOUT)
@@ -269,7 +349,15 @@ fn bench_bulk_write(dev, out) {
     });
 }
 
-fn bench_bulk_read(dev, out) {
+fn bench_bulk_read(context, out) {
+    let dev = match context.device_for_test() {
+        Ok(dev) => dev,
+        Err(err) => {
+            assert!(false, "Failed to prepare for test: {}", err);
+            return;
+        }
+    };
+
     run_bench(dev, out, |data| {
         assert_eq!(
             dev.read_bulk(0x81, data, BENCH_TIMEOUT)
@@ -279,7 +367,7 @@ fn bench_bulk_read(dev, out) {
     });
 }
 
-}
+} // end tests! {
 
 fn run_bench(dev: &DeviceHandles, out: &mut String, f: impl Fn(&mut [u8])) {
     const TRANSFER_BYTES: usize = 64 * 1024;
