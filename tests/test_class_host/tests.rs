@@ -3,6 +3,7 @@ use rand::prelude::*;
 use rusb::{request_type, Direction, Recipient, RequestType, TransferType};
 use std::cmp::max;
 use std::fmt::Write;
+use std::thread;
 use std::time::{Duration, Instant};
 use usb_device::test_class;
 
@@ -365,6 +366,62 @@ fn bench_bulk_read(context, out) {
             data.len(),
             "bulk read");
     });
+}
+
+fn enumerates_promptly(context, out) {
+    // Time measured between issuance of the hard reset command, to the device
+    // successfully enumerating.  This approach might need to be improved on,
+    // since the time might depend on USB host implementation details,
+    // bootloaders in the device, etc.
+    const MAX_TIME: Duration = Duration::from_secs(2);
+
+    let dev = match context.device_for_test() {
+        Ok(dev) => dev,
+        Err(err) => {
+            assert!(false, "Failed to prepare for test: {}", err);
+            return;
+        }
+    };
+
+    // Ensure we've got a device by doing a dummy read
+    let mut response = [0u8; 8];
+    dev.read_control(
+        request_type(Direction::In, RequestType::Vendor, Recipient::Device),
+        test_class::REQ_READ_BUFFER, 0, 0, &mut response, TIMEOUT)
+        .expect("control read");
+
+    // Since the write_control() may have a timeout, measure from the point when
+    // the request is sent
+    let reset_started = Instant::now();
+
+    // This is expected to fail since the device immediately restarts
+    let res = dev.write_control(
+        request_type(Direction::Out, RequestType::Vendor, Recipient::Device),
+        test_class::REQ_HARD_RESET, 0, 0, &[], TIMEOUT);
+
+    if res.is_ok() {
+        panic!("Hard reset request succeeded, implies the device didn't reset");
+    }
+
+    loop {
+        thread::sleep(Duration::from_millis(100));
+
+        if reset_started.elapsed() > MAX_TIME {
+            eprintln!("  Didn't enumerate in {:?}", MAX_TIME);
+            // Note this hoses the rest of the test suite, since the loop in
+            // main.rs expects tests to leave the test interface claimed.
+            panic!("Enumeration timed out");
+        }
+        if context.reopen_device(None).is_ok() {
+            let enumeration_duration = reset_started.elapsed();
+
+            if let Ok(_) = context.device_for_test() {
+                writeln!(out, "  enumerated in {:?}", enumeration_duration).expect("write failed");
+            }
+
+            break;
+        }
+    }
 }
 
 } // end tests! {
