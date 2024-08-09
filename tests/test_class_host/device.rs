@@ -65,13 +65,7 @@ impl DeviceHandles {
 
     /// Cleanup the device following a test
     pub fn post_test(&mut self) -> rusb::Result<()> {
-        let res = self.release_interface(TEST_INTERFACE);
-        if let Err(err) = res {
-            println!("Failed to release interface: {}", err);
-            return res;
-        }
-
-        Ok(())
+        self.release_interface(TEST_INTERFACE)
     }
 }
 
