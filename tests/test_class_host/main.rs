@@ -43,7 +43,10 @@ fn run_tests(tests: &[(&str, TestFn)]) {
             res
         };
 
-        ctx.cleanup_after_test().expect("post test cleanup failed");
+        if let Err(err) = ctx.cleanup_after_test() {
+            println!("Failed to release interface: {}", err);
+            panic!("post test cleanup failed");
+        }
 
         if let Err(err) = res {
             let err = if let Some(err) = err.downcast_ref::<&'static str>() {
