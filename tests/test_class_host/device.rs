@@ -1,6 +1,6 @@
 use rusb::{ConfigDescriptor, Context, DeviceDescriptor, DeviceHandle, Language, UsbContext as _};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use usb_device::device::CONFIGURATION_VALUE;
 use usb_device::test_class;
 
@@ -100,7 +100,7 @@ impl UsbContext {
     }
 
     /// Attempt to open the test device once
-    fn try_open_device(&self) -> rusb::Result<DeviceHandles> {
+    fn open_device_immediate(&self) -> rusb::Result<DeviceHandles> {
         for device in self.inner.devices()?.iter() {
             let device_descriptor = device.device_descriptor()?;
 
@@ -136,15 +136,31 @@ impl UsbContext {
         Err(rusb::Error::NoDevice)
     }
 
-    /// Look for the device for about 5 seconds in case it hasn't finished enumerating yet
-    pub fn open_device(&mut self) -> rusb::Result<&mut DeviceHandles> {
+    /// Look for the device, retry until timeout expires
+    pub fn open_device(&mut self, timeout: Option<Duration>) -> rusb::Result<&mut DeviceHandles> {
         if self.device.is_none() {
-            for _ in 0..50 {
-                if let Ok(dev) = self.try_open_device() {
-                    self.device = Some(dev);
-                    break;
+            match timeout {
+                Some(timeout) => {
+                    let deadline = Instant::now() + timeout;
+                    loop {
+                        if let Ok(dev) = self.open_device_immediate() {
+                            self.device = Some(dev);
+                            break;
+                        }
+                        let now = Instant::now();
+                        if now >= deadline {
+                            break;
+                        } else {
+                            let dur = Duration::from_millis(100).min(deadline - now);
+                            thread::sleep(dur);
+                        }
+                    }
                 }
-                thread::sleep(Duration::from_millis(100));
+                None => {
+                    if let Ok(dev) = self.open_device_immediate() {
+                        self.device = Some(dev);
+                    }
+                }
             }
         }
 
@@ -154,9 +170,19 @@ impl UsbContext {
         }
     }
 
+    /// Closes device if it was open (handling errors), attempts to reopen
+    pub fn reopen_device(&mut self, timeout: Option<Duration>) -> rusb::Result<&mut DeviceHandles> {
+        // This is expected to fail in tests where device was asked to reset
+        let _ = self.cleanup_after_test();
+
+        self.device = None;
+
+        self.open_device(timeout)
+    }
+
     /// Attempts to open (if necessary) and (re-)initialize a device for a test
     pub fn device_for_test(&mut self) -> rusb::Result<&mut DeviceHandles> {
-        let dev = match self.open_device() {
+        let dev = match self.open_device(Some(Duration::from_secs(5))) {
             Ok(dev) => dev,
             Err(err) => {
                 println!("Did not find a TestClass device. Make sure the device is correctly programmed and plugged in. Last error: {}", err);
