@@ -65,7 +65,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
     }
 
     pub fn handle_setup(&mut self) -> Option<Request> {
-        let count = match self.ep_out.read(&mut self.buf[..]) {
+        let count = match self.ep_out.read_setup(&mut self.buf[..]) {
             Ok(count) => {
                 usb_trace!("Read {} bytes on EP0-OUT: {:?}", count, &self.buf[..count]);
                 count
@@ -165,7 +165,15 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                     "Control transfer completed. Current state: {:?}",
                     self.state
                 );
-                self.ep_out.read(&mut [])?;
+                match self.ep_out.read(&mut []) {
+                    Ok(_) => {}
+                    Err(UsbError::InvalidState) => {
+                        // Host sent a new SETUP transaction, which may have overwritten the ZLP
+                    }
+                    Err(err) => {
+                        return Err(err);
+                    }
+                }
                 self.state = ControlState::Idle;
             }
             _ => {
