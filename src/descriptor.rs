@@ -4,6 +4,8 @@ use crate::bus::{InterfaceNumber, StringIndex, UsbBus};
 use crate::device;
 use crate::endpoint::{Endpoint, EndpointDirection};
 use crate::{Result, UsbError};
+use core::ops::{Range, RangeInclusive};
+use core::slice::SliceIndex;
 
 /// Standard descriptor types
 #[allow(missing_docs)]
@@ -350,6 +352,67 @@ impl DescriptorWriter<'_> {
         })
     }
 
+    /// Returns a write handle to a future position in the output buffer.
+    ///
+    /// This can be used to defer or delay writing some descriptor fields that depend on
+    /// information that is not yet available. For example, in some cases there are descriptors
+    /// that report the total size of a set of descriptors following it. Instead of hardcoding the
+    /// length value or using a separate buffer to calculate it before writing, deferred writes
+    /// allow the user to retroactively write that field, once the exact value of the field is
+    /// known.
+    ///
+    /// # Arguments
+    ///
+    /// * `offset` - A future position, relative to the current writer position, which can be either a single
+    /// index or a range of indexes.
+    ///
+    /// # Return
+    ///
+    /// The returned handle can later be passed to [`DescriptorWriter::get_deferred_mut`] to obtain a
+    /// mutable reference to that location in the buffer.
+    pub fn defer_ahead<Idx>(&self, offset: Idx) -> DeferHandle<Idx>
+    where
+        Idx: DeferIndex,
+    {
+        DeferHandle(offset.add(self.position()))
+    }
+
+    /// Gets a mutable reference to a deferred location in the descriptor buffer.
+    ///
+    /// If the index is a single location (`usize`), then a reference to a single byte (`u8`) will
+    /// be returned. On the other hand, if the index is a _range_ of `usize`, then a reference to a
+    /// slice (`[u8]`) will be returned.
+    ///
+    /// Note that the call to `get_deferred_mut` must be performed after the writer has written
+    /// past the position of the `DeferHandle`. The reasoning for this requirement is that if
+    /// changes are written using `get_deferred_mut` before the writer has gone past that position,
+    /// the writer is going to overwrite it. Therefore, attempting to perform a write using
+    /// `get_deferred_mut` in such conditions is considered a logic error.
+    ///
+    /// Usually, the call order is:
+    ///
+    /// 1. `writer.defer_ahead(x)` before the descriptor with the unknown field is written.
+    /// 2. Write the descriptor, with a placeholder or initial value for the unknown field.
+    /// 3. (optional) Write other descriptors.
+    /// 4. `writer.get_deferred_mut(&handle)` to write the field once its value is known. (Could be
+    ///    updated more than once, for example, incrementing every time a certain condition is
+    ///    met).
+    ///
+    /// # Errors
+    ///
+    /// * `UsbError::InvalidState` if the writer position has not yet gone past the position of the
+    /// handle.
+    pub fn get_deferred_mut<Idx>(&mut self, handle: &DeferHandle<Idx>) -> Result<&mut Idx::Output>
+    where
+        Idx: DeferIndex,
+    {
+        if handle.0.is_before(self.position()) {
+            Ok(&mut self.buf[handle.0.clone()])
+        } else {
+            Err(UsbError::InvalidState)
+        }
+    }
+
     /// Writes a string descriptor.
     pub(crate) fn string(&mut self, string: &str) -> Result<()> {
         let mut pos = self.position;
@@ -443,5 +506,69 @@ impl<'w, 'a: 'w> BosWriter<'w, 'a> {
         self.num_caps_mark = None;
         let position = self.writer.position as u16;
         self.writer.buf[2..4].copy_from_slice(&position.to_le_bytes());
+    }
+}
+
+/// A handle to a "deferred" location in a descriptor that can be written later.
+///
+/// See the documentation of [`DescriptorWriter::defer_ahead`] and
+/// [`DescriptorWriter::get_deferred_mut`] for more information.
+pub struct DeferHandle<Idx>(Idx);
+
+/// Index types that can be used to obtain a DeferHandle.
+///
+/// * `usize` - Will obtain a reference to a single byte - `u8`
+/// * `Range<usize>` and `RangeInclusive<usize>` (syntax `start..end` and `start..=end`) - Will
+/// obtain a reference to a slice of bytes - `[u8]`.
+///
+/// # Illegal index values
+///
+/// Some `SliceIndex` types are not allowed as `DeferIndex`es:
+///
+/// * Unbounded ranges like `3..` and `..=5` - if using a range, both ends _must_ have well-defined
+/// bounds.
+///
+/// See the documentation of [`DescriptorWriter::defer_ahead`] and
+/// [`DescriptorWriter::get_deferred_mut`] for more information.
+pub trait DeferIndex: SliceIndex<[u8]> + Clone {
+    /// Offset the index by the given amount.
+    fn add(self, position: usize) -> Self;
+
+    /// Whether the given position is _after_ this index.
+    ///
+    /// Phrased another way, whether this index is entirely contained in the range `0..position`.
+    fn is_before(&self, position: usize) -> bool;
+}
+
+impl DeferIndex for usize {
+    fn add(self, position: usize) -> Self {
+        self + position
+    }
+
+    fn is_before(&self, position: usize) -> bool {
+        *self < position
+    }
+}
+
+impl DeferIndex for Range<usize> {
+    fn add(self, position: usize) -> Self {
+        Range {
+            start: self.start + position,
+            end: self.end + position,
+        }
+    }
+
+    fn is_before(&self, position: usize) -> bool {
+        self.end <= position
+    }
+}
+
+impl DeferIndex for RangeInclusive<usize> {
+    fn add(self, position: usize) -> Self {
+        RangeInclusive::new(*self.start() + position, *self.end() + position)
+    }
+
+    fn is_before(&self, position: usize) -> bool {
+        *self.end() < position
     }
 }
