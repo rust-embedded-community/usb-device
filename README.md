@@ -35,7 +35,7 @@ Class crates
 ------------
 
 * [usbd-hid](https://github.com/twitchyliquid64/usbd-hid) [![Crates.io](https://img.shields.io/crates/v/usbd-hid.svg)](https://crates.io/crates/usbd-hid) - HID class
-* [usbd-human-device-interface](https://github.com/dlkj/usbd-human-interface-device) [![Crates.io](https://img.shields.io/crates/v/usbd-human-interface-device.svg)](https://crates.io/crates/usbd-human-device-interface) - HID class
+* [usbd-human-interface-device](https://github.com/dlkj/usbd-human-interface-device) [![Crates.io](https://img.shields.io/crates/v/usbd-human-interface-device.svg)](https://crates.io/crates/usbd-human-interface-device) - HID class
 * [usbd-serial](https://github.com/rust-embedded-community/usbd-serial) [![Crates.io](https://img.shields.io/crates/v/usbd-serial.svg)](https://crates.io/crates/usbd-serial) - CDC-ACM serial port class
 * [usbd-storage](https://github.com/apohrebniak/usbd-storage) [![Crates.io](https://img.shields.io/crates/v/usbd-storage.svg)](https://crates.io/crates/usbd-storage) - (Experimental) Mass storage port class
 * [usbd-dfu](https://github.com/vitalyvb/usbd-dfu) [![Crates.io](https://img.shields.io/crates/v/usbd-dfu.svg)](https://crates.io/crates/usbd-dfu) - Device Firmware Upgrade class
