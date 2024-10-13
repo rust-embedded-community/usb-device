@@ -3,10 +3,11 @@ use rand::prelude::*;
 use rusb::{request_type, Direction, Recipient, RequestType, TransferType};
 use std::cmp::max;
 use std::fmt::Write;
+use std::thread;
 use std::time::{Duration, Instant};
 use usb_device::test_class;
 
-pub type TestFn = fn(&mut DeviceHandles, &mut String) -> ();
+pub type TestFn = fn(&mut UsbContext, &mut String) -> ();
 
 const BENCH_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -16,7 +17,7 @@ macro_rules! tests {
             let mut tests: Vec<(&'static str, TestFn)> = Vec::new();
 
             $(
-                fn $name($dev: &mut DeviceHandles, $out: &mut String) {
+                fn $name($dev: &mut UsbContext, $out: &mut String) {
                     $body
                 }
 
@@ -30,7 +31,15 @@ macro_rules! tests {
 
 tests! {
 
-fn control_request(dev, _out) {
+fn control_request(context, _out) {
+    let dev = match context.device_for_test() {
+        Ok(dev) => dev,
+        Err(err) => {
+            assert!(false, "Failed to prepare for test: {}", err);
+            return;
+        }
+    };
+
     let mut rng = rand::thread_rng();
 
     let value: u16 = rng.gen();
@@ -63,7 +72,15 @@ fn control_request(dev, _out) {
     assert_eq!(&response, &expected);
 }
 
-fn control_data(dev, _out) {
+fn control_data(context, _out) {
+    let dev = match context.device_for_test() {
+        Ok(dev) => dev,
+        Err(err) => {
+            assert!(false, "Failed to prepare for test: {}", err);
+            return;
+        }
+    };
+
     for len in &[0, 7, 8, 9, 15, 16, 17] {
         let data = random_data(*len);
 
@@ -87,7 +104,15 @@ fn control_data(dev, _out) {
     }
 }
 
-fn control_data_static(dev, _out) {
+fn control_data_static(context, _out) {
+    let dev = match context.device_for_test() {
+        Ok(dev) => dev,
+        Err(err) => {
+            assert!(false, "Failed to prepare for test: {}", err);
+            return;
+        }
+    };
+
     let mut response = [0u8; 257];
 
     assert_eq!(
@@ -100,7 +125,15 @@ fn control_data_static(dev, _out) {
     assert_eq!(&response[..], test_class::LONG_DATA);
 }
 
-fn control_error(dev, _out) {
+fn control_error(context, _out) {
+    let dev = match context.device_for_test() {
+        Ok(dev) => dev,
+        Err(err) => {
+            assert!(false, "Failed to prepare for test: {}", err);
+            return;
+        }
+    };
+
     let res = dev.write_control(
         request_type(Direction::Out, RequestType::Vendor, Recipient::Device),
         test_class::REQ_UNKNOWN, 0, 0,
@@ -111,7 +144,15 @@ fn control_error(dev, _out) {
     }
 }
 
-fn string_descriptors(dev, _out) {
+fn string_descriptors(context, _out) {
+    let dev = match context.device_for_test() {
+        Ok(dev) => dev,
+        Err(err) => {
+            assert!(false, "Failed to prepare for test: {}", err);
+            return;
+        }
+    };
+
     assert_eq!(
         dev.read_product_string(dev.en_us, &dev.device_descriptor, TIMEOUT)
             .expect("read product string"),
@@ -133,7 +174,15 @@ fn string_descriptors(dev, _out) {
         test_class::CUSTOM_STRING);
 }
 
-fn interface_descriptor(dev, _out) {
+fn interface_descriptor(context, _out) {
+    let dev = match context.device_for_test() {
+        Ok(dev) => dev,
+        Err(err) => {
+            assert!(false, "Failed to prepare for test: {}", err);
+            return;
+        }
+    };
+
     let iface = dev.config_descriptor
         .interfaces()
         .find(|i| i.number() == 0)
@@ -163,7 +212,15 @@ fn interface_descriptor(dev, _out) {
         test_class::INTERFACE_STRING);
 }
 
-fn iso_endpoint_descriptors(dev, _out) {
+fn iso_endpoint_descriptors(context, _out) {
+    let dev = match context.device_for_test() {
+        Ok(dev) => dev,
+        Err(err) => {
+            assert!(false, "Failed to prepare for test: {}", err);
+            return;
+        }
+    };
+
     // Tests that an isochronous endpoint descriptor is present in the first
     // alternate setting, but not in the default setting.
     let iface = dev.config_descriptor
@@ -197,7 +254,15 @@ fn iso_endpoint_descriptors(dev, _out) {
     assert!(iso_ep_count > 0, "At least one isochronous endpoint is expected");
 }
 
-fn bulk_loopback(dev, _out) {
+fn bulk_loopback(context, _out) {
+    let dev = match context.device_for_test() {
+        Ok(dev) => dev,
+        Err(err) => {
+            assert!(false, "Failed to prepare for test: {}", err);
+            return;
+        }
+    };
+
     let mut lens = vec![0, 1, 2, 32, 63, 64, 65, 127, 128, 129];
     if dev.is_high_speed() {
         lens.extend([255, 256, 257, 511, 512, 513, 1023, 1024, 1025]);
@@ -235,7 +300,15 @@ fn bulk_loopback(dev, _out) {
     }
 }
 
-fn interrupt_loopback(dev, _out) {
+fn interrupt_loopback(context, _out) {
+    let dev = match context.device_for_test() {
+        Ok(dev) => dev,
+        Err(err) => {
+            assert!(false, "Failed to prepare for test: {}", err);
+            return;
+        }
+    };
+
     for len in &[0, 1, 2, 15, 31] {
         let data = random_data(*len);
 
@@ -259,7 +332,15 @@ fn interrupt_loopback(dev, _out) {
     }
 }
 
-fn bench_bulk_write(dev, out) {
+fn bench_bulk_write(context, out) {
+    let dev = match context.device_for_test() {
+        Ok(dev) => dev,
+        Err(err) => {
+            assert!(false, "Failed to prepare for test: {}", err);
+            return;
+        }
+    };
+
     run_bench(dev, out, |data| {
         assert_eq!(
             dev.write_bulk(0x01, data, BENCH_TIMEOUT)
@@ -269,7 +350,15 @@ fn bench_bulk_write(dev, out) {
     });
 }
 
-fn bench_bulk_read(dev, out) {
+fn bench_bulk_read(context, out) {
+    let dev = match context.device_for_test() {
+        Ok(dev) => dev,
+        Err(err) => {
+            assert!(false, "Failed to prepare for test: {}", err);
+            return;
+        }
+    };
+
     run_bench(dev, out, |data| {
         assert_eq!(
             dev.read_bulk(0x81, data, BENCH_TIMEOUT)
@@ -279,7 +368,63 @@ fn bench_bulk_read(dev, out) {
     });
 }
 
+fn enumerates_promptly(context, out) {
+    // Time measured between issuance of the hard reset command, to the device
+    // successfully enumerating.  This approach might need to be improved on,
+    // since the time might depend on USB host implementation details,
+    // bootloaders in the device, etc.
+    const MAX_TIME: Duration = Duration::from_secs(2);
+
+    let dev = match context.device_for_test() {
+        Ok(dev) => dev,
+        Err(err) => {
+            assert!(false, "Failed to prepare for test: {}", err);
+            return;
+        }
+    };
+
+    // Ensure we've got a device by doing a dummy read
+    let mut response = [0u8; 8];
+    dev.read_control(
+        request_type(Direction::In, RequestType::Vendor, Recipient::Device),
+        test_class::REQ_READ_BUFFER, 0, 0, &mut response, TIMEOUT)
+        .expect("control read");
+
+    // Since the write_control() may have a timeout, measure from the point when
+    // the request is sent
+    let reset_started = Instant::now();
+
+    // This is expected to fail since the device immediately restarts
+    let res = dev.write_control(
+        request_type(Direction::Out, RequestType::Vendor, Recipient::Device),
+        test_class::REQ_HARD_RESET, 0, 0, &[], TIMEOUT);
+
+    if res.is_ok() {
+        panic!("Hard reset request succeeded, implies the device didn't reset");
+    }
+
+    loop {
+        thread::sleep(Duration::from_millis(100));
+
+        if reset_started.elapsed() > MAX_TIME {
+            eprintln!("  Didn't enumerate in {:?}", MAX_TIME);
+            // Note this hoses the rest of the test suite, since the loop in
+            // main.rs expects tests to leave the test interface claimed.
+            panic!("Enumeration timed out");
+        }
+        if context.reopen_device(None).is_ok() {
+            let enumeration_duration = reset_started.elapsed();
+
+            if let Ok(_) = context.device_for_test() {
+                writeln!(out, "  enumerated in {:?}", enumeration_duration).expect("write failed");
+            }
+
+            break;
+        }
+    }
 }
+
+} // end tests! {
 
 fn run_bench(dev: &DeviceHandles, out: &mut String, f: impl Fn(&mut [u8])) {
     const TRANSFER_BYTES: usize = 64 * 1024;
