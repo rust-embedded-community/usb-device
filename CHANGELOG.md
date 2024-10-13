@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 
 * `DummyUsbBus` without functionality to allow examples that actually compile (but not run).
+* Extended `UsbRev` enum with variants for USB 1.0 and 1.1.
 
 ### Changed
 

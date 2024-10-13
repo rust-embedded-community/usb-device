@@ -34,6 +34,10 @@ const MAX_ENDPOINTS: usize = 16;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(u16)]
 pub enum UsbRev {
+    /// USB 1.0 compliance
+    Usb100 = 0x100,
+    /// USB 1.1 compliance
+    Usb110 = 0x110,
     /// USB 2.0 compliance
     Usb200 = 0x200,
     /// USB 2.1 compliance.
