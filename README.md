@@ -25,6 +25,9 @@ Hardware driver crates
 * [imxrt-usbd](https://github.com/imxrt-rs/imxrt-usbd) - device-driver implementation for NXP i.MX RT microcontrollers. Examples for
   i.MX RT boards, like the Teensy 4, are maintained with the driver.
 
+* [musb](https://github.com/decaday/musb) - device-driver implementation for musb (Mentor USB, USB2.0 IP), widely used in various microcontrollers and SoCs from vendors like TI, MediaTek, Puya, and Allwinner. 
+  Examples can be found in [py32-hal](https://github.com/py32-rs/py32-hal/tree/main/examples/usbd-f072).
+
 * [stm32-usbd](https://github.com/stm32-rs/stm32-usbd) - device-driver implementation for multiple STM32 microcontroller families.
   Examples can be found in each individual HAL crate that implements the USB peripheral.
 
