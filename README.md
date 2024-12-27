@@ -28,11 +28,13 @@ Hardware driver crates
 * [musb](https://github.com/decaday/musb) - device-driver implementation for musb (Mentor USB, USB2.0 IP), widely used in various microcontrollers and SoCs from vendors like TI, MediaTek, Puya, and Allwinner. 
   Examples can be found in [py32-hal](https://github.com/py32-rs/py32-hal/tree/main/examples/usbd-f072).
 
+* [rp2040-hal](https://github.com/rp-rs/rp-hal) -
+device-driver implementation for the raspberry pi RP2040
+microcontroller. Examples can be found in the various boards
+crates [here](https://github.com/rp-rs/rp-hal-boards).
+
 * [stm32-usbd](https://github.com/stm32-rs/stm32-usbd) - device-driver implementation for multiple STM32 microcontroller families.
   Examples can be found in each individual HAL crate that implements the USB peripheral.
-
-* [rp2040-hal](https://github.com/rp-rs/rp-hal) - device-driver implementation for the raspberry pi RP2040 microcontroller. Examples can be found
-  in the various boards crates [here](https://github.com/rp-rs/rp-hal-boards).
 
 Class crates
 ------------
