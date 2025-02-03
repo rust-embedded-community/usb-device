@@ -46,6 +46,7 @@ Class crates
 * [usbd-dfu](https://github.com/vitalyvb/usbd-dfu) [![Crates.io](https://img.shields.io/crates/v/usbd-dfu.svg)](https://crates.io/crates/usbd-dfu) - Device Firmware Upgrade class
 * [usbd-picotool-reset](https://github.com/ithinuel/usbd-picotool-reset) [![Crates.io](https://img.shields.io/crates/v/usbd-picotool-reset.svg)](https://crates.io/crates/usbd-picotool-reset) - picotool-reset class
 * [usbd-midi](https://github.com/rust-embedded-community/usbd-midi) [![Crates.io](https://img.shields.io/crates/v/usbd-midi.svg)](https://crates.io/crates/usbd-midi) - MIDI class
+* [usbd-audio](https://github.com/kiffie/usbd-audio) [![Crates.io](https://img.shields.io/crates/v/usbd-audio.svg)](https://crates.io/crates/usbd-audio) - (Experimental) Audio class
 
 Others
 ------
