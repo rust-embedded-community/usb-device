@@ -5,6 +5,7 @@ use crate::device::{StringDescriptors, UsbDevice, UsbDeviceBuilder, UsbVidPid};
 use crate::Result;
 use core::cell::UnsafeCell;
 use core::cmp;
+use core::marker::PhantomData;
 
 #[cfg(feature = "test-class-high-speed")]
 mod sizes {
@@ -24,9 +25,14 @@ mod sizes {
 
 static mut CONTROL_BUFFER: UnsafeCell<[u8; 256]> = UnsafeCell::new([0; 256]);
 
+pub trait HardwareSupport {
+    /// Hard reset the test device
+    fn hard_reset() -> !;
+}
+
 /// Test USB class for testing USB driver implementations. Supports various endpoint types and
 /// requests for testing USB peripheral drivers on actual hardware.
-pub struct TestClass<'a, B: UsbBus> {
+pub struct TestClass<'a, B: UsbBus, H: HardwareSupport> {
     custom_string: StringIndex,
     interface_string: StringIndex,
     iface: InterfaceNumber,
@@ -45,6 +51,7 @@ pub struct TestClass<'a, B: UsbBus> {
     expect_bulk_out: bool,
     expect_interrupt_in_complete: bool,
     expect_interrupt_out: bool,
+    hardware: PhantomData<H>,
 }
 
 pub const VID: u16 = 0x16c0;
@@ -60,13 +67,14 @@ pub const REQ_READ_BUFFER: u8 = 2;
 pub const REQ_WRITE_BUFFER: u8 = 3;
 pub const REQ_SET_BENCH_ENABLED: u8 = 4;
 pub const REQ_READ_LONG_DATA: u8 = 5;
+pub const REQ_HARD_RESET: u8 = 6;
 pub const REQ_UNKNOWN: u8 = 42;
 
 pub const LONG_DATA: &[u8] = &[0x17; 257];
 
-impl<B: UsbBus> TestClass<'_, B> {
+impl<B: UsbBus, H: HardwareSupport> TestClass<'_, B, H> {
     /// Creates a new TestClass.
-    pub fn new(alloc: &UsbBusAllocator<B>) -> TestClass<'_, B> {
+    pub fn new(alloc: &UsbBusAllocator<B>) -> TestClass<'_, B, H> {
         TestClass {
             custom_string: alloc.string(),
             interface_string: alloc.string(),
@@ -91,6 +99,7 @@ impl<B: UsbBus> TestClass<'_, B> {
             expect_bulk_out: false,
             expect_interrupt_in_complete: false,
             expect_interrupt_out: false,
+            hardware: PhantomData,
         }
     }
 
@@ -214,7 +223,7 @@ impl<B: UsbBus> TestClass<'_, B> {
     }
 }
 
-impl<B: UsbBus> UsbClass<B> for TestClass<'_, B> {
+impl<B: UsbBus, H: HardwareSupport> UsbClass<B> for TestClass<'_, B, H> {
     fn reset(&mut self) {
         self.len = 0;
         self.i = 0;
@@ -334,6 +343,9 @@ impl<B: UsbBus> UsbClass<B> for TestClass<'_, B> {
 
                 xfer.accept()
                     .expect("control_out REQ_SET_BENCH_ENABLED failed");
+            }
+            REQ_HARD_RESET => {
+                H::hard_reset();
             }
             _ => xfer.reject().expect("control_out reject failed"),
         }
