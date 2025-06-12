@@ -258,7 +258,7 @@ fn _ensure_sync() {
             Err(UsbError::InvalidEndpoint)
         }
 
-        fn read_setup(&self, _ep_addr: EndpointAddress, _buf: &mut [u8]) -> Result<usize> {
+        fn read_setup(&self, _ep_addr: EndpointAddress) -> Result<[u8; 8]> {
             Err(UsbError::InvalidEndpoint)
         }
 

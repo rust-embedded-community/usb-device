@@ -59,8 +59,7 @@ impl UsbBus for DummyUsbBus {
     fn read_setup(
         &self,
         ep_addr: crate::class_prelude::EndpointAddress,
-        buf: &mut [u8],
-    ) -> crate::Result<usize> {
+    ) -> crate::Result<[u8; 8]> {
         unimplemented!()
     }
 

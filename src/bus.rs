@@ -93,6 +93,9 @@ pub trait UsbBus: Sized {
     /// * [`WouldBlock`](crate::UsbError::WouldBlock) - There is no packet to be read. Note that
     ///   this is different from a received zero-length packet, which is valid in USB. A zero-length
     ///   packet will return `Ok(0)`.
+    ///
+    ///   `WouldBlock` is also returned when the endpoint received a SETUP transaction, which can be
+    ///   read through [`read_setup()`](UsbBus::read_setup()).
     /// * [`BufferOverflow`](crate::UsbError::BufferOverflow) - The received packet is too long to
     ///   fit in `buf`. This is generally an error in the class implementation, because the class
     ///   should use a buffer that is large enough for the `max_packet_size` it specified when
@@ -114,14 +117,8 @@ pub trait UsbBus: Sized {
     ///
     /// * [`InvalidEndpoint`](crate::UsbError::InvalidEndpoint) - The `ep_addr` does not point to a
     ///   valid endpoint that was previously allocated with [`UsbBus::alloc_ep`].
-    /// * [`WouldBlock`](crate::UsbError::WouldBlock) - There is no SETUP packet to be read. Note
-    ///   that this is different from a received zero-length packet, which is valid in USB. A
-    ///   zero-length packet will return `Ok(0)`.
-    /// * [`BufferOverflow`](crate::UsbError::BufferOverflow) - The received packet is too long to
-    ///   fit in `buf`. This is generally an error in the class implementation, because the class
-    ///   should use a buffer that is large enough for the `max_packet_size` it specified when
-    ///   allocating the endpoint.
-    fn read_setup(&self, ep_addr: EndpointAddress, buf: &mut [u8]) -> Result<usize>;
+    /// * [`WouldBlock`](crate::UsbError::WouldBlock) - There is no SETUP packet to be read.
+    fn read_setup(&self, ep_addr: EndpointAddress) -> Result<[u8; 8]>;
 
     /// Sets or clears the STALL condition for an endpoint. If the endpoint is an OUT endpoint, it
     /// should be prepared to receive data again.
