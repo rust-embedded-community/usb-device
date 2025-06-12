@@ -1,4 +1,5 @@
 #![allow(missing_docs)]
+#![allow(static_mut_refs)]
 
 use crate::class_prelude::*;
 use crate::device::{StringDescriptors, UsbDevice, UsbDeviceBuilder, UsbVidPid};
