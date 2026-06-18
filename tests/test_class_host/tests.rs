@@ -1,5 +1,6 @@
 use crate::device::*;
 use rand::prelude::*;
+use rand::rngs::ThreadRng;
 use rusb::{request_type, Direction, Recipient, RequestType, TransferType};
 use std::cmp::max;
 use std::fmt::Write;
@@ -31,11 +32,11 @@ macro_rules! tests {
 tests! {
 
 fn control_request(dev, _out) {
-    let mut rng = rand::thread_rng();
+    let mut rng = ThreadRng::default();
 
-    let value: u16 = rng.gen();
-    let index: u16 = rng.gen();
-    let data = random_data(rng.gen_range(0..16));
+    let value: u16 = rng.random();
+    let index: u16 = rng.random();
+    let data = random_data(rng.random_range(0..16));
 
     let mut expected = [0u8; 8];
     expected[0] = 0x02_u8 << 5;
@@ -318,6 +319,6 @@ fn run_bench(dev: &DeviceHandles, out: &mut String, f: impl Fn(&mut [u8])) {
 
 fn random_data(len: usize) -> Vec<u8> {
     let mut data = vec![0u8; len];
-    rand::thread_rng().fill(data.as_mut_slice());
+    ThreadRng::default().fill(data.as_mut_slice());
     data
 }
