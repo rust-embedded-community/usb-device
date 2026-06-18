@@ -101,6 +101,28 @@ impl DescriptorWriter<'_> {
         Ok(())
     }
 
+    /// Writes an arbitrary (usually class-specific) descriptor.
+    pub fn write_iter(&mut self, descriptor_type: u8, descriptor: impl IntoIterator<Item=u8>) -> Result<()> {
+        let start = self.position + 2;
+
+        let mut length = 0;
+        for byte in descriptor {
+            if (self.position + 2 + length) > self.buf.len() || (length + 2) > 255 {
+                return Err(UsbError::BufferOverflow);
+            }
+
+            self.buf[start + length] = byte;
+            length += 1;
+        }
+
+        self.buf[self.position] = (length + 2) as u8;
+        self.buf[self.position + 1] = descriptor_type;
+
+        self.position = start + length;
+
+        Ok(())
+    }
+
     pub(crate) fn device(&mut self, config: &device::Config) -> Result<()> {
         self.write(
             descriptor_type::DEVICE,
@@ -348,6 +370,43 @@ impl DescriptorWriter<'_> {
 
             Ok(f(&mut buf[5..])? + 5)
         })
+    }
+
+    /// Writes an endpoint descriptor with additional data appended.
+    /// Useful for Audio/Midi class endpoint descriptors.
+    ///
+    /// # Arguments
+    ///
+    /// * `endpoint` - Endpoint previously allocated with
+    ///   [`UsbBusAllocator`](crate::bus::UsbBusAllocator).
+    /// * `additional_data` - Additional data bytes
+    pub fn endpoint_with_additional_data<'e, B: UsbBus, D: EndpointDirection>(
+        &mut self,
+        endpoint: &Endpoint<'e, B, D>,
+        additional_data: impl IntoIterator<Item = u8>,
+    ) -> Result<()> {
+        match self.num_endpoints_mark {
+            Some(mark) => self.buf[mark] += 1,
+            None => return Err(UsbError::InvalidState),
+        };
+
+        let mps = endpoint.max_packet_size();
+
+        self.write_iter(
+            descriptor_type::ENDPOINT,
+            [
+                endpoint.address().into(), // bEndpointAddress
+                endpoint.ep_type() as u8,  // bmAttributes
+                mps as u8,
+                (mps >> 8) as u8,    // wMaxPacketSize
+                endpoint.interval(), // bInterval
+            ]
+            .iter()
+            .cloned()
+            .chain(additional_data),
+        )?;
+
+        Ok(())
     }
 
     /// Writes a string descriptor.
