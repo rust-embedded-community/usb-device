@@ -289,4 +289,5 @@ fn _ensure_sync() {
     ensure_sync::<crate::endpoint::EndpointIn<DummyBus>>();
     ensure_sync::<crate::endpoint::EndpointOut<DummyBus>>();
     ensure_sync::<DummyClass<'_, DummyBus>>();
+    ensure_sync::<UsbBusAllocator<DummyBus>>();
 }
