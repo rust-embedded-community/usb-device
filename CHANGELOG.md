@@ -19,6 +19,7 @@ pipes. This makes it so that control pipes have configurable sizing.
 * Don't require UsbBus to be Sync. If a UsbBus is not Sync, it can still be used to make a UsbDevice, but that UsbDevice will not be Sync (ensuring soundness).
 * Update `defmt` to version 1.
 * Update `rand` to version 0.10.
+* Bumped `heapless` to v0.9.
 
 ## [0.3.2] - 2024-03-06
 
