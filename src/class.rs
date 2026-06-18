@@ -8,8 +8,7 @@ use crate::{Result, UsbError};
 
 /// A trait for implementing USB classes.
 ///
-/// All methods are optional callbacks that will be called by
-/// [UsbBus::poll](crate::bus::UsbBus::poll)
+/// All methods are optional callbacks that will be called by [UsbBus::poll]
 pub trait UsbClass<B: UsbBus> {
     /// Called when a GET_DESCRIPTOR request is received for a configuration descriptor. When
     /// called, the implementation should write its interface, endpoint and any extra class

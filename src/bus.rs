@@ -81,8 +81,8 @@ pub trait UsbBus: Sized {
     /// Implementations may also return other errors if applicable.
     fn write(&self, ep_addr: EndpointAddress, buf: &[u8]) -> Result<usize>;
 
-    /// Reads a single packet of data from the specified endpoint and returns the actual length of
-    /// the packet.
+    /// Reads a single packet of OUT data from the specified endpoint and returns the length of the
+    /// packet.
     ///
     /// This should also clear any NAK flags and prepare the endpoint to receive the next packet.
     ///
@@ -93,13 +93,32 @@ pub trait UsbBus: Sized {
     /// * [`WouldBlock`](crate::UsbError::WouldBlock) - There is no packet to be read. Note that
     ///   this is different from a received zero-length packet, which is valid in USB. A zero-length
     ///   packet will return `Ok(0)`.
+    ///
+    ///   `WouldBlock` is also returned when the endpoint received a SETUP transaction, which can be
+    ///   read through [`read_setup()`](UsbBus::read_setup()).
     /// * [`BufferOverflow`](crate::UsbError::BufferOverflow) - The received packet is too long to
     ///   fit in `buf`. This is generally an error in the class implementation, because the class
     ///   should use a buffer that is large enough for the `max_packet_size` it specified when
     ///   allocating the endpoint.
+    /// * [`InvalidState`](crate::UsbError::InvalidState) - The received packet is a SETUP
+    ///   transaction, and needs to be read through [`read_setup()`](UsbBus::read_setup()) instead.
     ///
     /// Implementations may also return other errors if applicable.
     fn read(&self, ep_addr: EndpointAddress, buf: &mut [u8]) -> Result<usize>;
+
+    /// Reads a packet of SETUP data from the specified endpoint, returns the length of the packet
+    ///
+    /// This is a distinct method from [`read()`](UsbBus::read()) because the USB spec states that
+    /// the function (device) must accept the SETUP transaction, which in some implementations can
+    /// result in a SETUP transaction overwriting data from an earlier OUT transaction.  Separate
+    /// read methods allow the control pipe implementation to detect this overwriting.
+    ///
+    /// # Errors
+    ///
+    /// * [`InvalidEndpoint`](crate::UsbError::InvalidEndpoint) - The `ep_addr` does not point to a
+    ///   valid endpoint that was previously allocated with [`UsbBus::alloc_ep`].
+    /// * [`WouldBlock`](crate::UsbError::WouldBlock) - There is no SETUP packet to be read.
+    fn read_setup(&self, ep_addr: EndpointAddress) -> Result<[u8; 8]>;
 
     /// Sets or clears the STALL condition for an endpoint. If the endpoint is an OUT endpoint, it
     /// should be prepared to receive data again.

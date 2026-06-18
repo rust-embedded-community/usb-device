@@ -1,5 +1,5 @@
 use crate::bus::UsbBus;
-use crate::{Result, UsbDirection};
+use crate::{Result, UsbDirection, UsbError};
 use core::marker::PhantomData;
 use portable_atomic::{AtomicPtr, Ordering};
 
@@ -197,22 +197,58 @@ impl<B: UsbBus> Endpoint<'_, B, In> {
 }
 
 impl<B: UsbBus> Endpoint<'_, B, Out> {
-    /// Reads a single packet of data from the specified endpoint and returns the actual length of
-    /// the packet. The buffer should be large enough to fit at least as many bytes as the
+    /// Reads a single packet of data and returns the length of the packet
+    ///
+    /// The buffer should be large enough to fit at least as many bytes as the
     /// `max_packet_size` specified when allocating the endpoint.
     ///
     /// # Errors
     ///
-    /// Note: USB bus implementation errors are directly passed through, so be prepared to handle
-    /// other errors as well.
+    /// Note: USB bus implementation errors are directly passed through, so be
+    /// prepared to handle other errors as well.
     ///
-    /// * [`WouldBlock`](crate::UsbError::WouldBlock) - There is no packet to be read. Note that
-    ///   this is different from a received zero-length packet, which is valid and significant in
-    ///   USB. A zero-length packet will return `Ok(0)`.
-    /// * [`BufferOverflow`](crate::UsbError::BufferOverflow) - The received packet is too long to
-    ///   fit in `data`. This is generally an error in the class implementation.
+    /// * [`WouldBlock`](crate::UsbError::WouldBlock) - There is no OUT packet
+    ///   to be read. Note that this is different from a received zero-length
+    ///   packet, which is valid and significant in USB. A zero-length packet
+    ///   will return `Ok(0)`.
+    ///
+    ///   `WouldBlock` is also returned when the endpoint received a SETUP
+    ///   transaction, which can be read through
+    ///   [`read_setup()`](Endpoint::read_setup()).
+    /// * [`BufferOverflow`](crate::UsbError::BufferOverflow) - The received
+    ///   packet is too long to fit in `data`. This is generally an error in the
+    ///   class implementation.
     pub fn read(&self, data: &mut [u8]) -> Result<usize> {
         self.bus().read(self.address, data)
+    }
+
+    /// Reads a single packet of SETUP data and returns it
+    ///
+    /// USB Spec 2.0 5.5.3 Control Transfer Packet Size Constraints: "A Setup
+    /// packet is always eight bytes."
+    ///
+    /// See [`UsbBus::read_setup()`] for rationale for two distinct read
+    /// methods.
+    ///
+    /// # Errors
+    ///
+    /// Note: USB bus implementation errors are directly passed through, so be
+    /// prepared to handle other errors as well.
+    ///
+    /// * [`WouldBlock`](crate::UsbError::WouldBlock) - There is no packet to be
+    ///   read. Note that this is different from a received zero-length packet,
+    ///   which is valid and significant in USB. A zero-length packet will
+    ///   return `Ok(0)`.
+    /// * [`InvalidEndpoint`](crate::UsbError::InvalidEndpoint) - SETUP packets
+    ///   can only be read from Control endpoints, this error is returned if the
+    ///   method is called on any other type endpoint.
+    pub fn read_setup(&self) -> Result<[u8; 8]> {
+        // SETUP transactions can only occur on control endpoints
+        if self.ep_type != EndpointType::Control {
+            return Err(UsbError::InvalidEndpoint);
+        }
+
+        self.bus().read_setup(self.address)
     }
 }
 

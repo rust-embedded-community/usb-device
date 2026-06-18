@@ -65,10 +65,10 @@ impl<B: UsbBus> ControlPipe<'_, B> {
     }
 
     pub fn handle_setup(&mut self) -> Option<Request> {
-        let count = match self.ep_out.read(&mut self.buf[..]) {
-            Ok(count) => {
-                usb_trace!("Read {} bytes on EP0-OUT: {:?}", count, &self.buf[..count]);
-                count
+        let packet = match self.ep_out.read_setup() {
+            Ok(packet) => {
+                usb_trace!("Read SETUP packet on EP0-OUT: {:?}", packet);
+                packet
             }
             Err(UsbError::WouldBlock) => return None,
             Err(_) => {
@@ -76,7 +76,7 @@ impl<B: UsbBus> ControlPipe<'_, B> {
             }
         };
 
-        let req = match Request::parse(&self.buf[0..count]) {
+        let req = match Request::parse(&packet) {
             Ok(req) => req,
             Err(_) => {
                 // Failed to parse SETUP packet. We are supposed to silently ignore this.
@@ -165,7 +165,15 @@ impl<B: UsbBus> ControlPipe<'_, B> {
                     "Control transfer completed. Current state: {:?}",
                     self.state
                 );
-                self.ep_out.read(&mut [])?;
+                match self.ep_out.read(&mut []) {
+                    Ok(_) => {}
+                    Err(UsbError::WouldBlock) => {
+                        // Host sent a new SETUP transaction, which may have overwritten the ZLP
+                    }
+                    Err(err) => {
+                        return Err(err);
+                    }
+                }
                 self.state = ControlState::Idle;
             }
             _ => {

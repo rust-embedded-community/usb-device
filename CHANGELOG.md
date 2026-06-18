@@ -9,11 +9,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 
+* Test case that hard-resets the device and measures the time it takes to re-enumerate.
 * `DummyUsbBus` without functionality to allow examples that actually compile (but not run).
 * Extended `UsbRev` enum with variants for USB 1.0 and 1.1.
 
 ### Changed
 
+* [breaking] Bus API now has separate `read()` and `read_setup()` methods for OUT and SETUP data.
 * [breaking] The control pipe is now provided in the `UsbDeviceBuilder` API to allow for user-provided control
 pipes. This makes it so that control pipes have configurable sizing.
 * Don't require UsbBus to be Sync. If a UsbBus is not Sync, it can still be used to make a UsbDevice, but that UsbDevice will not be Sync (ensuring soundness).
