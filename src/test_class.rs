@@ -22,7 +22,11 @@ mod sizes {
     pub const INTERRUPT_ENDPOINT: u16 = 31;
 }
 
-static mut CONTROL_BUFFER: UnsafeCell<[u8; 256]> = UnsafeCell::new([0; 256]);
+pub struct ControlBuffer(UnsafeCell<[u8; 256]>);
+
+unsafe impl Sync for ControlBuffer {}
+
+static CONTROL_BUFFER: ControlBuffer = ControlBuffer(UnsafeCell::new([0; 256]));
 
 /// Test USB class for testing USB driver implementations. Supports various endpoint types and
 /// requests for testing USB peripheral drivers on actual hardware.
@@ -115,7 +119,7 @@ impl<B: UsbBus> TestClass<'_, B> {
         usb_bus: &'a UsbBusAllocator<B>,
     ) -> UsbDeviceBuilder<'a, B> {
         UsbDeviceBuilder::new(usb_bus, UsbVidPid(VID, PID), unsafe {
-            CONTROL_BUFFER.get_mut()
+            &mut *(CONTROL_BUFFER.0.get())
         })
         .strings(&[StringDescriptors::default()
             .manufacturer(MANUFACTURER)
