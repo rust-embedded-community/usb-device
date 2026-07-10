@@ -318,6 +318,8 @@ impl<B: UsbBus> UsbBusAllocator<B> {
     }
 }
 
+unsafe impl<T> Sync for UsbBusAllocator<T> where T: Sync + UsbBus {}
+
 /// A handle for a USB interface that contains its number.
 #[derive(Copy, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
