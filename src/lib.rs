@@ -254,6 +254,14 @@ fn _ensure_sync() {
             Err(UsbError::InvalidEndpoint)
         }
 
+        fn maybe_write<'a>(
+            &self,
+            _ep_addr: EndpointAddress,
+            _producer: impl FnOnce() -> Result<&'a [u8]>,
+        ) -> Option<Result<usize>> {
+            Some(Err(UsbError::InvalidEndpoint))
+        }
+
         fn read(&self, _ep_addr: EndpointAddress, _buf: &mut [u8]) -> Result<usize> {
             Err(UsbError::InvalidEndpoint)
         }

@@ -81,6 +81,29 @@ pub trait UsbBus: Sized {
     /// Implementations may also return other errors if applicable.
     fn write(&self, ep_addr: EndpointAddress, buf: &[u8]) -> Result<usize>;
 
+    /// Writes a single packet of data to the specified endpoint and returns number of bytes
+    /// actually written.
+    /// If the underlying device [`WouldBlock`](crate::UsbError::WouldBlock) the methods return `None` instead of invoking producer.
+    ///
+    /// The only reason for a short write is if the caller passes a slice larger than the amount of
+    /// memory allocated earlier, and this is generally an error in the class implementation.
+    ///
+    /// # Errors
+    ///
+    /// * [`InvalidEndpoint`](crate::UsbError::InvalidEndpoint) - The `ep_addr` does not point to a
+    ///   valid endpoint that was previously allocated with [`UsbBus::alloc_ep`].
+    /// * [`BufferOverflow`](crate::UsbError::BufferOverflow) - The packet is too long to fit in the
+    ///   transmission buffer. This is generally an error in the class implementation, because the
+    ///   class shouldn't provide more data than the `max_packet_size` it specified when allocating
+    ///   the endpoint.
+    ///
+    /// Implementations may also return other errors if applicable.
+    fn maybe_write<'a>(
+        &self,
+        ep_addr: EndpointAddress,
+        producer: impl FnOnce() -> Result<&'a [u8]>,
+    ) -> Option<Result<usize>>;
+
     /// Reads a single packet of data from the specified endpoint and returns the actual length of
     /// the packet.
     ///
