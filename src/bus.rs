@@ -123,6 +123,12 @@ pub trait UsbBus: Sized {
     /// interrupt handler. See the [`PollResult`] struct for more information.
     fn poll(&self) -> PollResult;
 
+    /// Reinitializes an isochronous IN endpoint after repeated incomplete transfers.
+    /// Buses without endpoint recovery support may leave the endpoint unchanged.
+    fn recover_iso_endpoint(&self, ep_addr: EndpointAddress) {
+        let _ = ep_addr;
+    }
+
     /// Simulates a disconnect from the USB bus, causing the host to reset and re-enumerate the
     /// device.
     ///
@@ -365,6 +371,9 @@ pub enum PollResult {
         /// An IN packet has finished transmitting. This event should only be reported once for each
         /// completed transfer.
         ep_in_complete: u16,
+
+        /// An isochronous IN transfer missed its scheduled USB frame.
+        ep_in_incomplete: u16,
 
         /// A SETUP packet has been received. This event should continue to be reported until the
         /// packet is read. The corresponding bit in `ep_out` may also be set but is ignored.

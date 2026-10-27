@@ -119,6 +119,14 @@ pub trait UsbClass<B: UsbBus> {
         let _ = addr;
     }
 
+    /// Called when an isochronous IN transfer missed its scheduled USB frame.
+    ///
+    /// Note: This method may be called for an endpoint address you didn't allocate, and in that
+    /// case you should ignore the event.
+    fn endpoint_in_incomplete(&mut self, addr: EndpointAddress) {
+        let _ = addr;
+    }
+
     /// Called when the interfaces alternate setting state is requested.
     ///
     /// Note: This method may be called on interfaces, that are not relevant to this class.

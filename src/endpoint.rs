@@ -194,6 +194,11 @@ impl<B: UsbBus> Endpoint<'_, B, In> {
     pub fn write(&self, data: &[u8]) -> Result<usize> {
         self.bus().write(self.address, data)
     }
+    /// Reinitializes this isochronous IN endpoint after repeated incomplete transfers.
+    /// Buses without endpoint recovery support do nothing.
+    pub fn recover_iso_endpoint(&self) {
+        self.bus().recover_iso_endpoint(self.address);
+    }
 }
 
 impl<B: UsbBus> Endpoint<'_, B, Out> {
